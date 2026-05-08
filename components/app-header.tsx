@@ -107,7 +107,9 @@ export function AppHeader({ profile }: { profile: Profile }) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
-          <DropdownMenuLabel>{profile.full_name ?? "Аккаунт"}</DropdownMenuLabel>
+          <DropdownMenuLabel>
+            {profile.full_name ?? "Аккаунт"}
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
           <DropdownMenuItem asChild>
             <Link href="/settings">Профиль</Link>

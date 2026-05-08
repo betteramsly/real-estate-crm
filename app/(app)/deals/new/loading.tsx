@@ -2,10 +2,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
+import { RequiredMark } from "@/components/required-mark";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const FIELDS: { label: string; full?: boolean; tall?: boolean }[] = [
-  { label: "Название сделки *", full: true },
+const FIELDS: {
+  label: string;
+  required?: boolean;
+  full?: boolean;
+  tall?: boolean;
+}[] = [
+  { label: "Название сделки", required: true, full: true },
   { label: "Клиент" },
   { label: "Объект" },
   { label: "Этап" },
@@ -27,7 +33,9 @@ export default function NewDealLoading() {
               key={field.label}
               className={`space-y-2 ${field.full ? "md:col-span-2" : ""}`}
             >
-              <Label>{field.label}</Label>
+              <Label>
+                {field.label} {field.required ? <RequiredMark /> : null}
+              </Label>
               <Skeleton className={field.tall ? "h-24 w-full" : "h-9 w-full"} />
             </div>
           ))}

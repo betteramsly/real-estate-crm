@@ -31,7 +31,9 @@ function parseFormData(formData: FormData) {
   const num = (k: string) => {
     const v = get(k);
     if (v === null || v === undefined || v === "") return null;
-    const n = Number(v);
+    const normalized =
+      typeof v === "string" ? v.replace(/[\s\u00A0]/g, "") : String(v);
+    const n = Number(normalized);
     return Number.isNaN(n) ? null : n;
   };
   const str = (k: string) => {

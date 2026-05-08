@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Manrope } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { QueryProvider } from "@/components/providers/query-provider";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin", "cyrillic"], display: "swap" });
+const manrope = Manrope({
+  subsets: ["latin", "cyrillic"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Real Estate CRM",
@@ -20,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={inter.className}>
+      <body className={manrope.className}>
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"

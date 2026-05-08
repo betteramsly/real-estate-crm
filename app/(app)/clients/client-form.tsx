@@ -9,7 +9,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { AmountInput } from "@/components/amount-input";
 import { PhoneInput } from "@/components/phone-input";
+import { RequiredMark } from "@/components/required-mark";
 import {
   Select,
   SelectContent,
@@ -67,7 +69,9 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="full_name">ФИО клиента *</Label>
+            <Label htmlFor="full_name">
+              ФИО клиента <RequiredMark />
+            </Label>
             <Input
               id="full_name"
               name="full_name"
@@ -171,22 +175,18 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="budget_min">Бюджет от, ₽</Label>
-            <Input
+            <AmountInput
               id="budget_min"
               name="budget_min"
-              type="number"
-              min="0"
               defaultValue={client?.budget_min ?? ""}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="budget_max">Бюджет до, ₽</Label>
-            <Input
+            <AmountInput
               id="budget_max"
               name="budget_max"
-              type="number"
-              min="0"
               defaultValue={client?.budget_max ?? ""}
             />
           </div>

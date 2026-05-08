@@ -2,14 +2,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
+import { RequiredMark } from "@/components/required-mark";
 import { Skeleton } from "@/components/ui/skeleton";
 
-const FIELDS: { label: string; full?: boolean; tall?: boolean }[] = [
-  { label: "Название *", full: true },
+const FIELDS: {
+  label: string;
+  required?: boolean;
+  full?: boolean;
+  tall?: boolean;
+}[] = [
+  { label: "Название", required: true, full: true },
   { label: "Тип объекта" },
   { label: "Тип сделки" },
   { label: "Статус" },
-  { label: "Цена, ₽ *" },
+  { label: "Цена, ₽", required: true },
   { label: "Площадь, м²" },
   { label: "Комнат" },
   { label: "Город" },
@@ -31,7 +37,9 @@ export default function NewPropertyLoading() {
               key={field.label}
               className={`space-y-2 ${field.full ? "md:col-span-2" : ""}`}
             >
-              <Label>{field.label}</Label>
+              <Label>
+                {field.label} {field.required ? <RequiredMark /> : null}
+              </Label>
               <Skeleton className={field.tall ? "h-24 w-full" : "h-9 w-full"} />
             </div>
           ))}

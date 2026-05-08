@@ -125,8 +125,8 @@ export default async function DashboardPage() {
   return (
     <>
       <PageHeader
-        title={`Привет, ${profile.full_name ?? "коллега"}`}
-        description="Сводка по работе агентства за последние 30 дней"
+        title="Панель управления"
+        description="Ключевые показатели, сделки, задачи и новые клиенты за последние 30 дней"
       />
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">

@@ -85,14 +85,17 @@ export function AppSidebar({ role }: { role: UserRole }) {
                 active
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
-                clicked && "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20",
+                clicked &&
+                  "bg-primary/15 text-primary shadow-sm ring-1 ring-primary/20",
               )}
             >
               <span className="flex items-center gap-3">
                 <Icon className="h-4 w-4" />
                 {item.label}
               </span>
-              {clicked ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {clicked ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : null}
             </Link>
           );
         })}

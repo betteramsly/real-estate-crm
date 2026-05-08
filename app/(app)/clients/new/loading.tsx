@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
+import { RequiredMark } from "@/components/required-mark";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function NewClientLoading() {
@@ -14,7 +15,9 @@ export default function NewClientLoading() {
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <Label>ФИО клиента *</Label>
+            <Label>
+              ФИО клиента <RequiredMark />
+            </Label>
             <Skeleton className="h-9 w-full" />
           </div>
           {[

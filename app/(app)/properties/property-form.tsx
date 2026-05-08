@@ -5,10 +5,12 @@ import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { AmountInput } from "@/components/amount-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RequiredMark } from "@/components/required-mark";
 import {
   Select,
   SelectContent,
@@ -70,7 +72,9 @@ export function PropertyForm({
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="title">Название *</Label>
+            <Label htmlFor="title">
+              Название <RequiredMark />
+            </Label>
             <Input
               id="title"
               name="title"
@@ -138,12 +142,12 @@ export function PropertyForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="price">Цена, ₽ *</Label>
-            <Input
+            <Label htmlFor="price">
+              Цена, ₽ <RequiredMark />
+            </Label>
+            <AmountInput
               id="price"
               name="price"
-              type="number"
-              min="0"
               defaultValue={property?.price ?? ""}
               required
             />

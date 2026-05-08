@@ -117,7 +117,7 @@ export function TasksList({
               <button
                 type="button"
                 onClick={() => toggleDone(task)}
-                className="mt-0.5 text-muted-foreground transition-colors hover:text-primary"
+                className="mt-0.5 rounded-md text-muted-foreground transition-colors hover:text-primary active:bg-accent active:text-primary"
                 aria-label="Переключить статус"
               >
                 {task.status === "done" ? (

@@ -16,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RequiredMark } from "@/components/required-mark";
 import {
   Select,
   SelectContent,
@@ -83,7 +84,9 @@ export function TaskFormDialog({
         </DialogHeader>
         <form action={formAction} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="title">Заголовок *</Label>
+            <Label htmlFor="title">
+              Заголовок <RequiredMark />
+            </Label>
             <Input id="title" name="title" required />
           </div>
 

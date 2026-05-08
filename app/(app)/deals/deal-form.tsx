@@ -3,11 +3,21 @@
 import * as React from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
+import { format } from "date-fns";
+import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { CalendarIcon, Loader2 } from "lucide-react";
+import { AmountInput } from "@/components/amount-input";
+import { RequiredMark } from "@/components/required-mark";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
@@ -23,6 +33,7 @@ import {
   createDealAction,
   updateDealAction,
 } from "@/lib/actions/deals";
+import { cn } from "@/lib/utils";
 import type { Client, Deal, Profile, Property, UserRole } from "@/lib/types";
 
 interface DealFormProps {
@@ -44,6 +55,13 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
+function parseDateOnly(value: string | null | undefined) {
+  if (!value) return undefined;
+  const [year, month, day] = value.split("-").map(Number);
+  if (!year || !month || !day) return undefined;
+  return new Date(year, month - 1, day);
+}
+
 export function DealForm({
   deal,
   clients,
@@ -55,6 +73,9 @@ export function DealForm({
   const router = useRouter();
   const action = deal ? updateDealAction.bind(null, deal.id) : createDealAction;
   const [state, formAction] = useFormState<DealFormState, FormData>(action, {});
+  const [expectedCloseDate, setExpectedCloseDate] = React.useState<
+    Date | undefined
+  >(parseDateOnly(deal?.expected_close_date));
 
   React.useEffect(() => {
     if (state.error) toast.error(state.error);
@@ -67,7 +88,9 @@ export function DealForm({
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">
           <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="title">Название сделки *</Label>
+            <Label htmlFor="title">
+              Название сделки <RequiredMark />
+            </Label>
             <Input
               id="title"
               name="title"
@@ -152,34 +175,72 @@ export function DealForm({
 
           <div className="space-y-2">
             <Label htmlFor="amount">Сумма, ₽</Label>
-            <Input
+            <AmountInput
               id="amount"
               name="amount"
-              type="number"
-              min="0"
               defaultValue={deal?.amount ?? ""}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="commission">Комиссия, ₽</Label>
-            <Input
+            <AmountInput
               id="commission"
               name="commission"
-              type="number"
-              min="0"
               defaultValue={deal?.commission ?? ""}
             />
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="expected_close_date">Ожидаемое закрытие</Label>
-            <Input
+            <input
               id="expected_close_date"
               name="expected_close_date"
-              type="date"
-              defaultValue={deal?.expected_close_date ?? ""}
+              type="hidden"
+              value={
+                expectedCloseDate
+                  ? format(expectedCloseDate, "yyyy-MM-dd")
+                  : ""
+              }
             />
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    "w-full justify-start text-left font-normal",
+                    !expectedCloseDate && "text-muted-foreground",
+                  )}
+                >
+                  <CalendarIcon className="h-4 w-4" />
+                  {expectedCloseDate ? (
+                    format(expectedCloseDate, "d MMMM yyyy", { locale: ru })
+                  ) : (
+                    <span>Выберите дату</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="single"
+                  selected={expectedCloseDate}
+                  onSelect={setExpectedCloseDate}
+                  locale={ru}
+                />
+                <div className="border-t p-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="w-full"
+                    onClick={() => setExpectedCloseDate(undefined)}
+                  >
+                    Очистить дату
+                  </Button>
+                </div>
+              </PopoverContent>
+            </Popover>
           </div>
 
           <div className="space-y-2 md:col-span-2">
