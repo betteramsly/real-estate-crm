@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/prefetch-link";
 import {
   DndContext,
   DragEndEvent,
@@ -229,7 +229,7 @@ function DealCard({
         isOverlay && "shadow-2xl ring-2 ring-primary",
       )}
     >
-      <Link
+      <PrefetchLink
         href={`/deals/${deal.id}`}
         className="block text-sm font-medium hover:underline"
         onClick={(e) => {
@@ -237,7 +237,7 @@ function DealCard({
         }}
       >
         {deal.title}
-      </Link>
+      </PrefetchLink>
       {clientName ? (
         <p className="mt-1 truncate text-xs text-muted-foreground">
           {clientName}

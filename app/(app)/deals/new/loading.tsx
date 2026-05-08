@@ -1,0 +1,44 @@
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/page-header";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const FIELDS: { label: string; full?: boolean; tall?: boolean }[] = [
+  { label: "Название сделки *", full: true },
+  { label: "Клиент" },
+  { label: "Объект" },
+  { label: "Этап" },
+  { label: "Ответственный" },
+  { label: "Сумма, ₽" },
+  { label: "Комиссия, ₽" },
+  { label: "Ожидаемое закрытие" },
+  { label: "Заметки", full: true, tall: true },
+];
+
+export default function NewDealLoading() {
+  return (
+    <>
+      <PageHeader title="Новая сделка" />
+      <Card>
+        <CardContent className="grid gap-4 p-6 md:grid-cols-2">
+          {FIELDS.map((field) => (
+            <div
+              key={field.label}
+              className={`space-y-2 ${field.full ? "md:col-span-2" : ""}`}
+            >
+              <Label>{field.label}</Label>
+              <Skeleton className={field.tall ? "h-24 w-full" : "h-9 w-full"} />
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+      <div className="flex flex-wrap gap-2">
+        <Button disabled>Создать сделку</Button>
+        <Button variant="outline" disabled>
+          Отмена
+        </Button>
+      </div>
+    </>
+  );
+}

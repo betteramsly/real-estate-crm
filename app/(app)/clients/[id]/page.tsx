@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -178,12 +179,12 @@ export default async function ClientPage({
                       className="flex items-center justify-between gap-3 py-3"
                     >
                       <div className="min-w-0">
-                        <Link
+                        <PrefetchLink
                           href={`/deals/${deal.id}`}
                           className="truncate font-medium hover:underline"
                         >
                           {deal.title}
-                        </Link>
+                        </PrefetchLink>
                         <p className="text-xs text-muted-foreground">
                           {DEAL_STAGE_LABELS[deal.stage]} ·{" "}
                           {formatDate(deal.expected_close_date)}

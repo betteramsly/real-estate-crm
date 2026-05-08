@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { LogOut, Menu } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -88,6 +88,12 @@ export function AppHeader({ profile }: { profile: Profile }) {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="gap-2 px-2">
             <Avatar className="h-7 w-7">
+              {profile.avatar_url ? (
+                <AvatarImage
+                  src={profile.avatar_url}
+                  alt={profile.full_name ?? "Аватар"}
+                />
+              ) : null}
               <AvatarFallback>{initials(profile.full_name)}</AvatarFallback>
             </Avatar>
             <div className="hidden text-left md:block">

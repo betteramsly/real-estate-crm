@@ -57,7 +57,8 @@ lib/
   types.ts               — типы доменных моделей
   auth.ts                — requireUser/requireProfile
 supabase/
-  schema.sql             — миграция: таблицы, индексы, RLS, триггеры
+  schema.sql             — миграция: таблицы, индексы, RLS, Storage, триггеры
+  storage.sql            — настройка bucket avatars для уже созданной БД
   seed.sql               — демо-данные
 docs/
   real-estate-crm-spec.md — подробная спецификация MVP
@@ -82,11 +83,12 @@ npm install
 
 1. Открыть `Supabase Dashboard → SQL Editor`.
 2. Выполнить весь файл `supabase/schema.sql` (создаст таблицы, RLS, триггеры).
-3. В разделе `Authentication → Users → Add user` создать двух пользователей:
+3. Если `schema.sql` уже был выполнен раньше, дополнительно выполнить `supabase/storage.sql` для загрузки аватаров.
+4. В разделе `Authentication → Users → Add user` создать двух пользователей:
   - `admin@demo.local` / `demo1234`
   - `agent@demo.local` / `demo1234`
    (можно отметить `Auto Confirm User`).
-4. Выполнить `supabase/seed.sql`. Скрипт назначит роль `admin` нужному пользователю и создаст демо-клиентов, объекты, сделки и задачи.
+5. Выполнить `supabase/seed.sql`. Скрипт назначит роль `admin` нужному пользователю и создаст демо-клиентов, объекты, сделки и задачи.
 
 ### 4. Настроить переменные окружения
 

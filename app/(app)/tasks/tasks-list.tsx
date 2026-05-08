@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { toast } from "sonner";
 import {
   Calendar,
@@ -175,28 +175,28 @@ export function TasksList({
                       </span>
                     ) : null}
                     {client ? (
-                      <Link
+                      <PrefetchLink
                         href={`/clients/${client.id}`}
                         className="text-muted-foreground hover:underline"
                       >
                         · {client.full_name}
-                      </Link>
+                      </PrefetchLink>
                     ) : null}
                     {deal ? (
-                      <Link
+                      <PrefetchLink
                         href={`/deals/${deal.id}`}
                         className="text-muted-foreground hover:underline"
                       >
                         · {deal.title}
-                      </Link>
+                      </PrefetchLink>
                     ) : null}
                     {property ? (
-                      <Link
+                      <PrefetchLink
                         href={`/properties/${property.id}`}
                         className="text-muted-foreground hover:underline"
                       >
                         · {property.title}
-                      </Link>
+                      </PrefetchLink>
                     ) : null}
                   </div>
                 </div>

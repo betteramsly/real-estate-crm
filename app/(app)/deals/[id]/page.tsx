@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,20 +73,20 @@ export default async function DealPage({
           <h1 className="text-2xl font-semibold">{deal.title}</h1>
           <div className="flex flex-wrap gap-3 text-sm text-muted-foreground">
             {client ? (
-              <Link
+              <PrefetchLink
                 href={`/clients/${client.id}`}
                 className="hover:underline"
               >
                 {client.full_name}
-              </Link>
+              </PrefetchLink>
             ) : null}
             {property ? (
-              <Link
+              <PrefetchLink
                 href={`/properties/${property.id}`}
                 className="hover:underline"
               >
                 · {property.title}
-              </Link>
+              </PrefetchLink>
             ) : null}
           </div>
         </div>

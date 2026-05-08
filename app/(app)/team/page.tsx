@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -42,6 +42,12 @@ export default async function TeamPage() {
               >
                 <div className="flex items-center gap-3">
                   <Avatar>
+                    {p.avatar_url ? (
+                      <AvatarImage
+                        src={p.avatar_url}
+                        alt={p.full_name ?? "Аватар"}
+                      />
+                    ) : null}
                     <AvatarFallback>{initials(p.full_name)}</AvatarFallback>
                   </Avatar>
                   <div>

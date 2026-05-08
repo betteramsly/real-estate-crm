@@ -40,10 +40,15 @@ function parseFormData(formData: FormData) {
     const v = get(k);
     return typeof v === "string" && v.length > 0 ? v : null;
   };
+  const phone = () => {
+    const value = str("phone");
+    const digits = value?.replace(/\D/g, "") ?? "";
+    return digits.length > 1 ? value : null;
+  };
 
   return {
     full_name: (get("full_name") as string) ?? "",
-    phone: str("phone"),
+    phone: phone(),
     email: str("email"),
     source: (get("source") as string) ?? "other",
     status: (get("status") as string) ?? "new",

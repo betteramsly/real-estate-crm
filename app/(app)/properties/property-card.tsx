@@ -1,6 +1,6 @@
-import Link from "next/link";
 import Image from "next/image";
 import { Bed, MapPin, Ruler } from "lucide-react";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -15,7 +15,7 @@ import type { Property } from "@/lib/types";
 
 export function PropertyCard({ property }: { property: Property }) {
   return (
-    <Link href={`/properties/${property.id}`} className="group block">
+    <PrefetchLink href={`/properties/${property.id}`} className="group block">
       <Card className="h-full overflow-hidden transition-shadow hover:shadow-md">
         <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
           {property.cover_url ? (
@@ -84,6 +84,6 @@ export function PropertyCard({ property }: { property: Property }) {
           ) : null}
         </CardContent>
       </Card>
-    </Link>
+    </PrefetchLink>
   );
 }

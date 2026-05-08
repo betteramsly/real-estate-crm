@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { PhoneInput } from "@/components/phone-input";
 import {
   Select,
   SelectContent,
@@ -80,10 +81,9 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
 
           <div className="space-y-2">
             <Label htmlFor="phone">Телефон</Label>
-            <Input
+            <PhoneInput
               id="phone"
               name="phone"
-              placeholder="+7 (___) ___-__-__"
               defaultValue={client?.phone ?? ""}
             />
           </div>

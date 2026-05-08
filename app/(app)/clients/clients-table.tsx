@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -28,8 +28,8 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
   const profileById = new Map(profiles.map((p) => [p.id, p]));
 
   return (
-    <div className="rounded-xl border bg-card">
-      <Table>
+    <div className="w-full min-w-0 overflow-hidden rounded-xl border bg-card">
+      <Table className="min-w-[1120px]">
         <TableHeader>
           <TableRow>
             <TableHead>Клиент</TableHead>
@@ -49,8 +49,8 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
               : null;
             return (
               <TableRow key={client.id} className="cursor-pointer">
-                <TableCell>
-                  <Link
+                <TableCell className="w-[260px]">
+                  <PrefetchLink
                     href={`/clients/${client.id}`}
                     className="flex items-center gap-3"
                   >
@@ -67,20 +67,20 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
                         </p>
                       ) : null}
                     </div>
-                  </Link>
+                  </PrefetchLink>
                 </TableCell>
-                <TableCell className="text-sm">
-                  <div>{client.phone ?? "—"}</div>
+                <TableCell className="w-[190px] whitespace-nowrap text-sm">
+                  <div className="font-medium">{client.phone ?? "—"}</div>
                   <div className="text-xs text-muted-foreground">
                     {client.email ?? ""}
                   </div>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <Badge variant="outline">
                     {DEAL_TYPE_LABELS[client.deal_type]}
                   </Badge>
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   {client.budget_min || client.budget_max ? (
                     <span className="whitespace-nowrap text-sm">
                       {formatCurrency(client.budget_min)} —{" "}
@@ -90,10 +90,10 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-sm text-muted-foreground">
+                <TableCell className="whitespace-nowrap text-sm text-muted-foreground">
                   {CLIENT_SOURCE_LABELS[client.source]}
                 </TableCell>
-                <TableCell>
+                <TableCell className="whitespace-nowrap">
                   <span
                     className={cn(
                       "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
@@ -103,7 +103,7 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
                     {CLIENT_STATUS_LABELS[client.status]}
                   </span>
                 </TableCell>
-                <TableCell>
+                <TableCell className="w-[180px]">
                   {assignee ? (
                     <div className="flex items-center gap-2">
                       <Avatar className="h-6 w-6">
@@ -111,7 +111,7 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
                           {initials(assignee.full_name)}
                         </AvatarFallback>
                       </Avatar>
-                      <span className="text-sm">
+                      <span className="truncate text-sm">
                         {assignee.full_name ?? "—"}
                       </span>
                     </div>
@@ -119,7 +119,7 @@ export function ClientsTable({ clients, profiles }: ClientsTableProps) {
                     <span className="text-muted-foreground">—</span>
                   )}
                 </TableCell>
-                <TableCell className="text-xs text-muted-foreground">
+                <TableCell className="whitespace-nowrap text-xs text-muted-foreground">
                   {formatRelative(client.created_at)}
                 </TableCell>
               </TableRow>

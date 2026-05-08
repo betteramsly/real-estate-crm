@@ -1,19 +1,9 @@
-import { PageHeaderSkeleton } from "@/components/loading-skeletons";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Loader2 } from "lucide-react";
 
-export default function Loading() {
+export default function AppLoading() {
   return (
-    <>
-      <PageHeaderSkeleton />
-      <div className="grid gap-4 md:grid-cols-2">
-        {Array.from({ length: 4 }).map((_, index) => (
-          <div key={index} className="rounded-xl border bg-card p-6">
-            <Skeleton className="h-5 w-40" />
-            <Skeleton className="mt-4 h-4 w-full" />
-            <Skeleton className="mt-2 h-4 w-2/3" />
-          </div>
-        ))}
-      </div>
-    </>
+    <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
+      <Loader2 className="h-6 w-6 animate-spin" />
+    </div>
   );
 }

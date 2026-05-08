@@ -7,6 +7,7 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -253,7 +254,7 @@ export default async function DashboardPage() {
                     key={c.id}
                     className="flex items-center justify-between gap-3 rounded-lg border p-3"
                   >
-                    <Link
+                    <PrefetchLink
                       href={`/clients/${c.id}`}
                       className="flex items-center gap-3"
                     >
@@ -270,7 +271,7 @@ export default async function DashboardPage() {
                           {formatRelative(c.created_at)}
                         </p>
                       </div>
-                    </Link>
+                    </PrefetchLink>
                     <span
                       className={cn(
                         "inline-flex rounded-md px-2 py-0.5 text-xs font-medium",
