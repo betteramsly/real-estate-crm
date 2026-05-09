@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/actions/activities";
+import { diffRecords } from "@/lib/diff";
+import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import type { DealStage } from "@/lib/types";
 
 const dealSchema = z.object({
@@ -27,23 +30,14 @@ const dealSchema = z.object({
 
 export type DealFormState = {
   error?: string;
+  success?: boolean;
   fieldErrors?: Record<string, string>;
 };
 
 function parseFormData(formData: FormData) {
   const get = (k: string) => formData.get(k);
-  const num = (k: string) => {
-    const v = get(k);
-    if (v === null || v === undefined || v === "") return null;
-    const normalized =
-      typeof v === "string" ? v.replace(/[\s\u00A0]/g, "") : String(v);
-    const n = Number(normalized);
-    return Number.isNaN(n) ? null : n;
-  };
-  const str = (k: string) => {
-    const v = get(k);
-    return typeof v === "string" && v.length > 0 ? v : null;
-  };
+  const num = (k: string) => parseNumericFormValue(get(k));
+  const str = (k: string) => parseStringFormValue(get(k));
 
   return {
     title: (get("title") as string) ?? "",
@@ -98,9 +92,23 @@ export async function createDealAction(
 
   if (error) return { error: error.message };
 
+  await logActivity({
+    entityType: "deal",
+    entityId: created.id,
+    type: "created",
+    payload: {
+      title: parsed.data.title,
+      stage: parsed.data.stage,
+      amount: parsed.data.amount,
+    },
+    clientId: parsed.data.client_id ?? null,
+    dealId: created.id,
+    propertyId: parsed.data.property_id ?? null,
+  });
+
   revalidatePath("/deals");
   revalidatePath("/dashboard");
-  redirect(`/deals/${created.id}`);
+  redirect(`/deals/${created.id}?created=deal`);
 }
 
 export async function updateDealAction(
@@ -122,7 +130,9 @@ export async function updateDealAction(
 
   const { data: existing } = await supabase
     .from("deals")
-    .select("stage, closed_at")
+    .select(
+      "stage, closed_at, client_id, property_id, title, amount, expected_close_date, assigned_to",
+    )
     .eq("id", id)
     .single();
 
@@ -145,14 +155,51 @@ export async function updateDealAction(
 
   if (error) return { error: error.message };
 
+  if (existing && existing.stage !== parsed.data.stage) {
+    await logActivity({
+      entityType: "deal",
+      entityId: id,
+      type: "stage_changed",
+      payload: { from: existing.stage, to: parsed.data.stage },
+      clientId: parsed.data.client_id ?? existing.client_id ?? null,
+      dealId: id,
+      propertyId: parsed.data.property_id ?? existing.property_id ?? null,
+    });
+  }
+
+  const changes = diffRecords(existing, parsed.data, [
+    "title",
+    "amount",
+    "expected_close_date",
+    "assigned_to",
+  ]);
+  if (Object.keys(changes).length > 0) {
+    await logActivity({
+      entityType: "deal",
+      entityId: id,
+      type: "updated",
+      payload: { changes },
+      clientId: parsed.data.client_id ?? existing?.client_id ?? null,
+      dealId: id,
+      propertyId: parsed.data.property_id ?? existing?.property_id ?? null,
+    });
+  }
+
   revalidatePath("/deals");
   revalidatePath(`/deals/${id}`);
   revalidatePath("/dashboard");
-  return {};
+  return { success: true };
 }
 
 export async function moveDealStage(id: string, stage: DealStage) {
   const supabase = createClient();
+
+  const { data: existing } = await supabase
+    .from("deals")
+    .select("stage, client_id, property_id")
+    .eq("id", id)
+    .single();
+
   const closed_at =
     stage === "closed_won" || stage === "closed_lost"
       ? new Date().toISOString()
@@ -162,6 +209,19 @@ export async function moveDealStage(id: string, stage: DealStage) {
     .update({ stage, closed_at })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (existing && existing.stage !== stage) {
+    await logActivity({
+      entityType: "deal",
+      entityId: id,
+      type: "stage_changed",
+      payload: { from: existing.stage, to: stage },
+      clientId: existing.client_id ?? null,
+      dealId: id,
+      propertyId: existing.property_id ?? null,
+    });
+  }
+
   revalidatePath("/deals");
   revalidatePath("/dashboard");
 }
@@ -170,6 +230,11 @@ export async function deleteDealAction(id: string) {
   const supabase = createClient();
   const { error } = await supabase.from("deals").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity({
+    entityType: "deal",
+    entityId: id,
+    type: "deleted",
+  });
   revalidatePath("/deals");
   revalidatePath("/dashboard");
   redirect("/deals");

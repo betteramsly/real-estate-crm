@@ -1,5 +1,7 @@
+import * as React from "react";
 import { AppHeader } from "@/components/app-header";
 import { AppSidebar } from "@/components/app-sidebar";
+import { CreatedToast } from "@/components/created-toast";
 import { requireProfile } from "@/lib/auth";
 
 export default async function AppLayout({
@@ -20,6 +22,9 @@ export default async function AppLayout({
           </div>
         </main>
       </div>
+      <React.Suspense fallback={null}>
+        <CreatedToast />
+      </React.Suspense>
     </div>
   );
 }

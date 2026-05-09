@@ -1,343 +1,165 @@
 -- =============================================================
--- Real Estate CRM — Seed
--- ВАЖНО: Сначала создай в Supabase двух пользователей вручную
--- (Authentication → Users → Add user):
---   admin@demo.local / demo1234
---   agent@demo.local / demo1234
--- Затем запусти этот скрипт. Он:
---   1. Поставит роль admin для admin@demo.local
---   2. Создаст демо-клиентов, объекты, сделки, задачи
--- Безопасно перезапускать: использует ON CONFLICT DO NOTHING.
+-- Seed-данные для демонстрации CRM
+--
+-- Запустите ПОСЛЕ schema.sql и migrations/0001_activities.sql,
+-- и ПОСЛЕ того как зарегистрировали хотя бы одного пользователя
+-- (тогда в public.profiles будет хотя бы одна строка).
+--
+-- Скрипт идемпотентен по простому правилу: если в clients уже
+-- есть хотя бы одна запись — мы ничего не делаем. Это защищает
+-- ваши настоящие данные от перезаписи.
 -- =============================================================
 
--- 1) Назначить роли
-update public.profiles
-   set role = 'admin', full_name = coalesce(full_name, 'Admin Demo')
- where id = (select id from auth.users where email = 'admin@demo.local');
+do $$
+declare
+  v_actor uuid;
+  v_client_anna uuid := uuid_generate_v4();
+  v_client_petr uuid := uuid_generate_v4();
+  v_client_sergey uuid := uuid_generate_v4();
+  v_client_olga uuid := uuid_generate_v4();
+  v_client_dmitry uuid := uuid_generate_v4();
+  v_property_sokolniki uuid := uuid_generate_v4();
+  v_property_tverskaya uuid := uuid_generate_v4();
+  v_property_house uuid := uuid_generate_v4();
+  v_property_office uuid := uuid_generate_v4();
+  v_property_studio uuid := uuid_generate_v4();
+  v_deal_anna uuid := uuid_generate_v4();
+  v_deal_petr uuid := uuid_generate_v4();
+  v_deal_sergey uuid := uuid_generate_v4();
+  v_deal_dmitry uuid := uuid_generate_v4();
+begin
+  if exists (select 1 from public.clients limit 1) then
+    raise notice 'Seed пропущен: в таблице clients уже есть данные.';
+    return;
+  end if;
 
-update public.profiles
-   set role = 'agent', full_name = coalesce(full_name, 'Agent Demo')
- where id = (select id from auth.users where email = 'agent@demo.local');
+  select id into v_actor from public.profiles
+    order by created_at asc limit 1;
 
--- 2) Получим id демо-юзеров в CTE для удобства
-with
-  admin_user as (select id from auth.users where email = 'admin@demo.local'),
-  agent_user as (select id from auth.users where email = 'agent@demo.local'),
-  ids as (
-    select
-      (select id from admin_user) as admin_id,
-      (select id from agent_user) as agent_id
-  )
+  if v_actor is null then
+    raise exception 'Seed остановлен: создайте хотя бы одного пользователя через /register перед запуском seed.sql';
+  end if;
 
--- 3) Клиенты
-insert into public.clients
-  (id, full_name, phone, email, source, status, budget_min, budget_max,
-   deal_type, notes, assigned_to, created_by)
-select
-  '11111111-1111-1111-1111-000000000001'::uuid,
-  'Алексей Смирнов', '+7 (903) 111-22-33', 'alex@example.com',
-  'referral', 'in_progress', 12000000, 16000000,
-  'buy', 'Ищет 2-комн. в районе м. Сокольники, до 16 млн.',
-  ids.agent_id, ids.agent_id
-from ids
-on conflict (id) do nothing;
+  -- ---------- clients ----------
+  insert into public.clients
+    (id, full_name, phone, email, source, status, deal_type,
+     budget_min, budget_max, notes, assigned_to, created_by, created_at, updated_at)
+  values
+    (v_client_anna, 'Анна Соколова', '+7 (916) 234-56-78', 'anna.s@example.com',
+     'cian', 'in_progress', 'buy', 4500000, 6500000,
+     'Ищет 2-комнатную квартиру у метро. Готова смотреть по выходным.',
+     v_actor, v_actor, now() - interval '12 days', now() - interval '2 days'),
+    (v_client_petr, 'Пётр Иванов', '+7 (903) 111-22-33', 'petr.ivanov@example.com',
+     'referral', 'new', 'rent_in', 60000, 90000,
+     'Срочный поиск аренды на год.',
+     v_actor, v_actor, now() - interval '3 days', now() - interval '3 days'),
+    (v_client_sergey, 'Сергей Михайлов', '+7 (925) 998-76-54', null,
+     'avito', 'in_progress', 'sell', null, null,
+     'Хочет продать квартиру родителей в Сокольниках.',
+     v_actor, v_actor, now() - interval '20 days', now() - interval '15 days'),
+    (v_client_olga, 'Ольга Кузнецова', '+7 (909) 444-55-66', 'olga.k@example.com',
+     'instagram', 'new', 'buy', 8000000, 12000000,
+     'Хочет дом в Подмосковье, бюджет до 12 млн.',
+     v_actor, v_actor, now() - interval '25 days', now() - interval '25 days'),
+    (v_client_dmitry, 'Дмитрий Зайцев', '+7 (985) 333-44-55', 'd.zaytsev@example.com',
+     'other', 'won', 'buy', 15000000, 20000000,
+     'Покупка офиса в центре. Сделка завершена.',
+     v_actor, v_actor, now() - interval '60 days', now() - interval '5 days');
 
-insert into public.clients
-  (id, full_name, phone, email, source, status, budget_min, budget_max,
-   deal_type, notes, assigned_to, created_by)
-select
-  '11111111-1111-1111-1111-000000000002'::uuid,
-  'Мария Иванова', '+7 (905) 222-33-44', 'maria@example.com',
-  'cian', 'new', null, null, 'rent_in', 'Снять 1-комн. в центре.',
-  ids.agent_id, ids.agent_id
-from (select admin_id, agent_id from
-        (select (select id from auth.users where email='admin@demo.local') as admin_id,
-                (select id from auth.users where email='agent@demo.local') as agent_id) t) ids
-on conflict (id) do nothing;
+  -- ---------- properties ----------
+  insert into public.properties
+    (id, title, property_type, listing_type, status, price,
+     area, rooms, address, city, district, description, cover_url,
+     assigned_to, created_by, created_at, updated_at)
+  values
+    (v_property_sokolniki, '2-комн. в Сокольниках, 5 мин. до метро',
+     'apartment', 'sale', 'active', 5800000, 54.2, 2,
+     'ул. Русаковская, 24', 'Москва', 'Сокольники',
+     'Светлая 2-комнатная квартира в кирпичном доме. Хороший ремонт, балкон, тихий двор.',
+     null, v_actor, v_actor, now() - interval '15 days', now() - interval '3 days'),
+    (v_property_tverskaya, 'Студия на Тверской, для аренды',
+     'apartment', 'rent', 'active', 75000, 28.0, 1,
+     'Тверская, 12', 'Москва', 'Тверской',
+     'Стильная студия в самом центре. Подходит для пары или одного человека.',
+     null, v_actor, v_actor, now() - interval '10 days', now() - interval '1 days'),
+    (v_property_house, 'Загородный дом в Барвихе',
+     'house', 'sale', 'active', 18500000, 220.0, 5,
+     'пос. Барвиха, ул. Лесная, 8', 'Барвиха', null,
+     'Двухэтажный дом с террасой и участком 12 соток. Сауна, гараж на 2 авто.',
+     null, v_actor, v_actor, now() - interval '30 days', now() - interval '2 days'),
+    (v_property_office, 'Офис 80 м² в БЦ "Красная Пресня"',
+     'commercial', 'sale', 'sold', 17500000, 80.0, null,
+     'Пресненская набережная, 12', 'Москва', 'Пресненский',
+     'Офисное помещение open-space с панорамными окнами.',
+     null, v_actor, v_actor, now() - interval '50 days', now() - interval '5 days'),
+    (v_property_studio, 'Уютная студия рядом с метро',
+     'apartment', 'sale', 'active', 4200000, 25.0, 1,
+     'ул. Профсоюзная, 88', 'Москва', 'Академический',
+     'Хороший вариант под аренду или первое жильё.',
+     null, v_actor, v_actor, now() - interval '5 days', now() - interval '5 days');
 
-insert into public.clients
-  (id, full_name, phone, email, source, status, budget_min, budget_max,
-   deal_type, notes, assigned_to, created_by)
-select
-  '11111111-1111-1111-1111-000000000003'::uuid,
-  'Игорь Петров', '+7 (916) 555-66-77', 'igor@example.com',
-  'instagram', 'won', 25000000, 35000000,
-  'buy', 'Купил квартиру у нас в марте.',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
+  -- ---------- deals ----------
+  insert into public.deals
+    (id, title, client_id, property_id, stage, amount, commission,
+     expected_close_date, closed_at, notes,
+     assigned_to, created_by, created_at, updated_at)
+  values
+    (v_deal_anna, 'Покупка 2-комн. — Анна Соколова',
+     v_client_anna, v_property_sokolniki, 'negotiation', 5800000, 174000,
+     (now() + interval '14 days')::date, null,
+     'Обсуждаем условия с продавцом. Готова к показу 10 мая.',
+     v_actor, v_actor, now() - interval '8 days', now() - interval '2 days'),
+    (v_deal_petr, 'Аренда студии — Пётр Иванов',
+     v_client_petr, v_property_tverskaya, 'viewing', 75000, 75000,
+     (now() + interval '7 days')::date, null,
+     'Завтра показ в 18:00.',
+     v_actor, v_actor, now() - interval '2 days', now() - interval '1 days'),
+    (v_deal_sergey, 'Продажа квартиры — Сергей Михайлов',
+     v_client_sergey, null, 'new', null, null,
+     null, null,
+     'Только начали — делаем фотосъёмку.',
+     v_actor, v_actor, now() - interval '15 days', now() - interval '15 days'),
+    (v_deal_dmitry, 'Покупка офиса — Дмитрий Зайцев',
+     v_client_dmitry, v_property_office, 'closed_won', 17500000, 525000,
+     (now() - interval '5 days')::date, now() - interval '5 days',
+     'Сделка прошла успешно.',
+     v_actor, v_actor, now() - interval '60 days', now() - interval '5 days');
 
-insert into public.clients
-  (id, full_name, phone, email, source, status, budget_min, budget_max,
-   deal_type, notes, assigned_to, created_by)
-select
-  '11111111-1111-1111-1111-000000000004'::uuid,
-  'Елена Кузнецова', '+7 (909) 777-88-99', 'elena@example.com',
-  'avito', 'in_progress', 5000000, 7000000,
-  'buy', 'Студия для инвестиции.',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
+  -- ---------- tasks ----------
+  insert into public.tasks
+    (title, description, status, priority, due_at,
+     client_id, deal_id, property_id, assigned_to, created_by)
+  values
+    ('Перезвонить Анне по второму варианту',
+     'Уточнить, готова ли поднять бюджет до 7 млн.',
+     'todo', 'high',
+     now() + interval '1 day',
+     v_client_anna, v_deal_anna, null, v_actor, v_actor),
+    ('Показ студии на Тверской',
+     'Встреча с Петром в 18:00 у подъезда.',
+     'todo', 'high',
+     now() + interval '1 day' + interval '6 hours',
+     v_client_petr, v_deal_petr, v_property_tverskaya, v_actor, v_actor),
+    ('Заказать фотосессию квартиры',
+     'Позвонить фотографу, договориться на пятницу.',
+     'in_progress', 'medium',
+     now() + interval '3 days',
+     v_client_sergey, v_deal_sergey, null, v_actor, v_actor),
+    ('Подготовить подборку домов для Ольги',
+     '3-4 варианта в бюджете до 12 млн в Подмосковье.',
+     'todo', 'medium',
+     now() + interval '2 days',
+     v_client_olga, null, null, v_actor, v_actor),
+    ('Закрыть сделку с Дмитрием',
+     'Подписать акт приёма-передачи.',
+     'done', 'high',
+     now() - interval '5 days',
+     v_client_dmitry, v_deal_dmitry, v_property_office, v_actor, v_actor),
+    ('Просроченная: проверить документы',
+     'Уже надо было сделать вчера.',
+     'todo', 'high',
+     now() - interval '1 day',
+     v_client_olga, null, null, v_actor, v_actor);
 
-insert into public.clients
-  (id, full_name, phone, email, source, status, budget_min, budget_max,
-   deal_type, notes, assigned_to, created_by)
-select
-  '11111111-1111-1111-1111-000000000005'::uuid,
-  'Сергей Соколов', '+7 (926) 333-44-55', 'sergey@example.com',
-  'other', 'lost', null, null, 'sell', 'Передумал продавать.',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
--- 4) Объекты
-insert into public.properties
-  (id, title, property_type, listing_type, status, price, area, rooms,
-   address, city, district, description, cover_url, assigned_to, created_by)
-select
-  '22222222-2222-2222-2222-000000000001'::uuid,
-  '2-комн. на Сокольнической', 'apartment', 'sale', 'active',
-  14500000, 56, 2,
-  'ул. Русаковская, 24', 'Москва', 'Сокольники',
-  'Светлая квартира, евроремонт, рядом метро.',
-  'https://images.unsplash.com/photo-1505691938895-1758d7feb511',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.properties
-  (id, title, property_type, listing_type, status, price, area, rooms,
-   address, city, district, description, cover_url, assigned_to, created_by)
-select
-  '22222222-2222-2222-2222-000000000002'::uuid,
-  'Студия в центре', 'apartment', 'rent', 'active',
-  60000, 28, 1,
-  'ул. Тверская, 10', 'Москва', 'Тверской',
-  'Аренда, мебель, на длительный срок.',
-  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.properties
-  (id, title, property_type, listing_type, status, price, area, rooms,
-   address, city, district, description, cover_url, assigned_to, created_by)
-select
-  '22222222-2222-2222-2222-000000000003'::uuid,
-  'Загородный дом', 'house', 'sale', 'reserved',
-  32000000, 220, 5,
-  'кп. Новорижский, ул. Лесная, 5', 'Московская обл.', 'Истринский',
-  'Дом 220 м² на 12 сотках, готов к проживанию.',
-  'https://images.unsplash.com/photo-1568605114967-8130f3a36994',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
-insert into public.properties
-  (id, title, property_type, listing_type, status, price, area, rooms,
-   address, city, district, description, cover_url, assigned_to, created_by)
-select
-  '22222222-2222-2222-2222-000000000004'::uuid,
-  'Коммерция на 1 этаже', 'commercial', 'sale', 'active',
-  45000000, 120, null,
-  'Ленинский пр., 45', 'Москва', 'Гагаринский',
-  'Готовый арендный бизнес, доход 350 тыс/мес.',
-  'https://images.unsplash.com/photo-1577962917302-cd874c4e31d2',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
-insert into public.properties
-  (id, title, property_type, listing_type, status, price, area, rooms,
-   address, city, district, description, cover_url, assigned_to, created_by)
-select
-  '22222222-2222-2222-2222-000000000005'::uuid,
-  'Участок в МО', 'land', 'sale', 'active',
-  3500000, 1500, null,
-  'д. Поповка', 'Московская обл.', 'Чеховский',
-  'Участок ИЖС, газ, электричество.',
-  'https://images.unsplash.com/photo-1500382017468-9049fed747ef',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
--- 5) Сделки
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000001'::uuid,
-  'Покупка 2-комн. — Смирнов',
-  '11111111-1111-1111-1111-000000000001'::uuid,
-  '22222222-2222-2222-2222-000000000001'::uuid,
-  'negotiation', 14300000, 430000,
-  current_date + interval '14 days',
-  'Обсуждаем скидку.',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000002'::uuid,
-  'Аренда студии — Иванова',
-  '11111111-1111-1111-1111-000000000002'::uuid,
-  '22222222-2222-2222-2222-000000000002'::uuid,
-  'viewing', 60000, 60000,
-  current_date + interval '7 days',
-  'Показ в субботу.',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, closed_at, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000003'::uuid,
-  'Покупка дома — Петров',
-  '11111111-1111-1111-1111-000000000003'::uuid,
-  '22222222-2222-2222-2222-000000000003'::uuid,
-  'closed_won', 31500000, 945000,
-  current_date - interval '14 days',
-  now() - interval '7 days',
-  'Сделка успешно закрыта.',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000004'::uuid,
-  'Студия для Кузнецовой',
-  '11111111-1111-1111-1111-000000000004'::uuid,
-  null,
-  'new', 6500000, 195000,
-  current_date + interval '30 days',
-  'Подбираем варианты.',
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, closed_at, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000005'::uuid,
-  'Продажа Соколова',
-  '11111111-1111-1111-1111-000000000005'::uuid,
-  null,
-  'closed_lost', null, null,
-  current_date - interval '20 days',
-  now() - interval '20 days',
-  'Клиент передумал продавать.',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
-insert into public.deals
-  (id, title, client_id, property_id, stage, amount, commission,
-   expected_close_date, notes, assigned_to, created_by)
-select
-  '33333333-3333-3333-3333-000000000006'::uuid,
-  'Коммерция — Петров',
-  '11111111-1111-1111-1111-000000000003'::uuid,
-  '22222222-2222-2222-2222-000000000004'::uuid,
-  'contract', 44000000, 1320000,
-  current_date + interval '5 days',
-  'Готовим договор.',
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
--- 6) Задачи
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000001'::uuid,
-  'Позвонить Смирнову', 'Обсудить размер скидки',
-  'todo', 'high', now() + interval '4 hours',
-  '11111111-1111-1111-1111-000000000001'::uuid,
-  '33333333-3333-3333-3333-000000000001'::uuid,
-  null,
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000002'::uuid,
-  'Показ студии Ивановой', 'м. Тверская, 14:00',
-  'todo', 'medium', now() + interval '2 days',
-  '11111111-1111-1111-1111-000000000002'::uuid,
-  '33333333-3333-3333-3333-000000000002'::uuid,
-  '22222222-2222-2222-2222-000000000002'::uuid,
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000003'::uuid,
-  'Подготовить договор',
-  'Договор по коммерции на Ленинском',
-  'in_progress', 'high', now() + interval '1 day',
-  '11111111-1111-1111-1111-000000000003'::uuid,
-  '33333333-3333-3333-3333-000000000006'::uuid,
-  '22222222-2222-2222-2222-000000000004'::uuid,
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
-
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000004'::uuid,
-  'Подобрать студии для Кузнецовой',
-  'Бюджет до 7 млн, ЦАО',
-  'todo', 'medium', now() + interval '3 days',
-  '11111111-1111-1111-1111-000000000004'::uuid,
-  '33333333-3333-3333-3333-000000000004'::uuid,
-  null,
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000005'::uuid,
-  'Обновить фото объекта',
-  'Сделать новые фото 2-комн.',
-  'todo', 'low', now() + interval '5 days',
-  null, null,
-  '22222222-2222-2222-2222-000000000001'::uuid,
-  ids.agent_id, ids.agent_id
-from (select (select id from auth.users where email='agent@demo.local') as agent_id) ids
-on conflict (id) do nothing;
-
-insert into public.tasks
-  (id, title, description, status, priority, due_at,
-   client_id, deal_id, property_id, assigned_to, created_by)
-select
-  '44444444-4444-4444-4444-000000000006'::uuid,
-  'Поздравить Петрова',
-  'Закрытие сделки',
-  'done', 'low', now() - interval '5 days',
-  '11111111-1111-1111-1111-000000000003'::uuid,
-  '33333333-3333-3333-3333-000000000003'::uuid,
-  null,
-  ids.admin_id, ids.admin_id
-from (select (select id from auth.users where email='admin@demo.local') as admin_id) ids
-on conflict (id) do nothing;
+  raise notice 'Seed выполнен. Создано клиентов: 5, объектов: 5, сделок: 4, задач: 6.';
+end $$;

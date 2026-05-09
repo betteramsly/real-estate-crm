@@ -57,10 +57,8 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
 
   React.useEffect(() => {
     if (state.error) toast.error(state.error);
-    if (client && !state.error && state.fieldErrors === undefined) {
-      // updateClientAction returns empty {} on success
-    }
-  }, [state, client]);
+    if (state.success) toast.success("Изменения сохранены");
+  }, [state]);
 
   const fe = state.fieldErrors ?? {};
 

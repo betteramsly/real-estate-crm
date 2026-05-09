@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { PropertyForm } from "../property-form";
 import { requireProfile } from "@/lib/auth";
@@ -12,6 +13,12 @@ export default async function NewPropertyPage() {
 
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Объекты", href: "/properties" },
+          { label: "Новый объект" },
+        ]}
+      />
       <PageHeader title="Новый объект" />
       <PropertyForm profiles={profiles ?? []} currentRole={profile.role} />
     </>

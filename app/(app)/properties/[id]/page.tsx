@@ -1,9 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft, Bed, MapPin, Ruler } from "lucide-react";
+import { Bed, MapPin, Ruler } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PropertyForm } from "../property-form";
@@ -41,13 +40,12 @@ export default async function PropertyPage({
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/properties">
-            <ArrowLeft className="h-4 w-4" />К объектам
-          </Link>
-        </Button>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Объекты", href: "/properties" },
+          { label: property.title },
+        ]}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-4">

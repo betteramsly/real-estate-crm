@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { DealForm } from "../deal-form";
 import { requireProfile } from "@/lib/auth";
@@ -25,6 +26,12 @@ export default async function NewDealPage({
 
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Сделки", href: "/deals" },
+          { label: "Новая сделка" },
+        ]}
+      />
       <PageHeader title="Новая сделка" />
       <DealForm
         clients={clients ?? []}

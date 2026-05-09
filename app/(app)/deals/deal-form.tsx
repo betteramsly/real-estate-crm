@@ -79,6 +79,7 @@ export function DealForm({
 
   React.useEffect(() => {
     if (state.error) toast.error(state.error);
+    if (state.success) toast.success("Изменения сохранены");
   }, [state]);
 
   const fe = state.fieldErrors ?? {};

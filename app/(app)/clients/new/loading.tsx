@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,12 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function NewClientLoading() {
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Клиенты", href: "/clients" },
+          { label: "Новый клиент" },
+        ]}
+      />
       <PageHeader
         title="Новый клиент"
         description="Заполните основные данные клиента"

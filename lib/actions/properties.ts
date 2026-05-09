@@ -4,6 +4,8 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/actions/activities";
+import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 
 const propertySchema = z.object({
   title: z.string().min(2, "Минимум 2 символа"),
@@ -23,23 +25,14 @@ const propertySchema = z.object({
 
 export type PropertyFormState = {
   error?: string;
+  success?: boolean;
   fieldErrors?: Record<string, string>;
 };
 
 function parseFormData(formData: FormData) {
   const get = (k: string) => formData.get(k);
-  const num = (k: string) => {
-    const v = get(k);
-    if (v === null || v === undefined || v === "") return null;
-    const normalized =
-      typeof v === "string" ? v.replace(/[\s\u00A0]/g, "") : String(v);
-    const n = Number(normalized);
-    return Number.isNaN(n) ? null : n;
-  };
-  const str = (k: string) => {
-    const v = get(k);
-    return typeof v === "string" && v.length > 0 ? v : null;
-  };
+  const num = (k: string) => parseNumericFormValue(get(k));
+  const str = (k: string) => parseStringFormValue(get(k));
 
   return {
     title: (get("title") as string) ?? "",
@@ -90,8 +83,16 @@ export async function createPropertyAction(
 
   if (error) return { error: error.message };
 
+  await logActivity({
+    entityType: "property",
+    entityId: created.id,
+    type: "created",
+    payload: { title: parsed.data.title, price: parsed.data.price },
+    propertyId: created.id,
+  });
+
   revalidatePath("/properties");
-  redirect(`/properties/${created.id}`);
+  redirect(`/properties/${created.id}?created=property`);
 }
 
 export async function updatePropertyAction(
@@ -110,6 +111,13 @@ export async function updatePropertyAction(
   }
 
   const supabase = createClient();
+
+  const { data: existing } = await supabase
+    .from("properties")
+    .select("status, price, title")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("properties")
     .update(parsed.data)
@@ -117,15 +125,52 @@ export async function updatePropertyAction(
 
   if (error) return { error: error.message };
 
+  if (existing) {
+    if (existing.status !== parsed.data.status) {
+      await logActivity({
+        entityType: "property",
+        entityId: id,
+        type: "status_changed",
+        payload: { from: existing.status, to: parsed.data.status },
+        propertyId: id,
+      });
+    } else if (
+      existing.price !== parsed.data.price ||
+      existing.title !== parsed.data.title
+    ) {
+      await logActivity({
+        entityType: "property",
+        entityId: id,
+        type: "updated",
+        payload: {
+          changes: {
+            ...(existing.price !== parsed.data.price
+              ? { price: { from: existing.price, to: parsed.data.price } }
+              : {}),
+            ...(existing.title !== parsed.data.title
+              ? { title: { from: existing.title, to: parsed.data.title } }
+              : {}),
+          },
+        },
+        propertyId: id,
+      });
+    }
+  }
+
   revalidatePath("/properties");
   revalidatePath(`/properties/${id}`);
-  return {};
+  return { success: true };
 }
 
 export async function deletePropertyAction(id: string) {
   const supabase = createClient();
   const { error } = await supabase.from("properties").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity({
+    entityType: "property",
+    entityId: id,
+    type: "deleted",
+  });
   revalidatePath("/properties");
   redirect("/properties");
 }

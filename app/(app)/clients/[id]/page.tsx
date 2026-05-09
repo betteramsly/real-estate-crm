@@ -1,14 +1,25 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import {
+  Briefcase,
+  CalendarClock,
+  CheckCircle2,
+  ListTodo,
+  Plus,
+  UserCircle2,
+} from "lucide-react";
+import { ActivityTimeline } from "@/components/activity-timeline";
+import { Breadcrumbs } from "@/components/breadcrumbs";
+import { MatchedProperties } from "@/components/matched-properties";
 import { PrefetchLink } from "@/components/prefetch-link";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientForm } from "../client-form";
 import { DeleteClientButton } from "./delete-client-button";
+import { TaskFormDialog } from "../../tasks/task-form-dialog";
+import { getActivities } from "@/lib/actions/activities";
 import { requireProfile } from "@/lib/auth";
 import {
   CLIENT_SOURCE_LABELS,
@@ -24,8 +35,9 @@ import {
   formatRelative,
   initials,
 } from "@/lib/formatters";
+import { matchPropertiesForClient } from "@/lib/matching";
 import { cn } from "@/lib/utils";
-import type { Client, Deal, Profile, Task } from "@/lib/types";
+import type { Client, Deal, Profile, Property, Task } from "@/lib/types";
 
 export default async function ClientPage({
   params,
@@ -42,33 +54,49 @@ export default async function ClientPage({
 
   if (!client) notFound();
 
-  const [{ data: profiles }, { data: deals }, { data: tasks }] =
-    await Promise.all([
-      supabase.from("profiles").select("*").returns<Profile[]>(),
-      supabase
-        .from("deals")
-        .select("*")
-        .eq("client_id", params.id)
-        .order("created_at", { ascending: false })
-        .returns<Deal[]>(),
-      supabase
-        .from("tasks")
-        .select("*")
-        .eq("client_id", params.id)
-        .order("due_at", { ascending: true })
-        .returns<Task[]>(),
-    ]);
+  const [
+    { data: profiles },
+    { data: deals },
+    { data: tasks },
+    { data: allProperties },
+    activities,
+  ] = await Promise.all([
+    supabase.from("profiles").select("*").returns<Profile[]>(),
+    supabase
+      .from("deals")
+      .select("*")
+      .eq("client_id", params.id)
+      .order("created_at", { ascending: false })
+      .returns<Deal[]>(),
+    supabase
+      .from("tasks")
+      .select("*")
+      .eq("client_id", params.id)
+      .order("due_at", { ascending: true })
+      .returns<Task[]>(),
+    supabase
+      .from("properties")
+      .select("*")
+      .eq("status", "active")
+      .returns<Property[]>(),
+    getActivities({ clientId: params.id, limit: 50 }),
+  ]);
+
+  const assignee = profiles?.find((p) => p.id === client.assigned_to) ?? null;
+  const openTasks = (tasks ?? []).filter(
+    (t) => t.status === "todo" || t.status === "in_progress",
+  );
+  const nextTask = openTasks.find((t) => t.due_at) ?? openTasks[0] ?? null;
+  const matches = matchPropertiesForClient(client, allProperties ?? []);
 
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/clients">
-            <ArrowLeft className="h-4 w-4" />
-            К клиентам
-          </Link>
-        </Button>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Клиенты", href: "/clients" },
+          { label: client.full_name },
+        ]}
+      />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div className="flex items-center gap-3">
@@ -97,12 +125,128 @@ export default async function ClientPage({
         <DeleteClientButton id={client.id} />
       </div>
 
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card>
+          <CardContent className="space-y-1 p-4">
+            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <UserCircle2 className="h-3.5 w-3.5" />
+              Ответственный
+            </p>
+            <div className="flex items-center gap-2 pt-1">
+              <Avatar className="h-7 w-7">
+                {assignee?.avatar_url ? (
+                  <AvatarImage src={assignee.avatar_url} alt="" />
+                ) : null}
+                <AvatarFallback className="text-[10px]">
+                  {assignee ? initials(assignee.full_name) : "—"}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium">
+                {assignee?.full_name ?? "Не назначен"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="space-y-1 p-4">
+            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <CalendarClock className="h-3.5 w-3.5" />
+              Следующее действие
+            </p>
+            {nextTask ? (
+              <div className="space-y-1 pt-1">
+                <p className="line-clamp-1 text-sm font-medium">
+                  {nextTask.title}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {nextTask.due_at
+                    ? formatDate(nextTask.due_at)
+                    : TASK_STATUS_LABELS[nextTask.status]}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-1 pt-1">
+                <p className="text-sm text-muted-foreground">
+                  Нет открытых задач
+                </p>
+                <TaskFormDialog
+                  clients={[{ id: client.id, full_name: client.full_name }]}
+                  deals={(deals ?? []).map((d) => ({
+                    id: d.id,
+                    title: d.title,
+                  }))}
+                  properties={(allProperties ?? []).map((p) => ({
+                    id: p.id,
+                    title: p.title,
+                  }))}
+                  profiles={profiles ?? []}
+                  defaultClientId={client.id}
+                  trigger={
+                    <Button
+                      size="sm"
+                      variant="link"
+                      className="h-auto p-0 text-xs"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                      Добавить задачу
+                    </Button>
+                  }
+                />
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="space-y-1 p-4">
+            <p className="inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Briefcase className="h-3.5 w-3.5" />
+              Активные сделки
+            </p>
+            <p className="pt-1 text-2xl font-semibold">
+              {(deals ?? []).filter(
+                (d) =>
+                  d.stage !== "closed_won" && d.stage !== "closed_lost",
+              ).length}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Button asChild size="sm" variant="outline">
+          <PrefetchLink href={`/deals/new?client_id=${client.id}`}>
+            <Plus className="h-4 w-4" />
+            Создать сделку
+          </PrefetchLink>
+        </Button>
+        <TaskFormDialog
+          clients={[{ id: client.id, full_name: client.full_name }]}
+          deals={(deals ?? []).map((d) => ({ id: d.id, title: d.title }))}
+          properties={(allProperties ?? []).map((p) => ({
+            id: p.id,
+            title: p.title,
+          }))}
+          profiles={profiles ?? []}
+          defaultClientId={client.id}
+          trigger={
+            <Button size="sm" variant="outline">
+              <ListTodo className="h-4 w-4" />
+              Создать задачу
+            </Button>
+          }
+        />
+      </div>
+
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="edit">Редактировать</TabsTrigger>
+          <TabsTrigger value="matching">
+            Подбор ({matches.length})
+          </TabsTrigger>
+          <TabsTrigger value="activity">Активность</TabsTrigger>
           <TabsTrigger value="deals">Сделки ({deals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="tasks">Задачи ({tasks?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="edit">Редактировать</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -160,6 +304,24 @@ export default async function ClientPage({
           </div>
         </TabsContent>
 
+        <TabsContent value="matching">
+          <MatchedProperties
+            matches={matches}
+            emptyText="Нет объектов, подходящих под бюджет и тип сделки"
+          />
+        </TabsContent>
+
+        <TabsContent value="activity">
+          <Card>
+            <CardContent className="p-6">
+              <ActivityTimeline
+                activities={activities}
+                emptyText="Здесь появятся события: создание сделок, изменение этапов, задачи"
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
         <TabsContent value="edit">
           <ClientForm
             client={client}
@@ -197,9 +359,17 @@ export default async function ClientPage({
                   ))}
                 </ul>
               ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  У клиента ещё нет сделок
-                </p>
+                <div className="space-y-2 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    У клиента ещё нет сделок
+                  </p>
+                  <Button asChild size="sm" variant="outline">
+                    <PrefetchLink href={`/deals/new?client_id=${client.id}`}>
+                      <Plus className="h-4 w-4" />
+                      Создать первую сделку
+                    </PrefetchLink>
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -212,7 +382,12 @@ export default async function ClientPage({
                 <ul className="divide-y">
                   {tasks.map((task) => (
                     <li key={task.id} className="py-3">
-                      <p className="font-medium">{task.title}</p>
+                      <p className="font-medium">
+                        {task.status === "done" ? (
+                          <CheckCircle2 className="mr-1 inline-block h-4 w-4 text-emerald-500" />
+                        ) : null}
+                        {task.title}
+                      </p>
                       <p className="text-xs text-muted-foreground">
                         {TASK_STATUS_LABELS[task.status]} ·{" "}
                         {formatDate(task.due_at)}
@@ -221,9 +396,30 @@ export default async function ClientPage({
                   ))}
                 </ul>
               ) : (
-                <p className="py-6 text-center text-sm text-muted-foreground">
-                  У клиента нет задач
-                </p>
+                <div className="space-y-2 py-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    У клиента нет задач
+                  </p>
+                  <TaskFormDialog
+                    clients={[{ id: client.id, full_name: client.full_name }]}
+                    deals={(deals ?? []).map((d) => ({
+                      id: d.id,
+                      title: d.title,
+                    }))}
+                    properties={(allProperties ?? []).map((p) => ({
+                      id: p.id,
+                      title: p.title,
+                    }))}
+                    profiles={profiles ?? []}
+                    defaultClientId={client.id}
+                    trigger={
+                      <Button size="sm" variant="outline">
+                        <Plus className="h-4 w-4" />
+                        Создать задачу
+                      </Button>
+                    }
+                  />
+                </div>
               )}
             </CardContent>
           </Card>

@@ -2,6 +2,7 @@ import {
   Building2,
   CheckSquare,
   Handshake,
+  Sparkles,
   TrendingUp,
   Users,
 } from "lucide-react";
@@ -68,17 +69,37 @@ export default function DashboardLoading() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>Воронка</CardTitle>
+            <CardTitle className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              Требует внимания
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-7 w-full" />
-              ))}
-            </div>
+          <CardContent className="space-y-2">
+            {Array.from({ length: 3 }).map((_, index) => (
+              <div key={index} className="flex items-start gap-3 rounded-lg p-3">
+                <Skeleton className="h-8 w-8 rounded-md" />
+                <div className="min-w-0 flex-1 space-y-2">
+                  <Skeleton className="h-4 w-3/4" />
+                  <Skeleton className="h-3 w-2/3" />
+                </div>
+              </div>
+            ))}
           </CardContent>
         </Card>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Воронка</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-3">
+            {Array.from({ length: 6 }).map((_, index) => (
+              <Skeleton key={index} className="h-7 w-full" />
+            ))}
+          </div>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

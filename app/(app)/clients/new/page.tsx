@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { PageHeader } from "@/components/page-header";
 import { ClientForm } from "../client-form";
 import { requireProfile } from "@/lib/auth";
@@ -12,6 +13,12 @@ export default async function NewClientPage() {
 
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Клиенты", href: "/clients" },
+          { label: "Новый клиент" },
+        ]}
+      />
       <PageHeader
         title="Новый клиент"
         description="Заполните основные данные клиента"

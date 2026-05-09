@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft, Bed, MapPin, Ruler, Trash2 } from "lucide-react";
+import { Bed, MapPin, Ruler, Trash2 } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,13 +13,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function PropertyDetailLoading() {
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/properties">
-            <ArrowLeft className="h-4 w-4" />К объектам
-          </Link>
-        </Button>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Объекты", href: "/properties" },
+          { label: "Загрузка..." },
+        ]}
+      />
 
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div className="space-y-4">

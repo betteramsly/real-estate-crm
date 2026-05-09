@@ -1,5 +1,5 @@
-import Link from "next/link";
-import { ArrowLeft, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -13,13 +13,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 export default function DealDetailLoading() {
   return (
     <>
-      <div className="flex items-center gap-2">
-        <Button asChild variant="ghost" size="sm">
-          <Link href="/deals">
-            <ArrowLeft className="h-4 w-4" />К сделкам
-          </Link>
-        </Button>
-      </div>
+      <Breadcrumbs
+        items={[
+          { label: "Сделки", href: "/deals" },
+          { label: "Загрузка..." },
+        ]}
+      />
 
       <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
         <div className="space-y-2">

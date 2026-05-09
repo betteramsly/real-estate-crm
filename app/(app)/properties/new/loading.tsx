@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -29,6 +30,12 @@ const FIELDS: {
 export default function NewPropertyLoading() {
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Объекты", href: "/properties" },
+          { label: "Новый объект" },
+        ]}
+      />
       <PageHeader title="Новый объект" />
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">

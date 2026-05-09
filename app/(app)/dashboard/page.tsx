@@ -7,9 +7,9 @@ import {
   TrendingUp,
   Users,
 } from "lucide-react";
+import { InsightsWidget } from "@/components/insights-widget";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -34,6 +34,7 @@ import {
   formatRelative,
   initials,
 } from "@/lib/formatters";
+import { computeInsights } from "@/lib/insights";
 import { cn } from "@/lib/utils";
 import type { Client, Deal, Task } from "@/lib/types";
 
@@ -49,6 +50,8 @@ export default async function DashboardPage() {
     { data: deals },
     { data: tasks },
     { data: recentClients },
+    { data: insightsClients },
+    { data: insightsTasks },
     { count: clientsCount },
     { count: propertiesCount },
     { count: newClients30dCount },
@@ -79,6 +82,16 @@ export default async function DashboardPage() {
       .order("created_at", { ascending: false })
       .limit(5)
       .returns<Client[]>(),
+    supabase
+      .from("clients")
+      .select("id, full_name, status, updated_at")
+      .in("status", ["new", "in_progress"])
+      .returns<Pick<Client, "id" | "full_name" | "status" | "updated_at">[]>(),
+    supabase
+      .from("tasks")
+      .select("id, client_id, deal_id, status, due_at")
+      .in("status", ["todo", "in_progress"])
+      .returns<Pick<Task, "id" | "client_id" | "deal_id" | "status" | "due_at">[]>(),
     supabase.from("clients").select("*", { count: "exact", head: true }),
     supabase.from("properties").select("*", { count: "exact", head: true }),
     supabase
@@ -116,6 +129,12 @@ export default async function DashboardPage() {
   }));
 
   const monthly = computeMonthlyRevenue(allDeals, 6);
+
+  const insights = computeInsights({
+    clients: insightsClients ?? [],
+    deals: allDeals,
+    tasks: insightsTasks ?? [],
+  });
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -163,15 +182,17 @@ export default async function DashboardPage() {
             <DealsRevenueChart data={monthly} />
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Воронка</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <DealsStageChart data={stageData} />
-          </CardContent>
-        </Card>
+        <InsightsWidget insights={insights} />
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Воронка</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <DealsStageChart data={stageData} />
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>

@@ -123,3 +123,30 @@ export interface TaskWithRelations extends Task {
   property?: Pick<Property, "id" | "title"> | null;
   assignee?: Profile | null;
 }
+
+export type ActivityEntityType = "client" | "deal" | "property" | "task";
+export type ActivityType =
+  | "created"
+  | "updated"
+  | "deleted"
+  | "stage_changed"
+  | "status_changed"
+  | "task_completed"
+  | "note_added";
+
+export interface Activity {
+  id: string;
+  entity_type: ActivityEntityType;
+  entity_id: string;
+  type: ActivityType;
+  payload: Record<string, unknown>;
+  client_id: string | null;
+  deal_id: string | null;
+  property_id: string | null;
+  actor_id: string | null;
+  created_at: string;
+}
+
+export interface ActivityWithActor extends Activity {
+  actor?: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
+}

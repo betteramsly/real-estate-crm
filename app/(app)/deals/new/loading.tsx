@@ -1,3 +1,4 @@
+import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -25,6 +26,12 @@ const FIELDS: {
 export default function NewDealLoading() {
   return (
     <>
+      <Breadcrumbs
+        items={[
+          { label: "Сделки", href: "/deals" },
+          { label: "Новая сделка" },
+        ]}
+      />
       <PageHeader title="Новая сделка" />
       <Card>
         <CardContent className="grid gap-4 p-6 md:grid-cols-2">

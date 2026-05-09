@@ -143,6 +143,43 @@ create index if not exists tasks_assigned_to_idx on public.tasks(assigned_to);
 create index if not exists tasks_due_at_idx on public.tasks(due_at);
 create index if not exists tasks_priority_idx on public.tasks(priority);
 
+-- ---------- activities (audit log + activity timeline) ----------
+create table if not exists public.activities (
+  id uuid primary key default uuid_generate_v4(),
+  entity_type text not null
+    check (entity_type in ('client', 'deal', 'property', 'task')),
+  entity_id uuid not null,
+  type text not null
+    check (
+      type in (
+        'created',
+        'updated',
+        'deleted',
+        'stage_changed',
+        'status_changed',
+        'task_completed',
+        'note_added'
+      )
+    ),
+  payload jsonb not null default '{}'::jsonb,
+  client_id uuid references public.clients(id) on delete cascade,
+  deal_id uuid references public.deals(id) on delete cascade,
+  property_id uuid references public.properties(id) on delete cascade,
+  actor_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists activities_entity_idx
+  on public.activities(entity_type, entity_id, created_at desc);
+create index if not exists activities_client_idx
+  on public.activities(client_id, created_at desc);
+create index if not exists activities_deal_idx
+  on public.activities(deal_id, created_at desc);
+create index if not exists activities_property_idx
+  on public.activities(property_id, created_at desc);
+create index if not exists activities_actor_idx
+  on public.activities(actor_id, created_at desc);
+
 -- ---------- updated_at trigger ----------
 create or replace function public.set_updated_at()
 returns trigger as $$
@@ -243,6 +280,7 @@ alter table public.clients enable row level security;
 alter table public.properties enable row level security;
 alter table public.deals enable row level security;
 alter table public.tasks enable row level security;
+alter table public.activities enable row level security;
 
 -- profiles
 drop policy if exists "profiles_select_authenticated" on public.profiles;
@@ -268,11 +306,19 @@ create policy "clients_select" on public.clients
 
 drop policy if exists "clients_insert" on public.clients;
 create policy "clients_insert" on public.clients
-  for insert with check (auth.uid() is not null);
+  for insert with check (
+    auth.uid() is not null
+    and (created_by is null or created_by = auth.uid() or public.is_admin())
+  );
 
 drop policy if exists "clients_update" on public.clients;
 create policy "clients_update" on public.clients
   for update using (
+    public.is_admin()
+    or assigned_to = auth.uid()
+    or created_by = auth.uid()
+  )
+  with check (
     public.is_admin()
     or assigned_to = auth.uid()
     or created_by = auth.uid()
@@ -299,11 +345,19 @@ create policy "properties_select" on public.properties
 
 drop policy if exists "properties_insert" on public.properties;
 create policy "properties_insert" on public.properties
-  for insert with check (auth.uid() is not null);
+  for insert with check (
+    auth.uid() is not null
+    and (created_by is null or created_by = auth.uid() or public.is_admin())
+  );
 
 drop policy if exists "properties_update" on public.properties;
 create policy "properties_update" on public.properties
   for update using (
+    public.is_admin()
+    or assigned_to = auth.uid()
+    or created_by = auth.uid()
+  )
+  with check (
     public.is_admin()
     or assigned_to = auth.uid()
     or created_by = auth.uid()
@@ -327,11 +381,19 @@ create policy "deals_select" on public.deals
 
 drop policy if exists "deals_insert" on public.deals;
 create policy "deals_insert" on public.deals
-  for insert with check (auth.uid() is not null);
+  for insert with check (
+    auth.uid() is not null
+    and (created_by is null or created_by = auth.uid() or public.is_admin())
+  );
 
 drop policy if exists "deals_update" on public.deals;
 create policy "deals_update" on public.deals
   for update using (
+    public.is_admin()
+    or assigned_to = auth.uid()
+    or created_by = auth.uid()
+  )
+  with check (
     public.is_admin()
     or assigned_to = auth.uid()
     or created_by = auth.uid()
@@ -355,11 +417,24 @@ create policy "tasks_select" on public.tasks
 
 drop policy if exists "tasks_insert" on public.tasks;
 create policy "tasks_insert" on public.tasks
-  for insert with check (auth.uid() is not null);
+  for insert with check (
+    auth.uid() is not null
+    and (created_by is null or created_by = auth.uid() or public.is_admin())
+    and (
+      public.is_admin()
+      or assigned_to is null
+      or assigned_to = auth.uid()
+    )
+  );
 
 drop policy if exists "tasks_update" on public.tasks;
 create policy "tasks_update" on public.tasks
   for update using (
+    public.is_admin()
+    or assigned_to = auth.uid()
+    or created_by = auth.uid()
+  )
+  with check (
     public.is_admin()
     or assigned_to = auth.uid()
     or created_by = auth.uid()
@@ -371,3 +446,30 @@ create policy "tasks_delete" on public.tasks
     public.is_admin()
     or created_by = auth.uid()
   );
+
+-- activities
+drop policy if exists "activities_select" on public.activities;
+create policy "activities_select" on public.activities
+  for select using (
+    public.is_admin()
+    or actor_id = auth.uid()
+    or exists (
+      select 1 from public.clients c
+      where c.id = activities.client_id
+        and (c.assigned_to = auth.uid() or c.created_by = auth.uid())
+    )
+    or exists (
+      select 1 from public.deals d
+      where d.id = activities.deal_id
+        and (d.assigned_to = auth.uid() or d.created_by = auth.uid())
+    )
+    or exists (
+      select 1 from public.properties p
+      where p.id = activities.property_id
+        and (p.assigned_to = auth.uid() or p.created_by = auth.uid())
+    )
+  );
+
+drop policy if exists "activities_insert" on public.activities;
+create policy "activities_insert" on public.activities
+  for insert with check (auth.uid() is not null and actor_id = auth.uid());

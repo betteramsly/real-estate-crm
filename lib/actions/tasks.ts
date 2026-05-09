@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/actions/activities";
 import type { TaskStatus } from "@/lib/types";
 
 const taskSchema = z.object({
@@ -65,16 +66,36 @@ export async function createTaskAction(
   } = await supabase.auth.getUser();
   if (!user) return { error: "Не авторизован" };
 
-  const { error } = await supabase.from("tasks").insert({
-    ...parsed.data,
-    client_id: parsed.data.client_id ?? null,
-    deal_id: parsed.data.deal_id ?? null,
-    property_id: parsed.data.property_id ?? null,
-    assigned_to: parsed.data.assigned_to ?? user.id,
-    created_by: user.id,
-  });
+  const { data: created, error } = await supabase
+    .from("tasks")
+    .insert({
+      ...parsed.data,
+      client_id: parsed.data.client_id ?? null,
+      deal_id: parsed.data.deal_id ?? null,
+      property_id: parsed.data.property_id ?? null,
+      assigned_to: parsed.data.assigned_to ?? user.id,
+      created_by: user.id,
+    })
+    .select("id")
+    .single();
 
   if (error) return { error: error.message };
+
+  if (created) {
+    await logActivity({
+      entityType: "task",
+      entityId: created.id,
+      type: "created",
+      payload: {
+        title: parsed.data.title,
+        priority: parsed.data.priority,
+        due_at: parsed.data.due_at,
+      },
+      clientId: parsed.data.client_id ?? null,
+      dealId: parsed.data.deal_id ?? null,
+      propertyId: parsed.data.property_id ?? null,
+    });
+  }
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
@@ -116,19 +137,57 @@ export async function updateTaskAction(
 
 export async function setTaskStatus(id: string, status: TaskStatus) {
   const supabase = createClient();
+
+  const { data: existing } = await supabase
+    .from("tasks")
+    .select("status, title, client_id, deal_id, property_id")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("tasks")
     .update({ status })
     .eq("id", id);
   if (error) throw new Error(error.message);
+
+  if (existing && existing.status !== status) {
+    await logActivity({
+      entityType: "task",
+      entityId: id,
+      type: status === "done" ? "task_completed" : "status_changed",
+      payload: { from: existing.status, to: status, title: existing.title },
+      clientId: existing.client_id ?? null,
+      dealId: existing.deal_id ?? null,
+      propertyId: existing.property_id ?? null,
+    });
+  }
+
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
 }
 
 export async function deleteTaskAction(id: string) {
   const supabase = createClient();
+
+  const { data: existing } = await supabase
+    .from("tasks")
+    .select("client_id, deal_id, property_id, title")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) throw new Error(error.message);
+
+  await logActivity({
+    entityType: "task",
+    entityId: id,
+    type: "deleted",
+    payload: existing ? { title: existing.title } : {},
+    clientId: existing?.client_id ?? null,
+    dealId: existing?.deal_id ?? null,
+    propertyId: existing?.property_id ?? null,
+  });
+
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
 }

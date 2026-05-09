@@ -4,6 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { logActivity } from "@/lib/actions/activities";
+import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
+import { diffRecords } from "@/lib/diff";
 
 const clientSchema = z.object({
   full_name: z.string().min(2, "Минимум 2 символа"),
@@ -25,23 +28,14 @@ const clientSchema = z.object({
 
 export type ClientFormState = {
   error?: string;
+  success?: boolean;
   fieldErrors?: Record<string, string>;
 };
 
 function parseFormData(formData: FormData) {
   const get = (k: string) => formData.get(k);
-  const num = (k: string) => {
-    const v = get(k);
-    if (v === null || v === undefined || v === "") return null;
-    const normalized =
-      typeof v === "string" ? v.replace(/[\s\u00A0]/g, "") : String(v);
-    const n = Number(normalized);
-    return Number.isNaN(n) ? null : n;
-  };
-  const str = (k: string) => {
-    const v = get(k);
-    return typeof v === "string" && v.length > 0 ? v : null;
-  };
+  const num = (k: string) => parseNumericFormValue(get(k));
+  const str = (k: string) => parseStringFormValue(get(k));
   const phone = () => {
     const value = str("phone");
     const digits = value?.replace(/\D/g, "") ?? "";
@@ -96,8 +90,16 @@ export async function createClientAction(
 
   if (error) return { error: error.message };
 
+  await logActivity({
+    entityType: "client",
+    entityId: created.id,
+    type: "created",
+    payload: { full_name: parsed.data.full_name, status: parsed.data.status },
+    clientId: created.id,
+  });
+
   revalidatePath("/clients");
-  redirect(`/clients/${created.id}`);
+  redirect(`/clients/${created.id}?created=client`);
 }
 
 export async function updateClientAction(
@@ -117,6 +119,13 @@ export async function updateClientAction(
   }
 
   const supabase = createClient();
+
+  const { data: existing } = await supabase
+    .from("clients")
+    .select("status, full_name, deal_type, assigned_to, budget_min, budget_max")
+    .eq("id", id)
+    .single();
+
   const { error } = await supabase
     .from("clients")
     .update({
@@ -127,15 +136,41 @@ export async function updateClientAction(
 
   if (error) return { error: error.message };
 
+  const changes = diffRecords(existing, parsed.data, [
+    "status",
+    "full_name",
+    "deal_type",
+    "assigned_to",
+    "budget_min",
+    "budget_max",
+  ]);
+  if (Object.keys(changes).length > 0) {
+    const isStatusChange =
+      Object.keys(changes).length === 1 && "status" in changes;
+    await logActivity({
+      entityType: "client",
+      entityId: id,
+      type: isStatusChange ? "status_changed" : "updated",
+      payload: { changes },
+      clientId: id,
+    });
+  }
+
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
-  return {};
+  return { success: true };
 }
 
 export async function deleteClientAction(id: string) {
   const supabase = createClient();
   const { error } = await supabase.from("clients").delete().eq("id", id);
   if (error) throw new Error(error.message);
+  await logActivity({
+    entityType: "client",
+    entityId: id,
+    type: "deleted",
+    clientId: null,
+  });
   revalidatePath("/clients");
   redirect("/clients");
 }
