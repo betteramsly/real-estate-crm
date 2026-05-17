@@ -153,13 +153,6 @@ npm run dev
 
 > На странице логина есть кнопки «Admin» / «Agent», которые автоматически подставляют логин и пароль.
 
-## Деплой На Vercel
-
-1. Залить репозиторий на GitHub.
-2. На [vercel.com](https://vercel.com) подключить репозиторий → New Project.
-3. В `Environment Variables` добавить `NEXT_PUBLIC_SUPABASE_URL` и `NEXT_PUBLIC_SUPABASE_ANON_KEY`.
-4. В Supabase: `Authentication → URL Configuration` → добавить production URL Vercel в `Site URL` и `Redirect URLs`.
-5. Деплой.
 
 ## Скрипты
 
