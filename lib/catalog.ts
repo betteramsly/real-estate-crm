@@ -1,3 +1,4 @@
+import { isHttpUrl } from "@/lib/linkify";
 import type {
   CatalogFact,
   CatalogTermGroup,
@@ -85,7 +86,7 @@ export function matchesCatalogSearch(
   return tokens.every((token) =>
     words.some(
       (word) =>
-        word === token || (token.length >= 4 && word.startsWith(token)),
+        word === token || (token.length >= 2 && word.startsWith(token)),
     ),
   );
 }
@@ -407,6 +408,7 @@ export function catalogLocationPhotos(
 
 function polishAboutLine(line: string) {
   let text = line.replace(/\s+/g, " ").trim();
+  if (isHttpUrl(text)) return text;
   text = text.replace(
     /^(этажность|фасад|класс|корпуса|корпусов|высота)\s+/i,
     (match, key: string) =>

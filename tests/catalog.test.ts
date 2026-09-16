@@ -124,6 +124,15 @@ describe("catalog search", () => {
 
   it("allows a longer prefix and requires every token", () => {
     expect(
+      matchesCatalogSearch(property({ title: "Вулф Тауэрс" }), "вул"),
+    ).toBe(true);
+    expect(
+      matchesCatalogSearch(property({ title: "Вулф Тауэрс" }), "ву"),
+    ).toBe(true);
+    expect(
+      matchesCatalogSearch(property({ title: "Вулф Тауэрс" }), "в"),
+    ).toBe(false);
+    expect(
       matchesCatalogSearch(
         property({ developer: "КорматСтрой", title: "8 марта" }),
         "кормат",

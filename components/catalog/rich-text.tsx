@@ -1,28 +1,6 @@
 import { ExternalLink } from "lucide-react";
 import { isClientExternalUrl } from "@/lib/catalog";
-
-const URL_RE =
-  /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|(?:yandex\.ru|2gis\.ru|go\.2gis\.com)[^\s<>"']*)/gi;
-
-function isUrl(value: string) {
-  return /^(https?:\/\/|www\.|yandex\.ru|2gis\.ru|go\.2gis\.com)/i.test(value);
-}
-
-function hrefFor(url: string) {
-  return /^https?:\/\//i.test(url) ? url : `https://${url}`;
-}
-
-function prettyUrl(url: string) {
-  try {
-    const parsed = new URL(hrefFor(url));
-    const host = parsed.hostname.replace(/^www\./, "");
-    const path = decodeURIComponent(parsed.pathname).replace(/\/$/, "");
-    const tail = path.split("/").filter(Boolean).slice(-1)[0];
-    return tail && tail.length < 40 ? `${host}/${tail}` : host;
-  } catch {
-    return url;
-  }
-}
+import { hrefFor, isHttpUrl, linkLabel, splitTextWithUrls } from "@/lib/linkify";
 
 export function RichText({
   text,
@@ -33,26 +11,25 @@ export function RichText({
   className?: string;
   clientLinks?: boolean;
 }) {
-  const parts = text.split(URL_RE);
   return (
     <span className={className}>
-      {parts.map((part, index) => {
-        if (!isUrl(part)) {
-          return <span key={`${part}-${index}`}>{part}</span>;
+      {splitTextWithUrls(text).map((part, index) => {
+        if (part.type !== "url" || !isHttpUrl(part.value)) {
+          return <span key={`${part.type}-${index}`}>{part.value}</span>;
         }
-        if (clientLinks && !isClientExternalUrl(part)) {
+        if (clientLinks && !isClientExternalUrl(part.value)) {
           return null;
         }
         return (
           <a
-            key={`${part}-${index}`}
-            href={hrefFor(part)}
+            key={`${part.type}-${index}`}
+            href={hrefFor(part.value)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+            className="inline break-words text-primary underline underline-offset-4 hover:opacity-80"
           >
-            {prettyUrl(part)}
-            <ExternalLink className="h-3.5 w-3.5" />
+            {linkLabel(part.value)}
+            <ExternalLink className="mb-0.5 ml-1 inline h-3.5 w-3.5" />
           </a>
         );
       })}
