@@ -580,6 +580,8 @@ export function CatalogFilters({
   }).length;
   const hasQuery = Boolean(query.trim() || params.get("q"));
   const hasFilters = facetCount > 0 || hasQuery;
+  const filtersBusy = desktopOpen || mobileOpen || pending;
+  const showReset = hasFilters || filtersBusy;
 
   const reset = () => {
     window.clearTimeout(searchTimer.current);
@@ -660,24 +662,39 @@ export function CatalogFilters({
               >
                 {filterTrigger}
               </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
+              <div
                 className={cn(
-                  "h-9 w-9 shrink-0 rounded-full",
-                  !hasFilters && "invisible",
+                  "grid transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
+                  showReset ? "grid-cols-[2.25rem]" : "grid-cols-[0fr]",
                 )}
-                disabled={!hasFilters}
-                onClick={reset}
-                aria-label="Сбросить фильтры"
+                aria-hidden={!showReset}
               >
-                {pending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <X className="h-4 w-4" />
-                )}
-              </Button>
+                <div className="min-w-0 overflow-hidden">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-9 w-9 rounded-full"
+                    disabled={!showReset}
+                    onClick={() => {
+                      if (hasFilters || pending) {
+                        reset();
+                        return;
+                      }
+                      setDesktopOpen(false);
+                      setMobileOpen(false);
+                    }}
+                    aria-label={hasFilters ? "Сбросить фильтры" : "Закрыть фильтры"}
+                    tabIndex={showReset ? 0 : -1}
+                  >
+                    {pending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <X className="h-4 w-4" />
+                    )}
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
           {desktopOpen ? (
