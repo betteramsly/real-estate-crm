@@ -7,7 +7,7 @@ import type {
 } from "@/lib/types";
 
 export const PROPERTY_PUBLIC_COLUMNS =
-  "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, description, cover_url, developer, completion_year, installment_max, maternity_capital, has_large_apartments, relevance, catalog, assigned_to, created_by, created_at, updated_at";
+  "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, description, cover_url, developer, completion_year, installment_max, maternity_capital, cash_payment, has_large_apartments, relevance, catalog, assigned_to, created_by, created_at, updated_at";
 
 export function emptyCatalog(): PropertyCatalog {
   return {};
@@ -35,6 +35,21 @@ export function hasInstallmentCatalog(
 ): boolean {
   if (property.installment_max) return true;
   return (property.catalog?.installment?.length ?? 0) > 0;
+}
+
+export function sortInstallmentTerms(values: string[]) {
+  return [...values].sort((left, right) => {
+    const leftYears = Number(left.match(/\d+/)?.[0] ?? 0);
+    const rightYears = Number(right.match(/\d+/)?.[0] ?? 0);
+    return leftYears - rightYears || left.localeCompare(right, "ru");
+  });
+}
+
+export function installmentFilterLabel(value: string) {
+  const years = Number(value.match(/\d+/)?.[0] ?? 0);
+  if (!years) return value;
+  if (years === 1) return "до 1 года";
+  return `до ${years} лет`;
 }
 
 const DOCUMENT_LABELS: Record<string, string> = {

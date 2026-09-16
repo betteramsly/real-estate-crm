@@ -11,6 +11,7 @@ import {
   hasCommercialCatalog,
   matchesCatalogSearch,
   slimCatalogCard,
+  sortInstallmentTerms,
 } from "@/lib/catalog";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import type { Property } from "@/lib/types";
@@ -24,6 +25,7 @@ interface PageProps {
     completion_year?: string;
     installment?: string;
     maternity?: string;
+    cash?: string;
     commercial?: string;
     large?: string;
     relevance?: string;
@@ -48,6 +50,10 @@ export default async function PropertiesPage(props: PageProps) {
   const districtsFilter = csv(searchParams.district);
   const developersFilter = csv(searchParams.developer);
   const yearsFilter = csv(searchParams.completion_year);
+  const installmentFilter = csv(searchParams.installment).filter(
+    (value) => value !== "1",
+  );
+  const installmentAny = csv(searchParams.installment).includes("1");
   const relevanceFilter = csv(searchParams.relevance)
     .map(Number)
     .filter((value) => value === 1 || value === 2 || value === 3);
@@ -55,7 +61,13 @@ export default async function PropertiesPage(props: PageProps) {
   if (districtsFilter.length) query = query.in("district", districtsFilter);
   if (developersFilter.length) query = query.in("developer", developersFilter);
   if (yearsFilter.length) query = query.in("completion_year", yearsFilter);
+  if (installmentFilter.length) {
+    query = query.in("installment_max", installmentFilter);
+  } else if (installmentAny) {
+    query = query.not("installment_max", "is", null);
+  }
   if (searchParams.maternity === "1") query = query.eq("maternity_capital", true);
+  if (searchParams.cash === "1") query = query.eq("cash_payment", true);
   if (searchParams.large === "1") query = query.eq("has_large_apartments", true);
   if (relevanceFilter.length) query = query.in("relevance", relevanceFilter);
 
@@ -63,9 +75,12 @@ export default async function PropertiesPage(props: PageProps) {
     query.returns<Property[]>(),
     supabase
       .from("properties")
-      .select("city, district, completion_year, developer")
+      .select("city, district, completion_year, developer, installment_max")
       .returns<
-        Pick<Property, "city" | "district" | "completion_year" | "developer">[]
+        Pick<
+          Property,
+          "city" | "district" | "completion_year" | "developer" | "installment_max"
+        >[]
       >(),
   ]);
 
@@ -73,13 +88,6 @@ export default async function PropertiesPage(props: PageProps) {
   if (searchParams.q) {
     properties = properties.filter((property) =>
       matchesCatalogSearch(property, searchParams.q!),
-    );
-  }
-  if (searchParams.installment === "1") {
-    properties = properties.filter(
-      (property) =>
-        Boolean(property.installment_max) ||
-        (property.catalog?.installment?.length ?? 0) > 0,
     );
   }
   if (searchParams.commercial === "1") {
@@ -91,6 +99,9 @@ export default async function PropertiesPage(props: PageProps) {
   const districts = uniqueSorted((filterRows ?? []).map((row) => row.district));
   const years = uniqueSorted((filterRows ?? []).map((row) => row.completion_year));
   const developers = uniqueSorted((filterRows ?? []).map((row) => row.developer));
+  const installments = sortInstallmentTerms(
+    uniqueSorted((filterRows ?? []).map((row) => row.installment_max)),
+  );
 
   return (
     <>
@@ -121,6 +132,7 @@ export default async function PropertiesPage(props: PageProps) {
         districts={districts}
         developers={developers}
         years={years}
+        installments={installments}
       >
         {properties.length > 0 ? (
           <CatalogGrid

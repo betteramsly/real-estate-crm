@@ -21,6 +21,7 @@ function makeProperty(overrides: Partial<Property> = {}): Property {
     completion_year: overrides.completion_year ?? null,
     installment_max: overrides.installment_max ?? null,
     maternity_capital: overrides.maternity_capital ?? null,
+    cash_payment: overrides.cash_payment ?? null,
     has_large_apartments: overrides.has_large_apartments ?? null,
     relevance: overrides.relevance ?? null,
     catalog: overrides.catalog ?? {},

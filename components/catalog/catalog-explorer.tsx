@@ -10,12 +10,14 @@ export function CatalogExplorer({
   districts,
   developers,
   years,
+  installments,
   children,
 }: {
   cities: string[];
   districts: string[];
   developers: string[];
   years: string[];
+  installments: string[];
   children: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
@@ -28,6 +30,7 @@ export function CatalogExplorer({
       districts={districts}
       developers={developers}
       years={years}
+      installments={installments}
       pending={pending}
       startTransition={startTransition}
       onPendingIntent={setIntent}

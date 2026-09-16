@@ -76,7 +76,7 @@ export default async function ClientPage(props: {
     supabase
       .from("properties")
       .select(
-        "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, description, cover_url, developer, completion_year, installment_max, maternity_capital, has_large_apartments, relevance, assigned_to, created_by, created_at, updated_at",
+        "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, description, cover_url, developer, completion_year, installment_max, maternity_capital, cash_payment, has_large_apartments, relevance, assigned_to, created_by, created_at, updated_at",
       )
       .eq("status", "active")
       .returns<Property[]>(),

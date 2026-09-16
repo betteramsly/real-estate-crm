@@ -15,6 +15,8 @@ import {
   hasInstallmentCatalog,
   isClientExternalUrl,
   matchesCatalogSearch,
+  installmentFilterLabel,
+  sortInstallmentTerms,
   visibleDocuments,
 } from "@/lib/catalog";
 import {
@@ -48,6 +50,7 @@ function property(overrides: Partial<Property> = {}): Property {
     completion_year: "2028",
     installment_max: "5 лет",
     maternity_capital: false,
+    cash_payment: false,
     has_large_apartments: true,
     relevance: 3,
     catalog: emptyCatalog(),
@@ -186,6 +189,21 @@ describe("catalog helpers", () => {
         }),
       ),
     ).toBe("улица Гуцериева, 80");
+  });
+
+  it("sorts installment terms by years", () => {
+    expect(sortInstallmentTerms(["5 лет", "1 год", "4 года", "2 года"])).toEqual([
+      "1 год",
+      "2 года",
+      "4 года",
+      "5 лет",
+    ]);
+  });
+
+  it("labels installment filters in the genitive", () => {
+    expect(installmentFilterLabel("1 год")).toBe("до 1 года");
+    expect(installmentFilterLabel("2 года")).toBe("до 2 лет");
+    expect(installmentFilterLabel("5 лет")).toBe("до 5 лет");
   });
 
   it("sees installment from either column or catalog", () => {

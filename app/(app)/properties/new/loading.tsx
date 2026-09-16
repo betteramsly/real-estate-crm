@@ -91,7 +91,8 @@ export default function NewPropertyLoading() {
             <Field label="Год сдачи" />
             <Field label="Квартал сдачи" />
             <Field label="Рассрочка до" />
-            <Field label="Материнский капитал" />
+            <Field label="Принимается мат. капитал" />
+            <Field label="Наличный расчёт" />
           </div>
         </Section>
 

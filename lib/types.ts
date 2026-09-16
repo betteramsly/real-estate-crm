@@ -121,6 +121,7 @@ export interface Property {
   completion_year: string | null;
   installment_max: string | null;
   maternity_capital: boolean | null;
+  cash_payment: boolean | null;
   has_large_apartments: boolean | null;
   relevance: 1 | 2 | 3 | null;
   catalog?: PropertyCatalog | null;

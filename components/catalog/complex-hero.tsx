@@ -48,6 +48,11 @@ export function ComplexHero({
                 Мат. капитал
               </span>
             ) : null}
+            {property.cash_payment ? (
+              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-950">
+                Наличный расчёт
+              </span>
+            ) : null}
           </div>
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white">
             {location ? (

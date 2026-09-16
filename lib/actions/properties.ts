@@ -28,6 +28,7 @@ const propertySchema = z.object({
   completion_year: z.string().nullable().optional(),
   installment_max: z.string().nullable().optional(),
   maternity_capital: z.boolean().nullable().optional(),
+  cash_payment: z.boolean().nullable().optional(),
   relevance: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional(),
 });
 
@@ -36,6 +37,12 @@ export type PropertyFormState = {
   success?: boolean;
   fieldErrors?: Record<string, string>;
 };
+
+function parseOptionalBoolean(value: FormDataEntryValue | null) {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  return null;
+}
 
 function parseJson<T>(raw: FormDataEntryValue | null, fallback: T): T {
   if (typeof raw !== "string" || !raw.trim()) return fallback;
@@ -127,12 +134,8 @@ function parseCore(formData: FormData) {
     developer: parseStringFormValue(get("developer")),
     completion_year: parseStringFormValue(get("completion_year")),
     installment_max: parseStringFormValue(get("installment_max")),
-    maternity_capital:
-      get("maternity_capital") === "true"
-        ? true
-        : get("maternity_capital") === "false"
-          ? false
-          : null,
+    maternity_capital: parseOptionalBoolean(get("maternity_capital")),
+    cash_payment: parseOptionalBoolean(get("cash_payment")),
     relevance: (() => {
       const raw = parseStringFormValue(get("relevance"));
       if (raw === "1" || raw === "2" || raw === "3") {

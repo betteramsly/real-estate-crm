@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { RelevanceStars } from "@/components/relevance-stars";
+import { installmentFilterLabel } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 
 const FILTER_KEYS = [
@@ -28,13 +29,20 @@ const FILTER_KEYS = [
   "completion_year",
   "installment",
   "maternity",
+  "cash",
   "commercial",
   "large",
   "relevance",
 ] as const;
 
-type ListKey = "city" | "district" | "developer" | "completion_year" | "relevance";
-type FlagKey = "installment" | "maternity" | "commercial" | "large";
+type ListKey =
+  | "city"
+  | "district"
+  | "developer"
+  | "completion_year"
+  | "installment"
+  | "relevance";
+type FlagKey = "maternity" | "cash" | "commercial" | "large";
 
 type FilterDraft = Record<ListKey, string[]> & Record<FlagKey, boolean>;
 
@@ -43,9 +51,10 @@ const EMPTY_DRAFT: FilterDraft = {
   district: [],
   developer: [],
   completion_year: [],
+  installment: [],
   relevance: [],
-  installment: false,
   maternity: false,
+  cash: false,
   commercial: false,
   large: false,
 };
@@ -63,9 +72,10 @@ function draftFrom(params: URLSearchParams): FilterDraft {
     district: listFrom(params, "district"),
     developer: listFrom(params, "developer"),
     completion_year: listFrom(params, "completion_year"),
+    installment: listFrom(params, "installment").filter((value) => value !== "1"),
     relevance: listFrom(params, "relevance"),
-    installment: params.get("installment") === "1",
     maternity: params.get("maternity") === "1",
+    cash: params.get("cash") === "1",
     commercial: params.get("commercial") === "1",
     large: params.get("large") === "1",
   };
@@ -123,11 +133,13 @@ function FilterOptions({
   selected,
   onToggle,
   limit = 6,
+  formatLabel = (item) => item,
 }: {
   items: string[];
   selected: string[];
   onToggle: (value: string) => void;
   limit?: number;
+  formatLabel?: (item: string) => string;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hidden = Math.max(0, items.length - limit);
@@ -141,7 +153,7 @@ function FilterOptions({
           checked={selected.includes(item)}
           onChange={() => onToggle(item)}
         >
-          {item}
+          {formatLabel(item)}
         </FilterCheck>
       ))}
       {hidden > 0 ? (
@@ -162,6 +174,7 @@ const DESKTOP_GROUPS = [
   { id: "city", title: "Город" },
   { id: "developer", title: "Застройщик" },
   { id: "completion_year", title: "Сдача" },
+  { id: "installment", title: "Рассрочка" },
   { id: "flags", title: "Условия" },
   { id: "relevance", title: "Актуальность" },
 ] as const;
@@ -170,7 +183,7 @@ type DesktopGroupId = (typeof DESKTOP_GROUPS)[number]["id"];
 
 function groupCount(draft: FilterDraft, id: DesktopGroupId) {
   if (id === "flags") {
-    return (["installment", "maternity", "commercial", "large"] as const).filter(
+    return (["maternity", "cash", "commercial", "large"] as const).filter(
       (key) => draft[key],
     ).length;
   }
@@ -178,8 +191,8 @@ function groupCount(draft: FilterDraft, id: DesktopGroupId) {
 }
 
 const FLAG_LABELS: Record<FlagKey, string> = {
-  installment: "Рассрочка",
   maternity: "Мат. капитал",
+  cash: "Наличный расчёт",
   commercial: "Коммерция",
   large: "Больше 85 м²",
 };
@@ -192,7 +205,10 @@ function selectedChips(draft: FilterDraft) {
   for (const value of draft.completion_year) {
     chips.push({ id: `completion_year:${value}`, label: value });
   }
-  (["installment", "maternity", "commercial", "large"] as const).forEach((key) => {
+  for (const value of draft.installment) {
+    chips.push({ id: `installment:${value}`, label: installmentFilterLabel(value) });
+  }
+  (["maternity", "cash", "commercial", "large"] as const).forEach((key) => {
     if (draft[key]) chips.push({ id: key, label: FLAG_LABELS[key] });
   });
   for (const value of draft.relevance) {
@@ -206,6 +222,7 @@ function DesktopFilterBoard({
   districts,
   developers,
   years,
+  installments,
   draft,
   toggleValue,
   toggleFlag,
@@ -215,6 +232,7 @@ function DesktopFilterBoard({
   districts: string[];
   developers: string[];
   years: string[];
+  installments: string[];
   draft: FilterDraft;
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
@@ -228,6 +246,7 @@ function DesktopFilterBoard({
     district: districts,
     developer: developers,
     completion_year: years,
+    installment: installments,
     relevance: [],
   };
 
@@ -292,16 +311,16 @@ function DesktopFilterBoard({
             {group === "flags" ? (
               <div className="grid max-w-xl grid-cols-2 gap-x-3">
                 <FilterCheck
-                  checked={draft.installment}
-                  onChange={() => toggleFlag("installment")}
-                >
-                  Рассрочка
-                </FilterCheck>
-                <FilterCheck
                   checked={draft.maternity}
                   onChange={() => toggleFlag("maternity")}
                 >
                   Мат. капитал
+                </FilterCheck>
+                <FilterCheck
+                  checked={draft.cash}
+                  onChange={() => toggleFlag("cash")}
+                >
+                  Наличный расчёт
                 </FilterCheck>
                 <FilterCheck
                   checked={draft.commercial}
@@ -336,7 +355,7 @@ function DesktopFilterBoard({
                     checked={draft[group].includes(item)}
                     onChange={() => toggleValue(group, item)}
                   >
-                    {item}
+                    {group === "installment" ? installmentFilterLabel(item) : item}
                   </FilterCheck>
                 ))}
               </div>
@@ -366,6 +385,7 @@ function FilterGroups({
   districts,
   developers,
   years,
+  installments,
   draft,
   toggleValue,
   toggleFlag,
@@ -374,6 +394,7 @@ function FilterGroups({
   districts: string[];
   developers: string[];
   years: string[];
+  installments: string[];
   draft: FilterDraft;
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
@@ -385,6 +406,17 @@ function FilterGroups({
     { key: "city" as const, title: "Город", items: cities.filter((item) => matchNeedle(item, query)), limit: 8 },
     { key: "developer" as const, title: "Застройщик", items: developers.filter((item) => matchNeedle(item, query)), limit: 6 },
     { key: "completion_year" as const, title: "Сдача", items: years.filter((item) => matchNeedle(item, query)), limit: 10 },
+    {
+      key: "installment" as const,
+      title: "Рассрочка",
+      items: installments.filter(
+        (item) =>
+          matchNeedle(item, query) ||
+          matchNeedle(installmentFilterLabel(item), query) ||
+          matchNeedle("рассрочка", query),
+      ),
+      limit: 10,
+    },
   ];
   const flags = (Object.entries(FLAG_LABELS) as [FlagKey, string][]).filter(([, label]) =>
     matchNeedle(label, query),
@@ -417,6 +449,9 @@ function FilterGroups({
               selected={draft[list.key]}
               onToggle={(value) => toggleValue(list.key, value)}
               limit={query ? list.items.length : list.limit}
+              formatLabel={
+                list.key === "installment" ? installmentFilterLabel : undefined
+              }
             />
           </FilterSection>
         ) : null,
@@ -459,6 +494,7 @@ export function CatalogFilters({
   districts,
   developers,
   years,
+  installments,
   pending,
   startTransition,
   onPendingIntent,
@@ -468,6 +504,7 @@ export function CatalogFilters({
   districts: string[];
   developers: string[];
   years: string[];
+  installments: string[];
   pending: boolean;
   startTransition: TransitionStartFunction;
   onPendingIntent?: (intent: "apply" | "clear" | "search") => void;
@@ -740,6 +777,7 @@ export function CatalogFilters({
                   districts={districts}
                   developers={developers}
                   years={years}
+                  installments={installments}
                   draft={draft}
                   toggleValue={toggleValue}
                   toggleFlag={toggleFlag}
@@ -762,6 +800,7 @@ export function CatalogFilters({
             districts={districts}
             developers={developers}
             years={years}
+            installments={installments}
             draft={draft}
             toggleValue={toggleValue}
             toggleFlag={toggleFlag}

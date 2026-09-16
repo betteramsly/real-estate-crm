@@ -80,6 +80,11 @@ export function CatalogCard({
                     Мат. капитал
                   </Badge>
                 ) : null}
+                {property.cash_payment ? (
+                  <Badge className="bg-background/90 text-foreground backdrop-blur">
+                    Наличный расчёт
+                  </Badge>
+                ) : null}
               </div>
             </div>
             <div className="flex shrink-0 flex-col items-end gap-1.5">

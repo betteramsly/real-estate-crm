@@ -375,7 +375,7 @@ export function PropertyForm({
           />
         </Field>
         <Field>
-          <Label>Материнский капитал</Label>
+          <Label>Принимается мат. капитал</Label>
           <Select
             name="maternity_capital"
             defaultValue={
@@ -392,8 +392,31 @@ export function PropertyForm({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="unknown">Не указано</SelectItem>
-              <SelectItem value="true">Принимают</SelectItem>
-              <SelectItem value="false">Не принимают</SelectItem>
+              <SelectItem value="true">Да</SelectItem>
+              <SelectItem value="false">Нет</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <Label>Наличный расчёт</Label>
+          <Select
+            name="cash_payment"
+            defaultValue={
+              property?.cash_payment === null ||
+              property?.cash_payment === undefined
+                ? "unknown"
+                : property.cash_payment
+                  ? "true"
+                  : "false"
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unknown">Не указано</SelectItem>
+              <SelectItem value="true">Да</SelectItem>
+              <SelectItem value="false">Нет</SelectItem>
             </SelectContent>
           </Select>
         </Field>
