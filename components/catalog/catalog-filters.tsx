@@ -1,6 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, type TransitionStartFunction } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type TransitionStartFunction,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -506,29 +512,35 @@ export function CatalogFilters({
     setQuery(params.get("q") ?? "");
   }, [params]);
 
-  const setParam = (key: string, value: string | null) => {
-    const next = new URLSearchParams(liveParams.current.toString());
-    if (!value) next.delete(key);
-    else next.set(key, value);
-    liveParams.current = next;
-    const qs = next.toString();
-    onPendingIntent?.("apply");
-    startTransition(() => {
-      router.push(`/properties${qs ? `?${qs}` : ""}`);
-    });
-  };
+  const setParam = useCallback(
+    (key: string, value: string | null) => {
+      const next = new URLSearchParams(liveParams.current.toString());
+      if (!value) next.delete(key);
+      else next.set(key, value);
+      liveParams.current = next;
+      const qs = next.toString();
+      onPendingIntent?.("apply");
+      startTransition(() => {
+        router.push(`/properties${qs ? `?${qs}` : ""}`);
+      });
+    },
+    [onPendingIntent, router, startTransition],
+  );
 
-  const applySearch = (value: string) => {
-    window.clearTimeout(searchTimer.current);
-    const next = value.trim();
-    if (next === (liveParams.current.get("q") ?? "").trim()) return;
-    setParam("q", next || null);
-  };
+  const applySearch = useCallback(
+    (value: string) => {
+      window.clearTimeout(searchTimer.current);
+      const next = value.trim();
+      if (next === (liveParams.current.get("q") ?? "").trim()) return;
+      setParam("q", next || null);
+    },
+    [setParam],
+  );
 
   useEffect(() => {
     searchTimer.current = window.setTimeout(() => applySearch(query), 300);
     return () => window.clearTimeout(searchTimer.current);
-  }, [query]);
+  }, [applySearch, query]);
 
   const toggleValue = (key: ListKey, value: string) => {
     const current = draft[key];

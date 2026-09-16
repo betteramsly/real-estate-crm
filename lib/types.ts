@@ -29,6 +29,7 @@ export interface Profile {
   full_name: string | null;
   role: UserRole;
   phone: string | null;
+  email?: string | null;
   avatar_url: string | null;
   created_at: string;
 }

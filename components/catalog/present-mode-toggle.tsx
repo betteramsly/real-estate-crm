@@ -22,6 +22,7 @@ export function PresentModeToggle({
     const next = !presentMode;
     startTransition(async () => {
       await setPresentModeAction(next);
+      router.refresh();
       if (next && (!pathname.startsWith("/properties") || pathname.startsWith("/properties/new"))) {
         router.push("/properties");
       }

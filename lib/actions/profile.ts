@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 
@@ -91,7 +92,17 @@ export async function updateProfileAction(
 }
 
 export async function setUserRoleAction(userId: string, role: UserRole) {
-  const supabase = createClient();
+  const { supabase, profile, user } = await requireProfile();
+  if (profile.role !== "admin") {
+    throw new Error("Только администратор может менять роли");
+  }
+  if (userId === user.id) {
+    throw new Error("Нельзя сменить свою роль");
+  }
+  if (role !== "admin" && role !== "agent") {
+    throw new Error("Неизвестная роль");
+  }
+
   const { error } = await supabase
     .from("profiles")
     .update({ role })
@@ -100,4 +111,48 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
   if (error) throw new Error(error.message);
 
   revalidatePath("/team");
+}
+
+const agentSchema = z.object({
+  full_name: z.string().min(2, "Минимум 2 символа"),
+  email: z.string().email("Введите корректный email"),
+  password: z.string().min(8, "Минимум 8 символов"),
+});
+
+export type CreateAgentState = {
+  error?: string;
+  success?: boolean;
+};
+
+export async function createAgentAction(
+  _prev: CreateAgentState,
+  formData: FormData,
+): Promise<CreateAgentState> {
+  const { supabase, profile } = await requireProfile();
+  if (profile.role !== "admin") {
+    return { error: "Только администратор может добавлять агентов" };
+  }
+
+  const parsed = agentSchema.safeParse({
+    full_name: formData.get("full_name"),
+    email: formData.get("email"),
+    password: formData.get("password"),
+  });
+
+  if (!parsed.success) {
+    return { error: parsed.error.errors[0]?.message ?? "Ошибка валидации" };
+  }
+
+  const { error } = await supabase.rpc("create_team_agent", {
+    agent_email: parsed.data.email,
+    agent_password: parsed.data.password,
+    agent_name: parsed.data.full_name,
+  });
+
+  if (error) {
+    return { error: error.message || "Не удалось создать агента" };
+  }
+
+  revalidatePath("/team");
+  return { success: true };
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +40,6 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
   const {
     register,
     handleSubmit,
-    setValue,
     formState: { errors },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -66,14 +64,6 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
     toast.success("Вход выполнен");
     router.push(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard");
     router.refresh();
-  };
-
-  const fillDemo = (kind: "admin" | "agent") => {
-    setValue(
-      "email",
-      kind === "admin" ? "admin@demo.local" : "agent@demo.local",
-    );
-    setValue("password", "demo1234");
   };
 
   return (
@@ -121,33 +111,9 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
             </Button>
           </form>
 
-          <div className="mt-6 space-y-3">
-            <div className="text-xs text-muted-foreground">Demo-аккаунты:</div>
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => fillDemo("admin")}
-              >
-                Admin
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => fillDemo("agent")}
-              >
-                Agent
-              </Button>
-            </div>
-            <p className="text-center text-xs text-muted-foreground">
-              Нет аккаунта?{" "}
-              <Link href="/register" className="text-primary hover:underline">
-                Регистрация
-              </Link>
-            </p>
-          </div>
+          <p className="mt-6 text-center text-xs text-muted-foreground">
+            Аккаунт создаёт администратор в разделе «Команда».
+          </p>
         </CardContent>
       </Card>
     </div>

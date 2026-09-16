@@ -4,10 +4,12 @@ import { Badge } from "@/components/ui/badge";
 import {
   Card,
   CardContent,
+  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
+import { AddAgentForm } from "./add-agent-form";
 import { RoleSelect } from "./role-select";
 import { requireProfile } from "@/lib/auth";
 import { formatDate, initials } from "@/lib/formatters";
@@ -27,49 +29,69 @@ export default async function TeamPage() {
     <>
       <PageHeader
         title="Команда"
-        description="Список сотрудников и их роли"
+        description="Создайте агента и отдайте ему email с паролем для входа"
       />
-      <Card>
-        <CardHeader>
-          <CardTitle>Пользователи</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {(profiles ?? []).map((p) => (
-              <div
-                key={p.id}
-                className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
-              >
-                <div className="flex items-center gap-3">
-                  <Avatar>
-                    {p.avatar_url ? (
-                      <AvatarImage
-                        src={p.avatar_url}
-                        alt={p.full_name ?? "Аватар"}
-                      />
-                    ) : null}
-                    <AvatarFallback>{initials(p.full_name)}</AvatarFallback>
-                  </Avatar>
-                  <div>
-                    <p className="font-medium">{p.full_name ?? "Без имени"}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {p.phone ?? ""} · в системе с {formatDate(p.created_at)}
-                    </p>
+      <div className="space-y-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Новый агент</CardTitle>
+            <CardDescription>
+              Аккаунт сразу активен. Агент не сможет менять базу ЖК — только
+              смотреть, показывать и делиться подборкой.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <AddAgentForm />
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Сотрудники</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {(profiles ?? []).map((p) => (
+                <div
+                  key={p.id}
+                  className="flex flex-col gap-3 rounded-lg border p-3 md:flex-row md:items-center md:justify-between"
+                >
+                  <div className="flex items-center gap-3">
+                    <Avatar>
+                      {p.avatar_url ? (
+                        <AvatarImage
+                          src={p.avatar_url}
+                          alt={p.full_name ?? "Аватар"}
+                        />
+                      ) : null}
+                      <AvatarFallback>{initials(p.full_name)}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                      <p className="font-medium">{p.full_name ?? "Без имени"}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {[p.email, p.phone].filter(Boolean).join(" · ")}
+                        {p.email || p.phone ? " · " : ""}
+                        в системе с {formatDate(p.created_at)}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Badge
+                      variant={p.role === "admin" ? "default" : "secondary"}
+                    >
+                      {p.role === "admin" ? "Админ" : "Агент"}
+                    </Badge>
+                    <RoleSelect
+                      userId={p.id}
+                      role={p.role}
+                      disabled={p.id === profile.id}
+                    />
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <Badge
-                    variant={p.role === "admin" ? "default" : "secondary"}
-                  >
-                    {p.role === "admin" ? "Админ" : "Агент"}
-                  </Badge>
-                  <RoleSelect userId={p.id} role={p.role} disabled={p.id === profile.id} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </>
   );
 }
