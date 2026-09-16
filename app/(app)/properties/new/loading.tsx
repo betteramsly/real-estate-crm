@@ -32,7 +32,7 @@ export default function NewPropertyLoading() {
     <>
       <Breadcrumbs
         items={[
-          { label: "Объекты", href: "/properties" },
+          { label: "База ЖК", href: "/properties" },
           { label: "Новый объект" },
         ]}
       />

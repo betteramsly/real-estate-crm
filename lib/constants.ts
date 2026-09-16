@@ -65,6 +65,12 @@ export const PROPERTY_STATUS_VARIANTS: Record<PropertyStatus, string> = {
   archived: "bg-muted text-muted-foreground",
 };
 
+export const RELEVANCE_LABELS: Record<1 | 2 | 3, string> = {
+  1: "\u2b50",
+  2: "\u2b50\u2b50",
+  3: "\u2b50\u2b50\u2b50",
+};
+
 export const DEAL_STAGE_LABELS: Record<DealStage, string> = {
   new: "Новая",
   viewing: "Показ",

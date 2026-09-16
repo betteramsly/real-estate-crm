@@ -27,7 +27,7 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { href: "/clients", label: "Клиенты", icon: Users },
-  { href: "/properties", label: "Объекты", icon: Building2 },
+  { href: "/properties", label: "База ЖК", icon: Building2 },
   { href: "/deals", label: "Сделки", icon: Handshake },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/team", label: "Команда", icon: UserCog, adminOnly: true },

@@ -41,15 +41,20 @@ export function matchPropertiesForClient(
     );
     score += 1;
 
-    if (client.budget_min !== null && property.price < client.budget_min) {
-      continue;
-    }
-    if (client.budget_max !== null && property.price > client.budget_max) {
-      continue;
-    }
-    if (client.budget_min !== null || client.budget_max !== null) {
-      reasons.push("в бюджете");
-      score += 2;
+    const hasPrice = property.price > 0;
+    if (hasPrice) {
+      if (client.budget_min !== null && property.price < client.budget_min) {
+        continue;
+      }
+      if (client.budget_max !== null && property.price > client.budget_max) {
+        continue;
+      }
+      if (client.budget_min !== null || client.budget_max !== null) {
+        reasons.push("в бюджете");
+        score += 2;
+      }
+    } else {
+      reasons.push("цена не указана");
     }
 
     result.push({ property, score, reasons });

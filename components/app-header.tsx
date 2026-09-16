@@ -20,20 +20,28 @@ import { cn } from "@/lib/utils";
 import { initials } from "@/lib/formatters";
 import type { Profile, UserRole } from "@/lib/types";
 import { usePathname } from "next/navigation";
+import { PresentModeToggle } from "@/components/catalog/present-mode-toggle";
 
 const NAV_ITEMS: { href: string; label: string; adminOnly?: boolean }[] = [
   { href: "/dashboard", label: "Дашборд" },
   { href: "/clients", label: "Клиенты" },
-  { href: "/properties", label: "Объекты" },
+  { href: "/properties", label: "База ЖК" },
   { href: "/deals", label: "Сделки" },
   { href: "/tasks", label: "Задачи" },
   { href: "/team", label: "Команда", adminOnly: true },
 ];
 
-export function AppHeader({ profile }: { profile: Profile }) {
+export function AppHeader({
+  profile,
+  presentMode = false,
+}: {
+  profile: Profile;
+  presentMode?: boolean;
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
+  const onCatalog = pathname.startsWith("/properties");
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -47,18 +55,28 @@ export function AppHeader({ profile }: { profile: Profile }) {
 
   return (
     <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="md:hidden"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="Меню"
-      >
-        <Menu className="h-4 w-4" />
-      </Button>
+      {presentMode ? null : (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="md:hidden"
+          onClick={() => setOpen((v) => !v)}
+          aria-label="Меню"
+        >
+          <Menu className="h-4 w-4" />
+        </Button>
+      )}
 
       <div className="flex flex-1 items-center gap-1 overflow-x-auto md:gap-3">
-        {open ? (
+        {presentMode ? (
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold tracking-[0.18em]">
+              MANTAEV CAPITAL
+            </p>
+            <p className="text-xs text-muted-foreground">Режим показа клиенту</p>
+          </div>
+        ) : null}
+        {open && !presentMode ? (
           <nav className="absolute left-0 right-0 top-14 flex flex-col gap-1 border-b bg-background p-3 md:hidden">
             {items.map((item) => {
               const active = pathname.startsWith(item.href);
@@ -81,6 +99,10 @@ export function AppHeader({ profile }: { profile: Profile }) {
           </nav>
         ) : null}
       </div>
+
+      {onCatalog ? (
+        <PresentModeToggle presentMode={presentMode} compact />
+      ) : null}
 
       <ThemeToggle />
 

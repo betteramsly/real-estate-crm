@@ -15,7 +15,7 @@ export default async function NewPropertyPage() {
     <>
       <Breadcrumbs
         items={[
-          { label: "Объекты", href: "/properties" },
+          { label: "База ЖК", href: "/properties" },
           { label: "Новый объект" },
         ]}
       />

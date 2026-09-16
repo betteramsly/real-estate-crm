@@ -20,6 +20,12 @@ const propertySchema = z.object({
   district: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
   cover_url: z.string().nullable().optional(),
+  developer: z.string().nullable().optional(),
+  completion_year: z.string().nullable().optional(),
+  installment_max: z.string().nullable().optional(),
+  maternity_capital: z.boolean().nullable().optional(),
+  has_large_apartments: z.boolean().nullable().optional(),
+  relevance: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional(),
   assigned_to: z.string().uuid().nullable().optional(),
 });
 
@@ -47,6 +53,28 @@ function parseFormData(formData: FormData) {
     district: str("district"),
     description: str("description"),
     cover_url: str("cover_url"),
+    developer: str("developer"),
+    completion_year: str("completion_year"),
+    installment_max: str("installment_max"),
+    maternity_capital:
+      get("maternity_capital") === "true"
+        ? true
+        : get("maternity_capital") === "false"
+          ? false
+          : null,
+    has_large_apartments:
+      get("has_large_apartments") === "true"
+        ? true
+        : get("has_large_apartments") === "false"
+          ? false
+          : null,
+    relevance: (() => {
+      const raw = str("relevance");
+      if (raw === "1" || raw === "2" || raw === "3") {
+        return Number(raw) as 1 | 2 | 3;
+      }
+      return null;
+    })(),
     assigned_to: str("assigned_to"),
   };
 }

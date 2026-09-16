@@ -50,6 +50,55 @@ export interface Client {
   updated_at: string;
 }
 
+export type CatalogDocumentKind =
+  | "plan"
+  | "price"
+  | "chess"
+  | "commercial"
+  | "map"
+  | "other";
+
+export interface CatalogFact {
+  label: string;
+  value: string;
+}
+
+export interface CatalogTermItem {
+  label: string;
+  value: string;
+}
+
+export interface CatalogTermGroup {
+  title: string;
+  items: CatalogTermItem[];
+  note?: string;
+}
+
+export interface CatalogDocument {
+  title: string;
+  url: string;
+  kind: CatalogDocumentKind;
+}
+
+export interface PropertyCatalog {
+  about?: string;
+  facts?: CatalogFact[];
+  installment?: CatalogTermGroup[];
+  commercial?: CatalogTermGroup[];
+  location?: {
+    address?: string;
+    map_url?: string;
+  };
+  documents?: CatalogDocument[];
+}
+
+export interface PropertyInternal {
+  commission?: string;
+  investor?: string;
+  stop_sales?: string;
+  notes?: string;
+}
+
 export interface Property {
   id: string;
   title: string;
@@ -64,6 +113,13 @@ export interface Property {
   district: string | null;
   description: string | null;
   cover_url: string | null;
+  developer: string | null;
+  completion_year: string | null;
+  installment_max: string | null;
+  maternity_capital: boolean | null;
+  has_large_apartments: boolean | null;
+  relevance: 1 | 2 | 3 | null;
+  catalog?: PropertyCatalog | null;
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;

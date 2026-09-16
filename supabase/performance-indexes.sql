@@ -59,3 +59,15 @@ create index if not exists properties_district_trgm_idx
 
 create index if not exists properties_description_trgm_idx
   on public.properties using gin (description gin_trgm_ops);
+
+create index if not exists properties_developer_idx
+  on public.properties(developer);
+
+create index if not exists properties_completion_year_idx
+  on public.properties(completion_year);
+
+create index if not exists properties_relevance_idx
+  on public.properties(relevance);
+
+create index if not exists properties_developer_trgm_idx
+  on public.properties using gin (developer gin_trgm_ops);

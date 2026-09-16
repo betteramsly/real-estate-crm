@@ -197,6 +197,104 @@ export function PropertyForm({
             />
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="developer">Застройщик</Label>
+            <Input
+              id="developer"
+              name="developer"
+              defaultValue={property?.developer ?? ""}
+              placeholder="Фаворит"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="completion_year">Год сдачи</Label>
+            <Input
+              id="completion_year"
+              name="completion_year"
+              defaultValue={property?.completion_year ?? ""}
+              placeholder="2027"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="installment_max">Рассрочка</Label>
+            <Input
+              id="installment_max"
+              name="installment_max"
+              defaultValue={property?.installment_max ?? ""}
+              placeholder="5 лет"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Мат. капитал</Label>
+            <Select
+              name="maternity_capital"
+              defaultValue={
+                property?.maternity_capital === null ||
+                property?.maternity_capital === undefined
+                  ? "unknown"
+                  : property.maternity_capital
+                    ? "true"
+                    : "false"
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">Не указано</SelectItem>
+                <SelectItem value="true">Да</SelectItem>
+                <SelectItem value="false">Нет</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Квартиры &gt;85 м²</Label>
+            <Select
+              name="has_large_apartments"
+              defaultValue={
+                property?.has_large_apartments === null ||
+                property?.has_large_apartments === undefined
+                  ? "unknown"
+                  : property.has_large_apartments
+                    ? "true"
+                    : "false"
+              }
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">Не указано</SelectItem>
+                <SelectItem value="true">Есть</SelectItem>
+                <SelectItem value="false">Нет</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Актуальность</Label>
+            <Select
+              name="relevance"
+              defaultValue={
+                property?.relevance ? String(property.relevance) : "unknown"
+              }
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Не указана" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="unknown">Не указана</SelectItem>
+                <SelectItem value="1">⭐</SelectItem>
+                <SelectItem value="2">⭐⭐</SelectItem>
+                <SelectItem value="3">⭐⭐⭐</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2 md:col-span-2">
             <Label htmlFor="address">Адрес</Label>
             <Input

@@ -10,6 +10,13 @@ export function formatCurrency(value: number | null | undefined): string {
   }).format(value);
 }
 
+export function formatPropertyPrice(value: number | null | undefined): string {
+  if (value === null || value === undefined || Number.isNaN(value) || value <= 0) {
+    return "Цена по запросу";
+  }
+  return formatCurrency(value);
+}
+
 export function formatNumber(value: number | null | undefined): string {
   if (value === null || value === undefined || Number.isNaN(value)) return "—";
   return new Intl.NumberFormat("ru-RU").format(value);

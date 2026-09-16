@@ -17,6 +17,13 @@ function makeProperty(overrides: Partial<Property> = {}): Property {
     district: overrides.district ?? null,
     description: overrides.description ?? null,
     cover_url: overrides.cover_url ?? null,
+    developer: overrides.developer ?? null,
+    completion_year: overrides.completion_year ?? null,
+    installment_max: overrides.installment_max ?? null,
+    maternity_capital: overrides.maternity_capital ?? null,
+    has_large_apartments: overrides.has_large_apartments ?? null,
+    relevance: overrides.relevance ?? null,
+    catalog: overrides.catalog ?? {},
     assigned_to: overrides.assigned_to ?? null,
     created_by: overrides.created_by ?? null,
     created_at: overrides.created_at ?? "2026-01-01T00:00:00Z",
@@ -97,6 +104,15 @@ describe("matchPropertiesForClient", () => {
     const result = matchPropertiesForClient(baseClient, props);
 
     expect(result.map((m) => m.property.id)).toEqual(["b", "c", "a"]);
+  });
+
+  it("не отсеивает объекты без цены по бюджету", () => {
+    const props = [makeProperty({ id: "no-price", price: 0 })];
+
+    const result = matchPropertiesForClient(baseClient, props);
+
+    expect(result.map((m) => m.property.id)).toEqual(["no-price"]);
+    expect(result[0].reasons).toContain("цена не указана");
   });
 
   it("возвращает пустой массив для типа sell без объектов с такой логикой", () => {
