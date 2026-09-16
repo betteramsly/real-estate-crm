@@ -71,7 +71,7 @@ export async function createClientAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -118,7 +118,7 @@ export async function updateClientAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from("clients")
@@ -162,7 +162,7 @@ export async function updateClientAction(
 }
 
 export async function deleteClientAction(id: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("clients").delete().eq("id", id);
   if (error) throw new Error(error.message);
   await logActivity({

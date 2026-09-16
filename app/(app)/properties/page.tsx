@@ -16,7 +16,7 @@ import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import type { Property } from "@/lib/types";
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     city?: string;
     district?: string;
@@ -27,12 +27,15 @@ interface PageProps {
     commercial?: string;
     large?: string;
     relevance?: string;
-  };
+  }>;
 }
 
-export default async function PropertiesPage({ searchParams }: PageProps) {
+export default async function PropertiesPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { supabase, profile } = await requireProfile();
-  const presentMode = isPresentCookie(cookies().get(PRESENT_COOKIE)?.value);
+  const presentMode = isPresentCookie(
+    (await cookies()).get(PRESENT_COOKIE)?.value,
+  );
   const canEdit = canManageProperties(profile.role) && !presentMode;
 
   let query = supabase

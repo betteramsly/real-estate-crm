@@ -12,13 +12,14 @@ import { PROPERTY_PUBLIC_COLUMNS } from "@/lib/catalog";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import type { Profile, Property } from "@/lib/types";
 
-export default async function PropertyPage({
-  params,
-}: {
-  params: { id: string };
+export default async function PropertyPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const { supabase, profile } = await requireProfile();
-  const presentMode = isPresentCookie(cookies().get(PRESENT_COOKIE)?.value);
+  const presentMode = isPresentCookie(
+    (await cookies()).get(PRESENT_COOKIE)?.value,
+  );
   const canEdit = canManageProperties(profile.role) && !presentMode;
 
   const { data: property } = await supabase

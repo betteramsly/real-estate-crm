@@ -66,7 +66,7 @@ export async function createDealAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -126,7 +126,7 @@ export async function updateDealAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from("deals")
@@ -192,7 +192,7 @@ export async function updateDealAction(
 }
 
 export async function moveDealStage(id: string, stage: DealStage) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from("deals")
@@ -227,7 +227,7 @@ export async function moveDealStage(id: string, stage: DealStage) {
 }
 
 export async function deleteDealAction(id: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase.from("deals").delete().eq("id", id);
   if (error) throw new Error(error.message);
   await logActivity({

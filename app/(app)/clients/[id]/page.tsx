@@ -39,11 +39,10 @@ import { matchPropertiesForClient } from "@/lib/matching";
 import { cn } from "@/lib/utils";
 import type { Client, Deal, Profile, Property, Task } from "@/lib/types";
 
-export default async function ClientPage({
-  params,
-}: {
-  params: { id: string };
+export default async function ClientPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const { supabase, profile } = await requireProfile();
 
   const { data: client } = await supabase

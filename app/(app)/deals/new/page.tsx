@@ -4,11 +4,10 @@ import { DealForm } from "../deal-form";
 import { requireProfile } from "@/lib/auth";
 import type { Client, Profile, Property } from "@/lib/types";
 
-export default async function NewDealPage({
-  searchParams,
-}: {
-  searchParams: { client_id?: string };
+export default async function NewDealPage(props: {
+  searchParams: Promise<{ client_id?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   const { supabase, profile } = await requireProfile();
 
   const [{ data: clients }, { data: properties }, { data: profiles }] =

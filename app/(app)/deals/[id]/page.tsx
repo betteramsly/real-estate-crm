@@ -18,11 +18,10 @@ import { formatCurrency, formatDate, initials } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { Client, Deal, Profile, Property } from "@/lib/types";
 
-export default async function DealPage({
-  params,
-}: {
-  params: { id: string };
+export default async function DealPage(props: {
+  params: Promise<{ id: string }>;
 }) {
+  const params = await props.params;
   const { supabase, profile } = await requireProfile();
 
   const { data: deal } = await supabase

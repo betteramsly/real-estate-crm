@@ -9,15 +9,16 @@ import { requireProfile } from "@/lib/auth";
 import type { Client, Profile } from "@/lib/types";
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     q?: string;
     status?: string;
     source?: string;
     deal_type?: string;
-  };
+  }>;
 }
 
-export default async function ClientsPage({ searchParams }: PageProps) {
+export default async function ClientsPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { supabase } = await requireProfile();
 
   let query = supabase

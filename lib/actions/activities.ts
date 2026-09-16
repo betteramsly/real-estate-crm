@@ -24,7 +24,7 @@ interface LogActivityInput {
  */
 export async function logActivity(input: LogActivityInput): Promise<void> {
   try {
-    const supabase = createClient();
+    const supabase = await createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
@@ -57,7 +57,7 @@ export async function getActivities(params: {
   propertyId?: string;
   limit?: number;
 }): Promise<ActivityWithActor[]> {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   let query = supabase
     .from("activities")

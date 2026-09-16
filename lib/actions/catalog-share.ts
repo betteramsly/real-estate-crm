@@ -138,7 +138,7 @@ export async function loadCatalogShare(
     return { ok: false, reason: "invalid" };
   }
   const { createClient } = await import("@/lib/supabase/server");
-  const supabase = createClient();
+  const supabase = await createClient();
   const { data, error } = await supabase.rpc("open_catalog_share", {
     share_token: token,
   });

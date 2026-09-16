@@ -60,7 +60,7 @@ export async function createTaskAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -117,7 +117,7 @@ export async function updateTaskAction(
     };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const { error } = await supabase
     .from("tasks")
     .update({
@@ -136,7 +136,7 @@ export async function updateTaskAction(
 }
 
 export async function setTaskStatus(id: string, status: TaskStatus) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from("tasks")
@@ -167,7 +167,7 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
 }
 
 export async function deleteTaskAction(id: string) {
-  const supabase = createClient();
+  const supabase = await createClient();
 
   const { data: existing } = await supabase
     .from("tasks")

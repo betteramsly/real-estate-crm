@@ -33,7 +33,7 @@ export async function updateProfileAction(
     return { error: parsed.error.errors[0]?.message ?? "Ошибка валидации" };
   }
 
-  const supabase = createClient();
+  const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();

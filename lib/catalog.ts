@@ -344,10 +344,19 @@ export function catalogPhotos(
   const urls: string[] = [];
   const candidates = [property.cover_url, ...(property.catalog?.photos ?? [])];
   const gallery = candidates.filter((url) => url && /\/gallery\//.test(url));
+  const coverStem = property.cover_url?.replace(
+    /\.(?:webp|jpe?g|png)(?:\?.*)?$/i,
+    "",
+  );
+  const coverIsGalleryPlaceholder = Boolean(
+    coverStem &&
+      gallery.some((url) => url?.startsWith(`${coverStem}/gallery/`)),
+  );
   const rest = candidates.filter(
     (url) =>
       url &&
       !/\/gallery\//.test(url) &&
+      !(url === property.cover_url && coverIsGalleryPlaceholder) &&
       !/\/complexes\/[0-9a-f-]{36}\.(webp|jpe?g|png)$/i.test(url),
   );
   for (const url of gallery.length ? [...gallery, ...rest] : candidates) {

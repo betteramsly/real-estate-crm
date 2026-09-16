@@ -11,7 +11,9 @@ export default async function AppLayout({
   children: React.ReactNode;
 }) {
   const { profile } = await requireProfile();
-  const presentMode = isPresentCookie(cookies().get(PRESENT_COOKIE)?.value);
+  const presentMode = isPresentCookie(
+    (await cookies()).get(PRESENT_COOKIE)?.value,
+  );
 
   return (
     <>

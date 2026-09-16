@@ -10,12 +10,12 @@ export type UnlockInternalResult =
   | { internal: PropertyInternal }
   | { error: string };
 
-function isUnlocked() {
-  return cookies().get(UNLOCK_COOKIE)?.value === "1";
+async function isUnlocked() {
+  return (await cookies()).get(UNLOCK_COOKIE)?.value === "1";
 }
 
-function setUnlocked(on: boolean) {
-  cookies().set(UNLOCK_COOKIE, on ? "1" : "0", {
+async function setUnlocked(on: boolean) {
+  (await cookies()).set(UNLOCK_COOKIE, on ? "1" : "0", {
     path: "/",
     httpOnly: true,
     sameSite: "lax",
@@ -50,7 +50,7 @@ export async function unlockPropertyInternal(
   }
 
   const result = await readInternal(propertyId);
-  if ("internal" in result) setUnlocked(true);
+  if ("internal" in result) await setUnlocked(true);
   return result;
 }
 
@@ -58,11 +58,11 @@ export async function loadUnlockedInternal(
   propertyId: string,
 ): Promise<UnlockInternalResult | { locked: true }> {
   await requireProfile();
-  if (!isUnlocked()) return { locked: true };
+  if (!(await isUnlocked())) return { locked: true };
   return readInternal(propertyId);
 }
 
 export async function hideInternalBlock() {
   await requireProfile();
-  setUnlocked(false);
+  await setUnlocked(false);
 }

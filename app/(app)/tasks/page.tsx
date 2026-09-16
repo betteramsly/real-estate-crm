@@ -9,14 +9,15 @@ import { requireProfile } from "@/lib/auth";
 import type { Client, Deal, Profile, Property, Task } from "@/lib/types";
 
 interface PageProps {
-  searchParams: {
+  searchParams: Promise<{
     status?: string;
     priority?: string;
     scope?: string;
-  };
+  }>;
 }
 
-export default async function TasksPage({ searchParams }: PageProps) {
+export default async function TasksPage(props: PageProps) {
+  const searchParams = await props.searchParams;
   const { supabase, user } = await requireProfile();
 
   let query = supabase

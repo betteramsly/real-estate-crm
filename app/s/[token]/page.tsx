@@ -5,11 +5,10 @@ import { EmptyState } from "@/components/ui/empty-state";
 import { loadCatalogShare } from "@/lib/actions/catalog-share";
 import { complexCountLabel, shareInvalidCopy } from "@/lib/catalog-share";
 
-export default async function SharePage({
-  params,
-}: {
-  params: { token: string };
+export default async function SharePage(props: {
+  params: Promise<{ token: string }>;
 }) {
+  const params = await props.params;
   const share = await loadCatalogShare(params.token);
 
   if (!share.ok) {

@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s", "/api/photo-download"];
+const PUBLIC_WITHOUT_SESSION = ["/auth", "/s", "/api/photo-download"];
 
 const PRESENT_BLOCKED = [
   "/dashboard",
@@ -25,6 +26,19 @@ function isPresentBlocked(path: string) {
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
+  const path = request.nextUrl.pathname;
+
+  // Public callbacks, shared catalogues and photo downloads never need a
+  // session refresh. Avoiding the remote auth lookup keeps them fast and
+  // prevents public traffic from consuming Supabase and function resources.
+  if (
+    PUBLIC_WITHOUT_SESSION.some(
+      (publicPath) =>
+        path === publicPath || path.startsWith(`${publicPath}/`),
+    )
+  ) {
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -56,7 +70,6 @@ export async function updateSession(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const path = request.nextUrl.pathname;
   const isPublic = isPublicPath(path);
 
   if (!user && !isPublic) {

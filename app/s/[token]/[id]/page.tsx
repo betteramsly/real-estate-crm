@@ -6,11 +6,10 @@ import { ShareChrome } from "@/components/share/share-chrome";
 import { loadCatalogShare } from "@/lib/actions/catalog-share";
 import { isShareId, shareInvalidCopy, sharePath } from "@/lib/catalog-share";
 
-export default async function SharePropertyPage({
-  params,
-}: {
-  params: { token: string; id: string };
+export default async function SharePropertyPage(props: {
+  params: Promise<{ token: string; id: string }>;
 }) {
+  const params = await props.params;
   const share = await loadCatalogShare(params.token);
 
   if (!share.ok) {

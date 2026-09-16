@@ -152,7 +152,7 @@ function parseInternal(formData: FormData): PropertyInternal {
 }
 
 async function uploadFiles(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   propertyId: string,
   folder: string,
   files: File[],
@@ -177,7 +177,7 @@ async function uploadFiles(
 }
 
 async function collectMedia(
-  supabase: ReturnType<typeof createClient>,
+  supabase: Awaited<ReturnType<typeof createClient>>,
   propertyId: string,
   formData: FormData,
 ) {

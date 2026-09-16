@@ -6,10 +6,9 @@ export const metadata: Metadata = {
   description: null,
 };
 
-export default function LoginPage({
-  searchParams,
-}: {
-  searchParams: { redirectTo?: string; error?: string };
+export default async function LoginPage(props: {
+  searchParams: Promise<{ redirectTo?: string; error?: string }>;
 }) {
+  const searchParams = await props.searchParams;
   return <LoginForm redirectTo={searchParams.redirectTo} error={searchParams.error} />;
 }
