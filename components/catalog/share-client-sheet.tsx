@@ -102,17 +102,25 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
         variant={items.length ? "default" : "outline"}
         size={compact ? "sm" : "default"}
         onClick={() => setOpen(true)}
+        aria-label="Ссылка клиенту"
+        className={cn(compact && "relative max-md:h-9 max-md:w-9 max-md:px-0")}
       >
         <Share2 className="h-4 w-4" />
-        Клиенту
+        <span className={cn(compact && "max-md:sr-only")}>Клиенту</span>
         <span
           className={cn(
             "inline-flex min-w-5 justify-center text-xs tabular-nums",
+            compact && "max-md:sr-only",
             items.length ? "" : "invisible",
           )}
         >
           {items.length || 0}
         </span>
+        {compact && items.length ? (
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-primary px-1 text-[10px] text-primary-foreground md:hidden">
+            {items.length}
+          </span>
+        ) : null}
       </Button>
 
       <Dialog

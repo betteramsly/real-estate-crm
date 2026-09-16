@@ -29,6 +29,8 @@ export function PresentModeToggle({
     });
   };
 
+  const label = presentMode ? "Закрыть показ" : "Режим показа";
+
   return (
     <Button
       type="button"
@@ -36,14 +38,18 @@ export function PresentModeToggle({
       size={compact ? "sm" : "default"}
       onClick={toggle}
       disabled={pending}
-      className={cn(presentMode && "shadow-sm")}
+      aria-label={label}
+      className={cn(
+        presentMode && "shadow-sm",
+        compact && "max-md:h-9 max-md:w-9 max-md:px-0",
+      )}
     >
       {presentMode ? (
         <EyeOff className="h-4 w-4" />
       ) : (
         <Eye className="h-4 w-4" />
       )}
-      {presentMode ? "Закрыть показ" : "Режим показа"}
+      <span className={cn(compact && "max-md:sr-only")}>{label}</span>
     </Button>
   );
 }

@@ -38,7 +38,7 @@ export function AppChrome({
 
   return (
     <PresentationBasketProvider>
-      <div className="brand-mesh flex min-h-screen bg-background">
+      <div className="brand-mesh flex min-h-screen overflow-x-hidden bg-background">
         <HoverPrefetch />
         {presentMode ? null : open ? (
           <AppSidebar role={role} onClose={toggle} />

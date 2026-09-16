@@ -7,6 +7,7 @@ import { canManageProperties, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
+import { mergePhotoOrder } from "@/lib/photo-order";
 import type {
   CatalogDocument,
   CatalogDocumentKind,
@@ -181,23 +182,23 @@ async function collectMedia(
   propertyId: string,
   formData: FormData,
 ) {
-  const photos = [
-    ...parseJson<string[]>(formData.get("photos_json"), []),
-    ...(await uploadFiles(supabase, propertyId, "gallery", filesOf(formData, "photo_files"))),
-  ];
-  const locationPhotos = [
-    ...parseJson<string[]>(formData.get("location_photos_json"), []),
-    ...(await uploadFiles(
+  const photos = mergePhotoOrder(
+    parseJson<string[]>(formData.get("photos_json"), []),
+    await uploadFiles(supabase, propertyId, "gallery", filesOf(formData, "photo_files")),
+  );
+  const locationPhotos = mergePhotoOrder(
+    parseJson<string[]>(formData.get("location_photos_json"), []),
+    await uploadFiles(
       supabase,
       propertyId,
       "location",
       filesOf(formData, "location_files"),
-    )),
-  ];
-  const pricePhotos = [
-    ...parseJson<string[]>(formData.get("price_photos_json"), []),
-    ...(await uploadFiles(supabase, propertyId, "price", filesOf(formData, "price_files"))),
-  ];
+    ),
+  );
+  const pricePhotos = mergePhotoOrder(
+    parseJson<string[]>(formData.get("price_photos_json"), []),
+    await uploadFiles(supabase, propertyId, "price", filesOf(formData, "price_files")),
+  );
   return { photos, locationPhotos, pricePhotos };
 }
 

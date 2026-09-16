@@ -49,6 +49,10 @@ export function AppHeader({
   const [leaving, setLeaving] = React.useState(false);
   const onCatalog = pathname.startsWith("/properties");
 
+  React.useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
   const handleSignOut = async () => {
     if (leaving) return;
     setLeaving(true);
@@ -63,7 +67,7 @@ export function AppHeader({
   return (
     <>
       {leaving ? <BrandLoaderOverlay label="Выходим" /> : null}
-      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
+      <header className="sticky top-0 z-40 flex h-14 min-w-0 items-center gap-2 border-b bg-background/80 px-4 backdrop-blur md:gap-3">
       {presentMode ? null : (
         <>
           <Button
@@ -72,6 +76,7 @@ export function AppHeader({
             className="md:hidden"
             onClick={() => setOpen((v) => !v)}
             aria-label="Меню"
+            aria-expanded={open}
           >
             <Menu className="h-4 w-4" />
           </Button>
@@ -89,41 +94,25 @@ export function AppHeader({
         </>
       )}
 
-      <div className="flex flex-1 items-center gap-1 overflow-x-auto md:gap-3">
+      <div className="flex min-w-0 flex-1 items-center gap-1 md:gap-3">
         {presentMode ? (
           <BrandLockup line className="h-5 max-w-[240px]" />
         ) : (
-          <BrandMark className={cn("h-7", sidebarOpen && "md:hidden")} />
+          <PrefetchLink
+            href="/dashboard"
+            aria-label="На дашборд"
+            className={cn(
+              "inline-flex min-w-0 items-center",
+              sidebarOpen && "md:hidden",
+            )}
+          >
+            <BrandMark className="h-7" />
+          </PrefetchLink>
         )}
-        {open && !presentMode ? (
-          <nav className="absolute left-0 right-0 top-14 flex flex-col gap-1 border-b bg-background p-3 md:hidden">
-            {items.map((item) => {
-              const active = pathname.startsWith(item.href);
-              return (
-                <PrefetchLink
-                  key={item.href}
-                  href={item.href}
-                  onClick={() => setOpen(false)}
-                  className={cn(
-                    "rounded-md px-3 py-2 text-sm",
-                    item.accent && "font-semibold",
-                    active
-                      ? item.accent
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-accent",
-                  )}
-                >
-                  {item.label}
-                </PrefetchLink>
-              );
-            })}
-          </nav>
-        ) : null}
       </div>
 
       {presentMode || onCatalog ? (
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5 md:gap-2">
           <ShareClientButton compact />
           <PresentModeToggle presentMode={presentMode} compact />
         </div>
@@ -172,6 +161,39 @@ export function AppHeader({
         </>
       )}
       </header>
+      {open && !presentMode ? (
+        <div className="fixed inset-x-0 top-14 bottom-0 z-50 md:hidden">
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/40"
+            aria-label="Закрыть меню"
+            onClick={() => setOpen(false)}
+          />
+          <nav className="relative flex flex-col gap-1 border-b bg-background p-3 shadow-sm">
+            {items.map((item) => {
+              const active = pathname.startsWith(item.href);
+              return (
+                <PrefetchLink
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setOpen(false)}
+                  className={cn(
+                    "rounded-md px-3 py-2 text-sm",
+                    item.accent && "font-semibold",
+                    active
+                      ? item.accent
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {item.label}
+                </PrefetchLink>
+              );
+            })}
+          </nav>
+        </div>
+      ) : null}
     </>
   );
 }

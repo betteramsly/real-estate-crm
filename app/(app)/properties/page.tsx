@@ -104,7 +104,6 @@ export default async function PropertiesPage(props: PageProps) {
           </h1>
           <p className="text-sm text-muted-foreground">
             {properties.length} комплексов
-            {presentMode ? " · закладка добавляет в ссылку клиенту" : ""}
           </p>
         </div>
         {canEdit ? (

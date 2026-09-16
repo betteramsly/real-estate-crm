@@ -4,8 +4,8 @@ import * as React from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Eye, Loader2, Plus, Trash2, Upload } from "lucide-react";
-import { PhotoViewer } from "@/components/catalog/photo-gallery";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { PhotoField } from "@/components/catalog/photo-field";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -157,157 +157,6 @@ function PairRows({
   );
 }
 
-function PhotoField({
-  name,
-  filesName,
-  urls,
-  label,
-  hint,
-}: {
-  name: string;
-  filesName: string;
-  urls: string[];
-  label: string;
-  hint?: string;
-}) {
-  const inputRef = React.useRef<HTMLInputElement>(null);
-  const [kept, setKept] = React.useState(urls);
-  const [incoming, setIncoming] = React.useState<
-    { key: string; url: string; file: File }[]
-  >([]);
-  const [preview, setPreview] = React.useState<number | null>(null);
-
-  const allPhotos = React.useMemo(
-    () => [...kept, ...incoming.map((item) => item.url)],
-    [incoming, kept],
-  );
-
-  React.useEffect(() => {
-    return () => incoming.forEach((item) => URL.revokeObjectURL(item.url));
-  }, [incoming]);
-
-  const syncFiles = (files: File[]) => {
-    const transfer = new DataTransfer();
-    files.forEach((file) => transfer.items.add(file));
-    if (inputRef.current) inputRef.current.files = transfer.files;
-  };
-
-  const removeIncoming = (key: string) => {
-    const next = incoming.filter((item) => item.key !== key);
-    incoming
-      .filter((item) => item.key === key)
-      .forEach((item) => URL.revokeObjectURL(item.url));
-    setIncoming(next);
-    syncFiles(next.map((item) => item.file));
-  };
-
-  return (
-    <div className="space-y-3">
-      <div className="space-y-1">
-        <Label>{label}</Label>
-        {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
-      </div>
-      <input type="hidden" name={name} value={JSON.stringify(kept)} />
-      {allPhotos.length ? (
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-          {kept.map((url, index) => (
-            <PhotoTile
-              key={url}
-              src={url}
-              onView={() => setPreview(index)}
-              onRemove={() => setKept(kept.filter((item) => item !== url))}
-            />
-          ))}
-          {incoming.map((item, index) => (
-            <PhotoTile
-              key={item.key}
-              src={item.url}
-              onView={() => setPreview(kept.length + index)}
-              onRemove={() => removeIncoming(item.key)}
-            />
-          ))}
-        </div>
-      ) : null}
-      <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center hover:bg-accent">
-        <Upload className="h-6 w-6 text-muted-foreground" />
-        <span className="text-sm font-medium">Загрузить фото с компьютера</span>
-        <span className="text-xs text-muted-foreground">
-          JPG, PNG или WEBP. Можно выбрать сразу несколько файлов.
-        </span>
-        <input
-          ref={inputRef}
-          type="file"
-          name={filesName}
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          multiple
-          className="sr-only"
-          onChange={(event) => {
-            const files = Array.from(event.target.files ?? []);
-            if (!files.length) return;
-            const added = files.map((file, index) => ({
-              key: `${file.name}-${file.size}-${index}-${Date.now()}`,
-              url: URL.createObjectURL(file),
-              file,
-            }));
-            setIncoming((current) => {
-              const next = [...current, ...added];
-              syncFiles(next.map((item) => item.file));
-              return next;
-            });
-          }}
-        />
-      </label>
-      {preview != null && allPhotos[preview] ? (
-        <PhotoViewer
-          photos={allPhotos}
-          alt={label}
-          index={preview}
-          onClose={() => setPreview(null)}
-        />
-      ) : null}
-    </div>
-  );
-}
-
-function PhotoTile({
-  src,
-  onView,
-  onRemove,
-}: {
-  src: string;
-  onView: () => void;
-  onRemove: () => void;
-}) {
-  return (
-    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border bg-muted">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt="" className="h-full w-full object-cover" />
-      <div className="absolute right-1.5 top-1.5 flex gap-1">
-        <Button
-          type="button"
-          size="icon"
-          variant="secondary"
-          className="h-8 w-8"
-          onClick={onView}
-          aria-label="Посмотреть фото"
-        >
-          <Eye className="h-3.5 w-3.5" />
-        </Button>
-        <Button
-          type="button"
-          size="icon"
-          variant="secondary"
-          className="h-8 w-8"
-          onClick={onRemove}
-          aria-label="Удалить фото"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
 export function PropertyForm({
   property,
   profiles: _profiles,
@@ -358,6 +207,7 @@ export function PropertyForm({
             filesName="photo_files"
             urls={property ? catalogPhotos(property) : []}
             label="Фото комплекса"
+            markCover
           />
         </Field>
       </FormSection>

@@ -600,17 +600,17 @@ export function CatalogFilters({
       ) : null}
       <div
         className={cn(
-          "sticky top-14 z-30 -mx-4 px-4 py-3 md:-mx-8 md:px-8",
+          "sticky top-14 z-30 -mx-4 overflow-x-hidden px-4 py-3 md:-mx-8 md:px-8",
           desktopOpen
             ? "border-b-transparent bg-transparent"
             : "border-b bg-background/95 backdrop-blur",
         )}
       >
         <div ref={desktopBar} className="relative">
-          <div className="flex h-11 items-center gap-2">
+          <div className="flex h-11 min-w-0 items-center">
             <div
               className={cn(
-                "flex min-w-0 flex-1 items-center rounded-full border bg-background/80 pr-1 shadow-sm",
+                "flex min-w-0 w-full items-center rounded-full border bg-background/80 pr-1 shadow-sm",
                 desktopOpen
                   ? "border-white/10 bg-popover"
                   : "border-input",
@@ -622,7 +622,7 @@ export function CatalogFilters({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="ЖК, застройщик, район..."
-                  className="h-11 rounded-full border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0"
+                  className="h-11 min-w-0 rounded-full border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0"
                   onKeyDown={(event) => {
                     if (event.key === "Enter") applySearch(query);
                   }}
@@ -641,30 +641,30 @@ export function CatalogFilters({
               <Button
                 type="button"
                 variant={facetCount ? "default" : "ghost"}
-                className="h-9 min-w-[7.5rem] shrink-0 rounded-full md:hidden"
+                className="h-9 shrink-0 rounded-full px-3 md:hidden"
                 onClick={() => setMobileOpen(true)}
               >
                 {filterTrigger}
               </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className={cn(
+                  "h-9 w-9 shrink-0 rounded-full",
+                  !hasFilters && "invisible",
+                )}
+                disabled={!hasFilters}
+                onClick={reset}
+                aria-label="Сбросить фильтры"
+              >
+                {pending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <X className="h-4 w-4" />
+                )}
+              </Button>
             </div>
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "h-11 w-11 shrink-0 rounded-full",
-                !hasFilters && "invisible",
-              )}
-              disabled={!hasFilters}
-              onClick={reset}
-              aria-label="Сбросить фильтры"
-            >
-              {pending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <X className="h-4 w-4" />
-              )}
-            </Button>
           </div>
           {desktopOpen ? (
             <div className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-40 hidden overflow-hidden rounded-3xl border border-white/10 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:block">
