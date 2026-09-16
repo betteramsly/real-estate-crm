@@ -94,7 +94,7 @@ export function InternalLock({
   }, [presentMode, propertyId]);
 
   return (
-    <section className="rounded-2xl border border-dashed bg-card p-5">
+    <section className="flex h-full flex-col rounded-2xl border border-dashed bg-card p-5">
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="inline-flex items-center gap-2">
           {internal ? (

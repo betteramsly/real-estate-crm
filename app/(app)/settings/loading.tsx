@@ -13,7 +13,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export default function SettingsLoading() {
   return (
     <>
-      <PageHeader title="Настройки" description="Профиль и данные аккаунта" />
+      <PageHeader title="Профиль" description="Данные аккаунта" />
       <Card className="max-w-2xl">
         <CardHeader>
           <CardTitle>Профиль</CardTitle>

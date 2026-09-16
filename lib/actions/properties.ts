@@ -3,30 +3,31 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { canManageProperties, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
+import type {
+  CatalogDocument,
+  CatalogDocumentKind,
+  CatalogFact,
+  CatalogTermItem,
+  PropertyCatalog,
+  PropertyInternal,
+} from "@/lib/types";
 
 const propertySchema = z.object({
   title: z.string().min(2, "Минимум 2 символа"),
-  property_type: z.enum(["apartment", "house", "commercial", "land"]),
-  listing_type: z.enum(["sale", "rent"]),
-  status: z.enum(["active", "reserved", "sold", "archived"]),
-  price: z.number().min(0, "Цена не может быть отрицательной"),
-  area: z.number().nullable().optional(),
-  rooms: z.number().int().nullable().optional(),
+  rooms: z.number().int().min(1).max(4).nullable().optional(),
   address: z.string().nullable().optional(),
   city: z.string().nullable().optional(),
   district: z.string().nullable().optional(),
   description: z.string().nullable().optional(),
-  cover_url: z.string().nullable().optional(),
   developer: z.string().nullable().optional(),
   completion_year: z.string().nullable().optional(),
   installment_max: z.string().nullable().optional(),
   maternity_capital: z.boolean().nullable().optional(),
-  has_large_apartments: z.boolean().nullable().optional(),
   relevance: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional(),
-  assigned_to: z.string().uuid().nullable().optional(),
 });
 
 export type PropertyFormState = {
@@ -35,87 +36,229 @@ export type PropertyFormState = {
   fieldErrors?: Record<string, string>;
 };
 
-function parseFormData(formData: FormData) {
-  const get = (k: string) => formData.get(k);
-  const num = (k: string) => parseNumericFormValue(get(k));
-  const str = (k: string) => parseStringFormValue(get(k));
+function parseJson<T>(raw: FormDataEntryValue | null, fallback: T): T {
+  if (typeof raw !== "string" || !raw.trim()) return fallback;
+  try {
+    return JSON.parse(raw) as T;
+  } catch {
+    return fallback;
+  }
+}
+
+function cleanPairs(items: CatalogFact[] | CatalogTermItem[]) {
+  return items.filter((item) => item.label.trim() || item.value.trim());
+}
+
+function filesOf(formData: FormData, name: string) {
+  return formData
+    .getAll(name)
+    .filter((value): value is File => value instanceof File && value.size > 0);
+}
+
+function buildCatalog(formData: FormData, extras: {
+  photos: string[];
+  pricePhotos: string[];
+  locationPhotos: string[];
+}): PropertyCatalog {
+  const facts = cleanPairs(parseJson<CatalogFact[]>(formData.get("facts_json"), []));
+  const installmentItems = cleanPairs(
+    parseJson<CatalogTermItem[]>(formData.get("installment_json"), []),
+  );
+  const commercialItems = cleanPairs(
+    parseJson<CatalogTermItem[]>(formData.get("commercial_json"), []),
+  );
+  const documents = parseJson<CatalogDocument[]>(formData.get("documents_json"), [])
+    .filter((doc) => doc.url.trim())
+    .map((doc) => ({
+      title: doc.title.trim() || "Документ",
+      url: doc.url.trim(),
+      kind: (doc.kind ?? "other") as CatalogDocumentKind,
+    }));
+  const about = parseStringFormValue(formData.get("about"));
+  const mapUrl = parseStringFormValue(formData.get("map_url"));
+  const address = parseStringFormValue(formData.get("address"));
+  const installmentNote = parseStringFormValue(formData.get("installment_note"));
+  const commercialNote = parseStringFormValue(formData.get("commercial_note"));
 
   return {
+    about: about ?? undefined,
+    facts: facts.length ? facts : undefined,
+    installment:
+      installmentItems.length || installmentNote
+        ? [
+            {
+              title: "Рассрочка",
+              items: installmentItems,
+              note: installmentNote ?? undefined,
+            },
+          ]
+        : undefined,
+    commercial:
+      commercialItems.length || commercialNote
+        ? [
+            {
+              title: "Коммерция",
+              items: commercialItems,
+              note: commercialNote ?? undefined,
+            },
+          ]
+        : undefined,
+    documents: documents.length ? documents : undefined,
+    photos: extras.photos,
+    price_photos: extras.pricePhotos,
+    location: {
+      address: address ?? undefined,
+      map_url: mapUrl ?? undefined,
+      photos: extras.locationPhotos,
+    },
+  };
+}
+
+function parseCore(formData: FormData) {
+  const get = (key: string) => formData.get(key);
+  return {
     title: (get("title") as string) ?? "",
-    property_type: (get("property_type") as string) ?? "apartment",
-    listing_type: (get("listing_type") as string) ?? "sale",
-    status: (get("status") as string) ?? "active",
-    price: num("price") ?? 0,
-    area: num("area"),
-    rooms: num("rooms"),
-    address: str("address"),
-    city: str("city"),
-    district: str("district"),
-    description: str("description"),
-    cover_url: str("cover_url"),
-    developer: str("developer"),
-    completion_year: str("completion_year"),
-    installment_max: str("installment_max"),
+    rooms: parseNumericFormValue(get("rooms")),
+    address: parseStringFormValue(get("address")),
+    city: parseStringFormValue(get("city")),
+    district: parseStringFormValue(get("district")),
+    description: parseStringFormValue(get("about")),
+    developer: parseStringFormValue(get("developer")),
+    completion_year: parseStringFormValue(get("completion_year")),
+    installment_max: parseStringFormValue(get("installment_max")),
     maternity_capital:
       get("maternity_capital") === "true"
         ? true
         : get("maternity_capital") === "false"
           ? false
           : null,
-    has_large_apartments:
-      get("has_large_apartments") === "true"
-        ? true
-        : get("has_large_apartments") === "false"
-          ? false
-          : null,
     relevance: (() => {
-      const raw = str("relevance");
+      const raw = parseStringFormValue(get("relevance"));
       if (raw === "1" || raw === "2" || raw === "3") {
         return Number(raw) as 1 | 2 | 3;
       }
       return null;
     })(),
-    assigned_to: str("assigned_to"),
   };
+}
+
+function parseInternal(formData: FormData): PropertyInternal {
+  return {
+    commission: parseStringFormValue(formData.get("commission")) ?? undefined,
+    investor: parseStringFormValue(formData.get("investor")) ?? undefined,
+    stop_sales: parseStringFormValue(formData.get("stop_sales")) ?? undefined,
+    notes: parseStringFormValue(formData.get("notes")) ?? undefined,
+  };
+}
+
+async function uploadFiles(
+  supabase: ReturnType<typeof createClient>,
+  propertyId: string,
+  folder: string,
+  files: File[],
+) {
+  const urls: string[] = [];
+  for (const [index, file] of files.entries()) {
+    const ext = file.type.includes("png")
+      ? "png"
+      : file.type.includes("webp")
+        ? "webp"
+        : "jpg";
+    const path = `${propertyId}/${folder}/${Date.now()}-${index}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { error } = await supabase.storage
+      .from("complexes")
+      .upload(path, buffer, { contentType: file.type || "image/jpeg", upsert: true });
+    if (error) continue;
+    const { data } = supabase.storage.from("complexes").getPublicUrl(path);
+    urls.push(data.publicUrl);
+  }
+  return urls;
+}
+
+async function collectMedia(
+  supabase: ReturnType<typeof createClient>,
+  propertyId: string,
+  formData: FormData,
+) {
+  const photos = [
+    ...parseJson<string[]>(formData.get("photos_json"), []),
+    ...(await uploadFiles(supabase, propertyId, "gallery", filesOf(formData, "photo_files"))),
+  ];
+  const locationPhotos = [
+    ...parseJson<string[]>(formData.get("location_photos_json"), []),
+    ...(await uploadFiles(
+      supabase,
+      propertyId,
+      "location",
+      filesOf(formData, "location_files"),
+    )),
+  ];
+  const pricePhotos = [
+    ...parseJson<string[]>(formData.get("price_photos_json"), []),
+    ...(await uploadFiles(supabase, propertyId, "price", filesOf(formData, "price_files"))),
+  ];
+  return { photos, locationPhotos, pricePhotos };
+}
+
+async function requirePropertyManager() {
+  const ctx = await requireProfile();
+  if (!canManageProperties(ctx.profile.role)) {
+    return { ...ctx, allowed: false as const };
+  }
+  return { ...ctx, allowed: true as const };
 }
 
 export async function createPropertyAction(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
-  const parsed = propertySchema.safeParse(parseFormData(formData));
+  const parsed = propertySchema.safeParse(parseCore(formData));
   if (!parsed.success) {
     return {
       error: "Проверьте поля формы",
       fieldErrors: Object.fromEntries(
-        parsed.error.errors.map((e) => [e.path.join("."), e.message]),
+        parsed.error.errors.map((error) => [error.path.join("."), error.message]),
       ),
     };
   }
 
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
+  const { supabase, user, allowed } = await requirePropertyManager();
+  if (!allowed) return { error: "Недостаточно прав" };
 
   const { data: created, error } = await supabase
     .from("properties")
     .insert({
       ...parsed.data,
-      assigned_to: parsed.data.assigned_to ?? user.id,
+      property_type: "apartment",
+      listing_type: "sale",
+      status: "active",
+      price: 0,
+      assigned_to: user.id,
       created_by: user.id,
+      catalog: {},
+      internal: parseInternal(formData),
     })
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error || !created) return { error: error?.message ?? "Не удалось создать" };
+
+  const media = await collectMedia(supabase, created.id, formData);
+  const catalog = buildCatalog(formData, media);
+  await supabase
+    .from("properties")
+    .update({
+      catalog,
+      cover_url: media.photos[0] ?? null,
+    })
+    .eq("id", created.id);
 
   await logActivity({
     entityType: "property",
     entityId: created.id,
     type: "created",
-    payload: { title: parsed.data.title, price: parsed.data.price },
+    payload: { title: parsed.data.title },
     propertyId: created.id,
   });
 
@@ -128,62 +271,41 @@ export async function updatePropertyAction(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
-  const parsed = propertySchema.safeParse(parseFormData(formData));
+  const parsed = propertySchema.safeParse(parseCore(formData));
   if (!parsed.success) {
     return {
       error: "Проверьте поля формы",
       fieldErrors: Object.fromEntries(
-        parsed.error.errors.map((e) => [e.path.join("."), e.message]),
+        parsed.error.errors.map((error) => [error.path.join("."), error.message]),
       ),
     };
   }
 
-  const supabase = createClient();
+  const { supabase, allowed } = await requirePropertyManager();
+  if (!allowed) return { error: "Недостаточно прав" };
 
-  const { data: existing } = await supabase
-    .from("properties")
-    .select("status, price, title")
-    .eq("id", id)
-    .single();
+  const media = await collectMedia(supabase, id, formData);
+  const catalog = buildCatalog(formData, media);
 
   const { error } = await supabase
     .from("properties")
-    .update(parsed.data)
+    .update({
+      ...parsed.data,
+      catalog,
+      cover_url: media.photos[0] ?? null,
+      internal: parseInternal(formData),
+    })
     .eq("id", id);
 
   if (error) return { error: error.message };
 
-  if (existing) {
-    if (existing.status !== parsed.data.status) {
-      await logActivity({
-        entityType: "property",
-        entityId: id,
-        type: "status_changed",
-        payload: { from: existing.status, to: parsed.data.status },
-        propertyId: id,
-      });
-    } else if (
-      existing.price !== parsed.data.price ||
-      existing.title !== parsed.data.title
-    ) {
-      await logActivity({
-        entityType: "property",
-        entityId: id,
-        type: "updated",
-        payload: {
-          changes: {
-            ...(existing.price !== parsed.data.price
-              ? { price: { from: existing.price, to: parsed.data.price } }
-              : {}),
-            ...(existing.title !== parsed.data.title
-              ? { title: { from: existing.title, to: parsed.data.title } }
-              : {}),
-          },
-        },
-        propertyId: id,
-      });
-    }
-  }
+  await logActivity({
+    entityType: "property",
+    entityId: id,
+    type: "updated",
+    payload: { title: parsed.data.title },
+    propertyId: id,
+  });
 
   revalidatePath("/properties");
   revalidatePath(`/properties/${id}`);
@@ -191,7 +313,8 @@ export async function updatePropertyAction(
 }
 
 export async function deletePropertyAction(id: string) {
-  const supabase = createClient();
+  const { supabase, allowed } = await requirePropertyManager();
+  if (!allowed) redirect("/properties");
   const { error } = await supabase.from("properties").delete().eq("id", id);
   if (error) throw new Error(error.message);
   await logActivity({

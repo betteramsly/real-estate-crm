@@ -88,8 +88,11 @@ export interface PropertyCatalog {
   location?: {
     address?: string;
     map_url?: string;
+    photos?: string[];
   };
   documents?: CatalogDocument[];
+  photos?: string[];
+  price_photos?: string[];
 }
 
 export interface PropertyInternal {
@@ -120,6 +123,7 @@ export interface Property {
   has_large_apartments: boolean | null;
   relevance: 1 | 2 | 3 | null;
   catalog?: PropertyCatalog | null;
+  internal?: PropertyInternal | null;
   assigned_to: string | null;
   created_by: string | null;
   created_at: string;
@@ -206,3 +210,21 @@ export interface Activity {
 export interface ActivityWithActor extends Activity {
   actor?: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
 }
+
+export interface CatalogShare {
+  id: string;
+  token: string;
+  created_by: string;
+  title: string | null;
+  property_ids: string[];
+  expires_at: string;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export type PresentationBasketItem = {
+  id: string;
+  title: string;
+  developer: string | null;
+  cover_url: string | null;
+};

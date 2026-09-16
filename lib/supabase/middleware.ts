@@ -1,7 +1,27 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register", "/auth"];
+const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s"];
+
+const PRESENT_BLOCKED = [
+  "/dashboard",
+  "/clients",
+  "/deals",
+  "/tasks",
+  "/team",
+  "/settings",
+];
+
+function isPublicPath(path: string) {
+  return PUBLIC_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+function isPresentBlocked(path: string) {
+  if (path === "/properties/new" || path.startsWith("/properties/new/")) {
+    return true;
+  }
+  return PRESENT_BLOCKED.some((p) => path === p || path.startsWith(`${p}/`));
+}
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -37,7 +57,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const isPublic = PUBLIC_PATHS.some((p) => path.startsWith(p));
+  const isPublic = isPublicPath(path);
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();
@@ -50,6 +70,14 @@ export async function updateSession(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/dashboard";
     url.searchParams.delete("redirectTo");
+    return NextResponse.redirect(url);
+  }
+
+  const presentMode = request.cookies.get("catalog_present")?.value === "1";
+  if (user && presentMode && isPresentBlocked(path)) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/properties";
+    url.search = "";
     return NextResponse.redirect(url);
   }
 

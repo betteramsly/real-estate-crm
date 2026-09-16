@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
+import { PrefetchLink } from "@/components/prefetch-link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
@@ -9,11 +9,12 @@ import {
   Handshake,
   LayoutDashboard,
   Users,
-  Settings,
   UserCog,
-  Home,
   Loader2,
+  PanelLeftClose,
 } from "lucide-react";
+import { BrandLockup } from "@/components/brand-mark";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { UserRole } from "@/lib/types";
 
@@ -27,41 +28,49 @@ interface NavItem {
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
   { href: "/clients", label: "Клиенты", icon: Users },
-  { href: "/properties", label: "База ЖК", icon: Building2 },
   { href: "/deals", label: "Сделки", icon: Handshake },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
   { href: "/team", label: "Команда", icon: UserCog, adminOnly: true },
-  { href: "/settings", label: "Настройки", icon: Settings },
 ];
 
-export function AppSidebar({ role }: { role: UserRole }) {
+export function AppSidebar({
+  role,
+  onClose,
+}: {
+  role: UserRole;
+  onClose: () => void;
+}) {
   const pathname = usePathname();
   const [clickedHref, setClickedHref] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!clickedHref) return;
-
     const navigationFinished =
       pathname === clickedHref ||
       (clickedHref !== "/dashboard" && pathname.startsWith(clickedHref));
-
-    if (navigationFinished) {
-      setClickedHref(null);
-    }
+    if (navigationFinished) setClickedHref(null);
   }, [clickedHref, pathname]);
 
   const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === "admin");
+  const catalogActive =
+    pathname === "/properties" || pathname.startsWith("/properties/");
 
   return (
-    <aside className="hidden border-r bg-card/40 md:flex md:w-60 md:flex-col">
-      <div className="flex h-14 items-center gap-2 border-b px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-          <Home className="h-4 w-4" />
-        </div>
-        <div className="flex flex-col leading-tight">
-          <span className="text-sm font-semibold">Real Estate</span>
-          <span className="text-xs text-muted-foreground">CRM</span>
-        </div>
+    <aside className="sticky top-0 hidden h-screen border-r bg-card/60 md:flex md:w-60 md:flex-col">
+      <div className="flex h-14 items-center justify-between gap-2 border-b px-3">
+        <PrefetchLink href="/dashboard" className="min-w-0">
+          <BrandLockup compact className="h-9 max-w-[160px]" />
+        </PrefetchLink>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={onClose}
+          aria-label="Закрыть панель"
+        >
+          <PanelLeftClose className="h-4 w-4" />
+        </Button>
       </div>
       <nav className="flex-1 space-y-1 p-3">
         {items.map((item) => {
@@ -72,13 +81,11 @@ export function AppSidebar({ role }: { role: UserRole }) {
           const clicked = clickedHref === item.href;
 
           return (
-            <Link
+            <PrefetchLink
               key={item.href}
               href={item.href}
               onClick={() => {
-                if (!active) {
-                  setClickedHref(item.href);
-                }
+                if (!active) setClickedHref(item.href);
               }}
               className={cn(
                 "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -96,12 +103,31 @@ export function AppSidebar({ role }: { role: UserRole }) {
               {clicked ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : null}
-            </Link>
+            </PrefetchLink>
           );
         })}
       </nav>
-      <div className="border-t p-3 text-xs text-muted-foreground">
-        <p>v0.1 MVP</p>
+      <div className="p-3">
+        <PrefetchLink
+          href="/properties"
+          onClick={() => {
+            if (!catalogActive) setClickedHref("/properties");
+          }}
+          className={cn(
+            "flex items-center justify-between gap-3 rounded-full px-3 py-3 text-sm font-semibold shadow-sm transition-all",
+            catalogActive
+              ? "bg-primary text-primary-foreground"
+              : "bg-primary/15 text-primary ring-1 ring-primary/25 hover:bg-primary/20",
+          )}
+        >
+          <span className="flex items-center gap-3">
+            <Building2 className="h-5 w-5" />
+            База ЖК
+          </span>
+          {clickedHref === "/properties" ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : null}
+        </PrefetchLink>
       </div>
     </aside>
   );

@@ -4,77 +4,89 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 222.2 84% 4.9%;
+    /* Light: paper + Black Russian contrast, gold as accent */
+    --background: 48 36% 94.5%;
+    --foreground: 227 22% 8%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
+    --card: 48 40% 98%;
+    --card-foreground: 227 22% 8%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
+    --popover: 48 40% 98%;
+    --popover-foreground: 227 22% 8%;
 
-    --primary: 221.2 83.2% 53.3%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 227 22% 8%;
+    --primary-foreground: 48 36% 94.5%;
 
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 202 21% 92.5%;
+    --secondary-foreground: 227 22% 8%;
 
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
+    --muted: 202 18% 91%;
+    --muted-foreground: 204 10% 38%;
 
-    --accent: 210 40% 96.1%;
-    --accent-foreground: 222.2 47.4% 11.2%;
+    --accent: 202 16% 88%;
+    --accent-foreground: 227 22% 8%;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 72% 48%;
+    --destructive-foreground: 48 36% 96%;
 
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221.2 83.2% 53.3%;
+    --border: 204 12% 80%;
+    --input: 204 12% 80%;
+    --ring: 46 76% 52%;
 
-    --radius: 0.6rem;
+    --gold: 46 76% 74%;
+    --gold-foreground: 227 22% 8%;
+    --grey: 202 14% 69%;
+    --russian: 227 22% 8%;
 
-    --chart-1: 221.2 83.2% 53.3%;
-    --chart-2: 142.1 70.6% 45.3%;
-    --chart-3: 47.9 95.8% 53.1%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 12 76% 61%;
+    --radius: 0.75rem;
+
+    --chart-1: 46 76% 52%;
+    --chart-2: 202 14% 46%;
+    --chart-3: 227 16% 22%;
+    --chart-4: 46 40% 42%;
+    --chart-5: 204 10% 32%;
   }
 
   .dark {
-    --background: 222 47% 11%;
-    --foreground: 210 40% 96%;
+    /* Dark: Black Russian 60 / Intercoastal Grey 30 / Natural Yellow 10 */
+    --background: 227 22% 8%;
+    --foreground: 48 36% 94.5%;
 
-    --card: 222 47% 13%;
-    --card-foreground: 210 40% 96%;
+    --card: 227 18% 10%;
+    --card-foreground: 48 36% 94.5%;
 
-    --popover: 222 47% 13%;
-    --popover-foreground: 210 40% 96%;
+    --popover: 222 17% 12%;
+    --popover-foreground: 48 36% 94.5%;
 
-    --primary: 213 94% 68%;
-    --primary-foreground: 222 47% 11%;
+    --primary: 46 76% 74%;
+    --primary-foreground: 227 22% 8%;
 
-    --secondary: 217 33% 20%;
-    --secondary-foreground: 210 40% 96%;
+    --secondary: 222 16% 14%;
+    --secondary-foreground: 48 36% 94.5%;
 
-    --muted: 217 33% 20%;
-    --muted-foreground: 215 20% 74%;
+    --muted: 222 16% 14%;
+    --muted-foreground: 202 14% 69%;
 
-    --accent: 217 33% 22%;
-    --accent-foreground: 210 40% 96%;
+    --accent: 222 14% 16%;
+    --accent-foreground: 48 36% 94.5%;
 
-    --destructive: 0 72% 58%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 0 62% 48%;
+    --destructive-foreground: 48 36% 96%;
 
-    --border: 217 27% 25%;
-    --input: 217 27% 25%;
-    --ring: 213 94% 68%;
+    --border: 214 14% 19%;
+    --input: 214 14% 19%;
+    --ring: 46 76% 74%;
 
-    --chart-1: 213 94% 68%;
-    --chart-2: 142.1 70.6% 45.3%;
-    --chart-3: 47.9 95.8% 53.1%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 12 76% 61%;
+    --gold: 46 76% 74%;
+    --gold-foreground: 227 22% 8%;
+    --grey: 202 14% 69%;
+    --russian: 227 22% 8%;
+
+    --chart-1: 46 76% 74%;
+    --chart-2: 202 14% 69%;
+    --chart-3: 48 36% 86%;
+    --chart-4: 46 40% 52%;
+    --chart-5: 222 12% 28%;
   }
 }
 
@@ -85,14 +97,33 @@
 
   html,
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground antialiased;
     font-feature-settings:
       "rlig" 1,
       "calt" 1;
   }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-family: var(--font-display), var(--font-sans), sans-serif;
+    letter-spacing: -0.02em;
+  }
 }
 
 @layer utilities {
+  .brand-mesh {
+    background-color: hsl(var(--background));
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0,
+      transparent 13px,
+      hsl(var(--foreground) / 0.035) 13px,
+      hsl(var(--foreground) / 0.035) 14px
+    );
+  }
+
   .scrollbar-thin {
     scrollbar-width: thin;
   }

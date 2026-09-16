@@ -36,7 +36,7 @@ const TYPE_META: Record<
   { icon: React.ComponentType<{ className?: string }>; color: string }
 > = {
   created: { icon: Plus, color: "bg-emerald-500/15 text-emerald-500" },
-  updated: { icon: RefreshCcw, color: "bg-sky-500/15 text-sky-500" },
+  updated: { icon: RefreshCcw, color: "bg-grey/15 text-grey" },
   deleted: { icon: Trash2, color: "bg-rose-500/15 text-rose-500" },
   stage_changed: {
     icon: ArrowRight,

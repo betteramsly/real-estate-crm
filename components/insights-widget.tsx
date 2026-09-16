@@ -13,11 +13,11 @@ const SEVERITY_STYLES: Record<
   { color: string; icon: React.ComponentType<{ className?: string }> }
 > = {
   warning: {
-    color: "bg-amber-500/15 text-amber-500",
+    color: "bg-gold/15 text-gold",
     icon: AlertTriangle,
   },
   info: {
-    color: "bg-sky-500/15 text-sky-500",
+    color: "bg-grey/15 text-grey",
     icon: Info,
   },
 };

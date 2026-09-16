@@ -1,6 +1,10 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-import type { Profile } from "@/lib/types";
+import type { Profile, UserRole } from "@/lib/types";
+
+export function canManageProperties(role: UserRole) {
+  return role === "admin";
+}
 
 export async function requireUser() {
   const supabase = createClient();

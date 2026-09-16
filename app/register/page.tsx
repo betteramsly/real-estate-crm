@@ -1,7 +1,7 @@
 import { RegisterForm } from "./register-form";
 
 export const metadata = {
-  title: "Регистрация — Real Estate CRM",
+  title: "Регистрация — MANTAEV CAPITAL",
 };
 
 export default function RegisterPage() {

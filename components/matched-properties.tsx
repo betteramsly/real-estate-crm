@@ -1,9 +1,10 @@
 import Image from "next/image";
-import { Bed, MapPin, Ruler } from "lucide-react";
+import { Calendar, MapPin, Ruler } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { LISTING_TYPE_LABELS, PROPERTY_TYPE_LABELS } from "@/lib/constants";
+import { completionLabel } from "@/lib/catalog";
 import { formatCurrency } from "@/lib/formatters";
 import type { MatchedProperty } from "@/lib/matching";
 
@@ -32,7 +33,9 @@ export function MatchedProperties({
 
   return (
     <ul className="grid gap-3 md:grid-cols-2">
-      {matches.map(({ property, reasons }) => (
+      {matches.map(({ property, reasons }) => {
+        const completion = completionLabel(property);
+        return (
         <li key={property.id}>
           <PrefetchLink
             href={`/properties/${property.id}`}
@@ -82,10 +85,10 @@ export function MatchedProperties({
                       {property.area} м²
                     </span>
                   ) : null}
-                  {property.rooms ? (
+                  {completion ? (
                     <span className="inline-flex items-center gap-1">
-                      <Bed className="h-3 w-3" />
-                      {property.rooms}
+                      <Calendar className="h-3 w-3" />
+                      {completion}
                     </span>
                   ) : null}
                   {property.city ? (
@@ -111,7 +114,8 @@ export function MatchedProperties({
             </Card>
           </PrefetchLink>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

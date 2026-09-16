@@ -67,15 +67,29 @@ export function CardsGridSkeleton({
   return (
     <div className={`grid grid-cols-1 gap-4 ${columns}`}>
       {Array.from({ length: cards }).map((_, index) => (
-        <div key={index} className="overflow-hidden rounded-xl border bg-card">
-          <Skeleton className="aspect-[16/10] w-full rounded-none" />
-          <div className="space-y-3 p-4">
-            <div className="flex justify-between gap-3">
-              <Skeleton className="h-5 w-36" />
-              <Skeleton className="h-5 w-24" />
+        <div
+          key={index}
+          className="overflow-hidden rounded-2xl border bg-card shadow-sm"
+        >
+          <div className="relative">
+            <Skeleton className="aspect-[16/10] w-full rounded-none" />
+            <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+              <div className="space-y-1.5">
+                <Skeleton className="h-5 w-28 bg-white/25" />
+                <div className="flex gap-1.5">
+                  <Skeleton className="h-5 w-16 rounded-full bg-white/20" />
+                  <Skeleton className="h-5 w-20 rounded-full bg-white/20" />
+                </div>
+              </div>
+              <Skeleton className="h-5 w-12 rounded-full bg-white/25" />
             </div>
-            <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-4 w-full" />
+          </div>
+          <div className="space-y-3 p-4">
+            <Skeleton className="h-4 w-40" />
+            <div className="flex gap-2">
+              <Skeleton className="h-6 w-28 rounded-full" />
+              <Skeleton className="h-6 w-24 rounded-full" />
+            </div>
           </div>
         </div>
       ))}

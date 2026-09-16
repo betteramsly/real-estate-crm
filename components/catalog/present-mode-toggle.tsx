@@ -1,6 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
+import { usePathname, useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { setPresentModeAction } from "@/lib/actions/present-mode";
@@ -14,10 +15,16 @@ export function PresentModeToggle({
   compact?: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const pathname = usePathname();
+  const router = useRouter();
 
   const toggle = () => {
-    startTransition(() => {
-      void setPresentModeAction(!presentMode);
+    const next = !presentMode;
+    startTransition(async () => {
+      await setPresentModeAction(next);
+      if (next && (!pathname.startsWith("/properties") || pathname.startsWith("/properties/new"))) {
+        router.push("/properties");
+      }
     });
   };
 

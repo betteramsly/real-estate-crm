@@ -4,8 +4,8 @@ import * as React from "react";
 import { useFormState, useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
-import { AmountInput } from "@/components/amount-input";
+import { Eye, Loader2, Plus, Trash2, Upload } from "lucide-react";
+import { PhotoViewer } from "@/components/catalog/photo-gallery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,40 +18,307 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent } from "@/components/ui/card";
 import {
-  LISTING_TYPE_LABELS,
-  PROPERTY_STATUS_LABELS,
-  PROPERTY_TYPE_LABELS,
-} from "@/lib/constants";
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   type PropertyFormState,
   createPropertyAction,
   updatePropertyAction,
 } from "@/lib/actions/properties";
-import type { Profile, Property, UserRole } from "@/lib/types";
-
-interface PropertyFormProps {
-  property?: Property;
-  profiles: Profile[];
-  currentRole: UserRole;
-}
+import {
+  catalogLocationPhotos,
+  catalogPhotos,
+  catalogPricePhotos,
+  getCatalog,
+} from "@/lib/catalog";
+import type {
+  CatalogDocument,
+  CatalogFact,
+  CatalogTermItem,
+  Profile,
+  Property,
+  PropertyInternal,
+  UserRole,
+} from "@/lib/types";
+import { cn } from "@/lib/utils";
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" disabled={pending}>
+    <Button type="submit" disabled={pending} className="min-w-40">
       {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
       {label}
     </Button>
   );
 }
 
+function FormSection({
+  title,
+  hint,
+  children,
+}: {
+  title: string;
+  hint?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <Card>
+      <CardHeader className="space-y-1.5 pb-4">
+        <CardTitle className="text-lg">{title}</CardTitle>
+        {hint ? <CardDescription>{hint}</CardDescription> : null}
+      </CardHeader>
+      <CardContent className="grid gap-5 md:grid-cols-2">{children}</CardContent>
+    </Card>
+  );
+}
+
+function Field({
+  className,
+  children,
+}: {
+  className?: string;
+  children: React.ReactNode;
+}) {
+  return <div className={cn("space-y-2", className)}>{children}</div>;
+}
+
+function PairRows({
+  name,
+  rows,
+  setRows,
+  labelA,
+  labelB,
+}: {
+  name: string;
+  rows: CatalogFact[] | CatalogTermItem[];
+  setRows: (rows: CatalogFact[]) => void;
+  labelA: string;
+  labelB: string;
+}) {
+  return (
+    <div className="space-y-2">
+      <input type="hidden" name={name} value={JSON.stringify(rows)} />
+      {rows.length ? (
+        <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_1fr_auto]">
+          <span>{labelA}</span>
+          <span>{labelB}</span>
+          <span className="w-9" />
+        </div>
+      ) : null}
+      {rows.map((row, index) => (
+        <div
+          key={`${name}-${index}`}
+          className="grid gap-2 md:grid-cols-[1fr_1fr_auto]"
+        >
+          <Input
+            value={row.label}
+            placeholder={labelA}
+            onChange={(event) => {
+              const next = [...rows];
+              next[index] = { ...row, label: event.target.value };
+              setRows(next);
+            }}
+          />
+          <Input
+            value={row.value}
+            placeholder={labelB}
+            onChange={(event) => {
+              const next = [...rows];
+              next[index] = { ...row, value: event.target.value };
+              setRows(next);
+            }}
+          />
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={() => setRows(rows.filter((_, item) => item !== index))}
+            aria-label="Удалить строку"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ))}
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        onClick={() => setRows([...rows, { label: "", value: "" }])}
+      >
+        <Plus className="h-4 w-4" />
+        Добавить строку
+      </Button>
+    </div>
+  );
+}
+
+function PhotoField({
+  name,
+  filesName,
+  urls,
+  label,
+  hint,
+}: {
+  name: string;
+  filesName: string;
+  urls: string[];
+  label: string;
+  hint?: string;
+}) {
+  const inputRef = React.useRef<HTMLInputElement>(null);
+  const [kept, setKept] = React.useState(urls);
+  const [incoming, setIncoming] = React.useState<
+    { key: string; url: string; file: File }[]
+  >([]);
+  const [preview, setPreview] = React.useState<number | null>(null);
+
+  const allPhotos = React.useMemo(
+    () => [...kept, ...incoming.map((item) => item.url)],
+    [incoming, kept],
+  );
+
+  React.useEffect(() => {
+    return () => incoming.forEach((item) => URL.revokeObjectURL(item.url));
+  }, [incoming]);
+
+  const syncFiles = (files: File[]) => {
+    const transfer = new DataTransfer();
+    files.forEach((file) => transfer.items.add(file));
+    if (inputRef.current) inputRef.current.files = transfer.files;
+  };
+
+  const removeIncoming = (key: string) => {
+    const next = incoming.filter((item) => item.key !== key);
+    incoming
+      .filter((item) => item.key === key)
+      .forEach((item) => URL.revokeObjectURL(item.url));
+    setIncoming(next);
+    syncFiles(next.map((item) => item.file));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="space-y-1">
+        <Label>{label}</Label>
+        {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
+      </div>
+      <input type="hidden" name={name} value={JSON.stringify(kept)} />
+      {allPhotos.length ? (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
+          {kept.map((url, index) => (
+            <PhotoTile
+              key={url}
+              src={url}
+              onView={() => setPreview(index)}
+              onRemove={() => setKept(kept.filter((item) => item !== url))}
+            />
+          ))}
+          {incoming.map((item, index) => (
+            <PhotoTile
+              key={item.key}
+              src={item.url}
+              onView={() => setPreview(kept.length + index)}
+              onRemove={() => removeIncoming(item.key)}
+            />
+          ))}
+        </div>
+      ) : null}
+      <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center hover:bg-accent">
+        <Upload className="h-6 w-6 text-muted-foreground" />
+        <span className="text-sm font-medium">Загрузить фото с компьютера</span>
+        <span className="text-xs text-muted-foreground">
+          JPG, PNG или WEBP. Можно выбрать сразу несколько файлов.
+        </span>
+        <input
+          ref={inputRef}
+          type="file"
+          name={filesName}
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          className="sr-only"
+          onChange={(event) => {
+            const files = Array.from(event.target.files ?? []);
+            if (!files.length) return;
+            const added = files.map((file, index) => ({
+              key: `${file.name}-${file.size}-${index}-${Date.now()}`,
+              url: URL.createObjectURL(file),
+              file,
+            }));
+            setIncoming((current) => {
+              const next = [...current, ...added];
+              syncFiles(next.map((item) => item.file));
+              return next;
+            });
+          }}
+        />
+      </label>
+      {preview != null && allPhotos[preview] ? (
+        <PhotoViewer
+          photos={allPhotos}
+          alt={label}
+          index={preview}
+          onClose={() => setPreview(null)}
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function PhotoTile({
+  src,
+  onView,
+  onRemove,
+}: {
+  src: string;
+  onView: () => void;
+  onRemove: () => void;
+}) {
+  return (
+    <div className="relative aspect-[4/3] overflow-hidden rounded-2xl border bg-muted">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={src} alt="" className="h-full w-full object-cover" />
+      <div className="absolute right-1.5 top-1.5 flex gap-1">
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          className="h-8 w-8"
+          onClick={onView}
+          aria-label="Посмотреть фото"
+        >
+          <Eye className="h-3.5 w-3.5" />
+        </Button>
+        <Button
+          type="button"
+          size="icon"
+          variant="secondary"
+          className="h-8 w-8"
+          onClick={onRemove}
+          aria-label="Удалить фото"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 export function PropertyForm({
   property,
-  profiles,
-  currentRole,
-}: PropertyFormProps) {
+  profiles: _profiles,
+  currentRole: _currentRole,
+  internal,
+}: {
+  property?: Property;
+  profiles: Profile[];
+  currentRole: UserRole;
+  internal?: PropertyInternal | null;
+}) {
   const router = useRouter();
   const action = property
     ? updatePropertyAction.bind(null, property.id)
@@ -59,6 +326,17 @@ export function PropertyForm({
   const [state, formAction] = useFormState<PropertyFormState, FormData>(
     action,
     {},
+  );
+  const catalog = getCatalog(property);
+  const [facts, setFacts] = React.useState<CatalogFact[]>(catalog.facts ?? []);
+  const [installmentItems, setInstallmentItems] = React.useState<
+    CatalogTermItem[]
+  >(catalog.installment?.[0]?.items ?? []);
+  const [commercialItems, setCommercialItems] = React.useState<CatalogTermItem[]>(
+    catalog.commercial?.[0]?.items ?? [],
+  );
+  const [documents, setDocuments] = React.useState<CatalogDocument[]>(
+    catalog.documents ?? [],
   );
 
   React.useEffect(() => {
@@ -69,290 +347,373 @@ export function PropertyForm({
   const fe = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="space-y-4">
-      <Card>
-        <CardContent className="grid gap-4 p-6 md:grid-cols-2">
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="title">
-              Название <RequiredMark />
-            </Label>
-            <Input
-              id="title"
-              name="title"
-              defaultValue={property?.title ?? ""}
-              required
-              placeholder="2-комн. в Сокольниках"
-            />
-            {fe.title ? (
-              <p className="text-xs text-destructive">{fe.title}</p>
-            ) : null}
-          </div>
+    <form action={formAction} className="mx-auto max-w-3xl space-y-5">
+      <FormSection
+        title="Фотографии"
+        hint="Первое фото станет обложкой в каталоге. Сюда — рендеры и готовые виды ЖК."
+      >
+        <Field className="md:col-span-2">
+          <PhotoField
+            name="photos_json"
+            filesName="photo_files"
+            urls={property ? catalogPhotos(property) : []}
+            label="Фото комплекса"
+          />
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label>Тип объекта</Label>
-            <Select
-              name="property_type"
-              defaultValue={property?.property_type ?? "apartment"}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROPERTY_TYPE_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <FormSection
+        title="Основное"
+        hint="Как комплекс называется в базе и кто его строит."
+      >
+        <Field className="md:col-span-2">
+          <Label htmlFor="title">
+            Название ЖК <RequiredMark />
+          </Label>
+          <Input
+            id="title"
+            name="title"
+            defaultValue={property?.title ?? ""}
+            required
+            placeholder="Например, Авалон"
+          />
+          {fe.title ? (
+            <p className="text-xs text-destructive">{fe.title}</p>
+          ) : null}
+        </Field>
+        <Field>
+          <Label htmlFor="developer">Застройщик</Label>
+          <Input
+            id="developer"
+            name="developer"
+            defaultValue={property?.developer ?? ""}
+            placeholder="Фаворит"
+          />
+        </Field>
+        <Field>
+          <Label>Актуальность</Label>
+          <Select
+            name="relevance"
+            defaultValue={
+              property?.relevance ? String(property.relevance) : "unknown"
+            }
+          >
+            <SelectTrigger>
+              <SelectValue placeholder="Не указана" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unknown">Не указана</SelectItem>
+              <SelectItem value="1">1 звезда</SelectItem>
+              <SelectItem value="2">2 звезды</SelectItem>
+              <SelectItem value="3">3 звезды</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label>Тип сделки</Label>
-            <Select
-              name="listing_type"
-              defaultValue={property?.listing_type ?? "sale"}
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(LISTING_TYPE_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+      <FormSection
+        title="Расположение"
+        hint="Адрес для карточки и ссылка, которую агент откроет клиенту на карте."
+      >
+        <Field>
+          <Label htmlFor="city">Город</Label>
+          <Input
+            id="city"
+            name="city"
+            defaultValue={property?.city ?? ""}
+            placeholder="Грозный"
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="district">Район</Label>
+          <Input
+            id="district"
+            name="district"
+            defaultValue={property?.district ?? ""}
+            placeholder="Новый район"
+          />
+        </Field>
+        <Field className="md:col-span-2">
+          <Label htmlFor="address">Улица и дом</Label>
+          <Input
+            id="address"
+            name="address"
+            defaultValue={property?.address ?? catalog.location?.address ?? ""}
+            placeholder="улица Гуцериева, 80"
+          />
+        </Field>
+        <Field className="md:col-span-2">
+          <Label htmlFor="map_url">Ссылка на карту</Label>
+          <Input
+            id="map_url"
+            name="map_url"
+            defaultValue={catalog.location?.map_url ?? ""}
+            placeholder="https://go.2gis.com/..."
+          />
+        </Field>
+        <Field className="md:col-span-2">
+          <PhotoField
+            name="location_photos_json"
+            filesName="location_files"
+            urls={property ? catalogLocationPhotos(property) : []}
+            label="Фото расположения"
+            hint="Карта, схема проезда или вид с улицы."
+          />
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label>Статус</Label>
-            <Select name="status" defaultValue={property?.status ?? "active"}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {Object.entries(PROPERTY_STATUS_LABELS).map(([k, v]) => (
-                  <SelectItem key={k} value={k}>
-                    {v}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      <FormSection
+        title="О комплексе"
+        hint="Текст, который клиент читает первым. Коротко: чем дом отличается и что важно знать."
+      >
+        <Field className="md:col-span-2">
+          <Label htmlFor="about">Описание</Label>
+          <Textarea
+            id="about"
+            name="about"
+            rows={6}
+            defaultValue={catalog.about || property?.description || ""}
+            placeholder="Этажность, фасад, скидки, обязательный платёж..."
+          />
+        </Field>
+        <Field className="md:col-span-2">
+          <div className="space-y-1">
+            <Label>Характеристики</Label>
+            <p className="text-sm text-muted-foreground">
+              Короткие пары «параметр — значение», которые видны в карточке.
+              Например: этажность — 16, фасад — кирпич, потолки — 3 м.
+            </p>
           </div>
+          <PairRows
+            name="facts_json"
+            rows={facts}
+            setRows={setFacts}
+            labelA="Параметр"
+            labelB="Значение"
+          />
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label htmlFor="price">
-              Цена, ₽ <RequiredMark />
-            </Label>
-            <AmountInput
-              id="price"
-              name="price"
-              defaultValue={property?.price ?? ""}
-              required
-            />
+      <FormSection
+        title="Сдача и условия"
+        hint="Когда дом сдаётся и какие условия покупки показывать в фильтрах."
+      >
+        <Field>
+          <Label htmlFor="completion_year">Год сдачи</Label>
+          <Input
+            id="completion_year"
+            name="completion_year"
+            defaultValue={property?.completion_year ?? ""}
+            placeholder="2027"
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="rooms">Квартал сдачи</Label>
+          <Input
+            id="rooms"
+            name="rooms"
+            type="number"
+            min="1"
+            max="4"
+            defaultValue={property?.rooms ?? ""}
+            placeholder="1–4"
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="installment_max">Рассрочка до</Label>
+          <Input
+            id="installment_max"
+            name="installment_max"
+            defaultValue={property?.installment_max ?? ""}
+            placeholder="5 лет"
+          />
+        </Field>
+        <Field>
+          <Label>Материнский капитал</Label>
+          <Select
+            name="maternity_capital"
+            defaultValue={
+              property?.maternity_capital === null ||
+              property?.maternity_capital === undefined
+                ? "unknown"
+                : property.maternity_capital
+                  ? "true"
+                  : "false"
+            }
+          >
+            <SelectTrigger>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="unknown">Не указано</SelectItem>
+              <SelectItem value="true">Принимают</SelectItem>
+              <SelectItem value="false">Не принимают</SelectItem>
+            </SelectContent>
+          </Select>
+        </Field>
+        <Field>
+          <div className="space-y-1">
+            <Label>Таблица рассрочки</Label>
+            <p className="text-sm text-muted-foreground">
+              Срок и наценка, как в карточке.
+            </p>
           </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="area">Площадь, м²</Label>
-            <Input
-              id="area"
-              name="area"
-              type="number"
-              min="0"
-              step="0.1"
-              defaultValue={property?.area ?? ""}
-            />
+          <PairRows
+            name="installment_json"
+            rows={installmentItems}
+            setRows={setInstallmentItems}
+            labelA="Срок"
+            labelB="Наценка"
+          />
+          <Textarea
+            name="installment_note"
+            rows={2}
+            defaultValue={catalog.installment?.[0]?.note ?? ""}
+            placeholder="Комментарий к рассрочке"
+          />
+        </Field>
+        <Field>
+          <div className="space-y-1">
+            <Label>Коммерция</Label>
+            <p className="text-sm text-muted-foreground">
+              Помещения и цена за м², если есть.
+            </p>
           </div>
+          <PairRows
+            name="commercial_json"
+            rows={commercialItems}
+            setRows={setCommercialItems}
+            labelA="Объект"
+            labelB="Цена"
+          />
+          <Textarea
+            name="commercial_note"
+            rows={2}
+            defaultValue={catalog.commercial?.[0]?.note ?? ""}
+            placeholder="Комментарий к коммерции"
+          />
+        </Field>
+      </FormSection>
 
+      <FormSection
+        title="Документы и цены"
+        hint="Ссылки на шахматку, планировки и фото прайса."
+      >
+        <Field className="md:col-span-2">
+          <Label>Ссылки</Label>
+          <input
+            type="hidden"
+            name="documents_json"
+            value={JSON.stringify(documents)}
+          />
           <div className="space-y-2">
-            <Label htmlFor="rooms">Комнат</Label>
-            <Input
-              id="rooms"
-              name="rooms"
-              type="number"
-              min="0"
-              defaultValue={property?.rooms ?? ""}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="city">Город</Label>
-            <Input
-              id="city"
-              name="city"
-              defaultValue={property?.city ?? ""}
-              placeholder="Москва"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="district">Район</Label>
-            <Input
-              id="district"
-              name="district"
-              defaultValue={property?.district ?? ""}
-              placeholder="Сокольники"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="developer">Застройщик</Label>
-            <Input
-              id="developer"
-              name="developer"
-              defaultValue={property?.developer ?? ""}
-              placeholder="Фаворит"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="completion_year">Год сдачи</Label>
-            <Input
-              id="completion_year"
-              name="completion_year"
-              defaultValue={property?.completion_year ?? ""}
-              placeholder="2027"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="installment_max">Рассрочка</Label>
-            <Input
-              id="installment_max"
-              name="installment_max"
-              defaultValue={property?.installment_max ?? ""}
-              placeholder="5 лет"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Мат. капитал</Label>
-            <Select
-              name="maternity_capital"
-              defaultValue={
-                property?.maternity_capital === null ||
-                property?.maternity_capital === undefined
-                  ? "unknown"
-                  : property.maternity_capital
-                    ? "true"
-                    : "false"
+            {documents.map((doc, index) => (
+              <div
+                key={`doc-${index}`}
+                className="grid gap-2 md:grid-cols-[1fr_2fr_auto]"
+              >
+                <Input
+                  value={doc.title}
+                  placeholder="Шахматка"
+                  onChange={(event) => {
+                    const next = [...documents];
+                    next[index] = { ...doc, title: event.target.value };
+                    setDocuments(next);
+                  }}
+                />
+                <Input
+                  value={doc.url}
+                  placeholder="https://..."
+                  onChange={(event) => {
+                    const next = [...documents];
+                    next[index] = { ...doc, url: event.target.value };
+                    setDocuments(next);
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() =>
+                    setDocuments(documents.filter((_, item) => item !== index))
+                  }
+                  aria-label="Удалить ссылку"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setDocuments([
+                  ...documents,
+                  { title: "", url: "", kind: "other" },
+                ])
               }
             >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unknown">Не указано</SelectItem>
-                <SelectItem value="true">Да</SelectItem>
-                <SelectItem value="false">Нет</SelectItem>
-              </SelectContent>
-            </Select>
+              <Plus className="h-4 w-4" />
+              Добавить ссылку
+            </Button>
           </div>
+        </Field>
+        <Field className="md:col-span-2">
+          <PhotoField
+            name="price_photos_json"
+            filesName="price_files"
+            urls={property ? catalogPricePhotos(property) : []}
+            label="Фото прайса"
+            hint="Скриншоты цен, которые показываются в блоке «Цены»."
+          />
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label>Квартиры &gt;85 м²</Label>
-            <Select
-              name="has_large_apartments"
-              defaultValue={
-                property?.has_large_apartments === null ||
-                property?.has_large_apartments === undefined
-                  ? "unknown"
-                  : property.has_large_apartments
-                    ? "true"
-                    : "false"
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unknown">Не указано</SelectItem>
-                <SelectItem value="true">Есть</SelectItem>
-                <SelectItem value="false">Нет</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+      <FormSection
+        title="Для сотрудников"
+        hint="Эти поля видит только команда после кода доступа."
+      >
+        <Field>
+          <Label htmlFor="commission">Комиссия</Label>
+          <Textarea
+            id="commission"
+            name="commission"
+            rows={3}
+            defaultValue={internal?.commission ?? ""}
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="investor">Инвесторские условия</Label>
+          <Textarea
+            id="investor"
+            name="investor"
+            rows={3}
+            defaultValue={internal?.investor ?? ""}
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="stop_sales">Стоп-продажи</Label>
+          <Textarea
+            id="stop_sales"
+            name="stop_sales"
+            rows={3}
+            defaultValue={internal?.stop_sales ?? ""}
+          />
+        </Field>
+        <Field>
+          <Label htmlFor="notes">Внутренние пометки</Label>
+          <Textarea
+            id="notes"
+            name="notes"
+            rows={3}
+            defaultValue={internal?.notes ?? ""}
+          />
+        </Field>
+      </FormSection>
 
-          <div className="space-y-2">
-            <Label>Актуальность</Label>
-            <Select
-              name="relevance"
-              defaultValue={
-                property?.relevance ? String(property.relevance) : "unknown"
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Не указана" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="unknown">Не указана</SelectItem>
-                <SelectItem value="1">⭐</SelectItem>
-                <SelectItem value="2">⭐⭐</SelectItem>
-                <SelectItem value="3">⭐⭐⭐</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="address">Адрес</Label>
-            <Input
-              id="address"
-              name="address"
-              defaultValue={property?.address ?? ""}
-              placeholder="ул. Русаковская, 24"
-            />
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="cover_url">URL обложки</Label>
-            <Input
-              id="cover_url"
-              name="cover_url"
-              type="url"
-              defaultValue={property?.cover_url ?? ""}
-              placeholder="https://..."
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label>Ответственный</Label>
-            <Select
-              name="assigned_to"
-              defaultValue={property?.assigned_to ?? ""}
-              disabled={
-                currentRole !== "admin" && Boolean(property?.assigned_to)
-              }
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Выберите агента" />
-              </SelectTrigger>
-              <SelectContent>
-                {profiles.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.full_name ?? "—"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2 md:col-span-2">
-            <Label htmlFor="description">Описание</Label>
-            <Textarea
-              id="description"
-              name="description"
-              rows={4}
-              defaultValue={property?.description ?? ""}
-              placeholder="Особенности объекта, ремонт, инфраструктура и т.д."
-            />
-          </div>
-        </CardContent>
-      </Card>
-
-      <div className="flex flex-wrap gap-2">
-        <SubmitButton label={property ? "Сохранить" : "Создать объект"} />
+      <div className="sticky bottom-0 z-20 -mx-4 flex flex-wrap gap-2 border-t bg-background/95 px-4 py-3 backdrop-blur md:-mx-0 md:rounded-2xl md:border md:px-5">
+        <SubmitButton label={property ? "Сохранить" : "Опубликовать объект"} />
         <Button type="button" variant="outline" onClick={() => router.back()}>
           Отмена
         </Button>

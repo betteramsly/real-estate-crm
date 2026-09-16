@@ -7,9 +7,11 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
-import { Building2, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
+import { BrandLockup } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
@@ -75,15 +77,13 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-background via-background to-primary/5 p-4">
-      <Card className="w-full max-w-md border-border/60 shadow-lg">
+    <div className="brand-mesh flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md border-border/60 shadow-sm">
         <CardHeader className="space-y-3">
-          <div className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-primary text-primary-foreground">
-              <Building2 className="h-5 w-5" />
-            </div>
+          <div className="space-y-3">
+            <BrandLockup className="h-14" />
             <div>
-              <CardTitle>Real Estate CRM</CardTitle>
+              <CardTitle>Вход в кабинет</CardTitle>
               <CardDescription>Войдите в аккаунт, чтобы продолжить</CardDescription>
             </div>
           </div>
@@ -105,9 +105,8 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Пароль</Label>
-              <Input
+              <PasswordInput
                 id="password"
-                type="password"
                 placeholder="••••••••"
                 autoComplete="current-password"
                 {...register("password")}

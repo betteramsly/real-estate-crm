@@ -10,12 +10,14 @@ export async function setPresentModeAction(on: boolean) {
     path: "/",
     maxAge: on ? 60 * 60 * 12 : 0,
     sameSite: "lax",
+    httpOnly: true,
   });
   if (on) {
     store.set("catalog_internal_ok", "0", {
       path: "/",
       maxAge: 0,
       sameSite: "lax",
+      httpOnly: true,
     });
   }
   revalidatePath("/", "layout");

@@ -1,7 +1,7 @@
 import { LoginForm } from "./login-form";
 
 export const metadata = {
-  title: "Вход — Real Estate CRM",
+  title: "Вход — MANTAEV CAPITAL",
 };
 
 export default function LoginPage({
