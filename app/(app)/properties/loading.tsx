@@ -16,7 +16,7 @@ export default function PropertiesLoading() {
         <Skeleton className="h-11 flex-1 rounded-full" />
         <Skeleton className="h-11 w-11 rounded-full" />
       </div>
-      <CardsGridSkeleton cards={6} />
+      <CardsGridSkeleton cards={6} columns="md:grid-cols-2 min-[965px]:grid-cols-3" />
     </>
   );
 }

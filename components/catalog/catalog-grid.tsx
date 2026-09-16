@@ -47,7 +47,7 @@ export function CatalogGrid({
 
   return (
     <>
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 min-[965px]:grid-cols-3">
         {shown.map((property, index) => (
           <CatalogCard
             key={property.id}
