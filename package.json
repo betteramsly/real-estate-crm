@@ -3,9 +3,6 @@
   "version": "0.1.0",
   "private": true,
   "packageManager": "npm@11.6.2",
-  "engines": {
-    "node": "22.x"
-  },
   "allowScripts": {
     "fsevents@2.3.3": true,
     "unrs-resolver@1.12.2": true
