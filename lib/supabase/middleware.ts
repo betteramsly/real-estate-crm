@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s"];
+const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s", "/api/photo-download"];
 
 const PRESENT_BLOCKED = [
   "/dashboard",

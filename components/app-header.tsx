@@ -2,7 +2,6 @@
 
 import * as React from "react";
 import { PrefetchLink } from "@/components/prefetch-link";
-import { useRouter } from "next/navigation";
 import { LogOut, Menu, PanelLeft } from "lucide-react";
 import { BrandLockup, BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
@@ -23,6 +22,7 @@ import type { Profile, UserRole } from "@/lib/types";
 import { usePathname } from "next/navigation";
 import { PresentModeToggle } from "@/components/catalog/present-mode-toggle";
 import { ShareClientButton } from "@/components/catalog/share-client-sheet";
+import { BrandLoaderOverlay } from "@/components/brand-loader";
 
 const NAV_ITEMS: { href: string; label: string; adminOnly?: boolean; accent?: boolean }[] = [
   { href: "/dashboard", label: "Дашборд" },
@@ -44,23 +44,26 @@ export function AppHeader({
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
 }) {
-  const router = useRouter();
   const pathname = usePathname();
   const [open, setOpen] = React.useState(false);
+  const [leaving, setLeaving] = React.useState(false);
   const onCatalog = pathname.startsWith("/properties");
 
   const handleSignOut = async () => {
+    if (leaving) return;
+    setLeaving(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
+    window.location.assign("/login");
   };
 
   const role: UserRole = profile.role;
   const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === "admin");
 
   return (
-    <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
+    <>
+      {leaving ? <BrandLoaderOverlay label="Выходим" /> : null}
+      <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/80 px-4 backdrop-blur">
       {presentMode ? null : (
         <>
           <Button
@@ -160,7 +163,7 @@ export function AppHeader({
                 <PrefetchLink href="/settings">Профиль</PrefetchLink>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={handleSignOut}>
+              <DropdownMenuItem onClick={handleSignOut} disabled={leaving}>
                 <LogOut className="mr-2 h-4 w-4" />
                 Выйти
               </DropdownMenuItem>
@@ -168,6 +171,7 @@ export function AppHeader({
           </DropdownMenu>
         </>
       )}
-    </header>
+      </header>
+    </>
   );
 }

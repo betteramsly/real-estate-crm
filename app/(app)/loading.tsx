@@ -1,9 +1,9 @@
-import { Loader2 } from "lucide-react";
+import { BrandLoader } from "@/components/brand-loader";
 
 export default function AppLoading() {
   return (
-    <div className="flex min-h-[60vh] items-center justify-center text-muted-foreground">
-      <Loader2 className="h-6 w-6 animate-spin" />
+    <div className="flex min-h-[60vh] items-center justify-center">
+      <BrandLoader label="Загрузка" />
     </div>
   );
 }

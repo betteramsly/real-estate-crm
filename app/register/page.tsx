@@ -17,9 +17,9 @@ export default function RegisterPage() {
   return (
     <div className="brand-mesh flex min-h-screen items-center justify-center p-4">
       <Card className="w-full max-w-md border-border/60 shadow-sm">
-        <CardHeader className="space-y-3">
-          <div className="space-y-3">
-            <BrandLockup className="h-14" />
+        <CardHeader className="space-y-3 text-center">
+          <div className="flex flex-col items-center space-y-3">
+            <BrandLockup vertical className="mx-auto" />
             <div>
               <CardTitle>Регистрация закрыта</CardTitle>
               <CardDescription>

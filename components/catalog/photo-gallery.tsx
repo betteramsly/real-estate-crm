@@ -2,8 +2,26 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Images, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Images, X } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+function photoFileName(url: string, alt: string, index: number) {
+  try {
+    const path = new URL(url, "https://local.invalid").pathname;
+    const raw = decodeURIComponent(path.split("/").pop() || "");
+    if (raw && /\.[a-z0-9]{2,5}$/i.test(raw)) return raw;
+  } catch {
+    // ignore
+  }
+  const slug =
+    alt.replace(/[^\p{L}\p{N}]+/gu, "-").replace(/^-+|-+$/g, "") || "foto";
+  return `${slug}-${index + 1}.jpg`;
+}
+
+function photoDownloadHref(url: string, alt: string, index: number) {
+  const name = photoFileName(url, alt, index);
+  return `/api/photo-download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
+}
 
 function nearbyIndexes(index: number, count: number, radius = 2) {
   if (count <= 0) return [];
@@ -279,6 +297,15 @@ function PhotoLightbox({
               {index + 1} / {photos.length}
             </span>
           ) : null}
+          <a
+            href={photoDownloadHref(current, alt, index)}
+            download={photoFileName(current, alt, index)}
+            onClick={(event) => event.stopPropagation()}
+            className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
+            aria-label="Скачать фото"
+          >
+            <Download className="h-5 w-5" />
+          </a>
           <button
             type="button"
             onClick={onClose}

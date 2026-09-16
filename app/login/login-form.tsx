@@ -7,17 +7,17 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { BrandLoader } from "@/components/brand-loader";
 import { BrandLockup } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { Label } from "@/components/ui/label";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
-  CardTitle,
 } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
 
@@ -47,8 +47,20 @@ interface LoginFormProps {
 
 export function LoginForm({ redirectTo, error }: LoginFormProps) {
   const router = useRouter();
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [phase, setPhase] = React.useState<"idle" | "checking" | "opening">(
+    "idle",
+  );
   const [formError, setFormError] = React.useState<string | null>(null);
+  const busy = phase !== "idle";
+
+  React.useEffect(() => {
+    setPhase("idle");
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) setPhase("idle");
+    };
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   const {
     register,
@@ -65,34 +77,38 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
 
   const onSubmit = async (values: FormValues) => {
     setFormError(null);
-    setIsLoading(true);
+    setPhase("checking");
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword(values);
-    setIsLoading(false);
 
     if (authError) {
+      setPhase("idle");
       const text = loginErrorMessage(authError);
       setFormError(text);
       toast.error(text);
       return;
     }
 
-    toast.success("Вход выполнен");
+    setPhase("opening");
     router.push(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard");
     router.refresh();
   };
 
   return (
     <div className="brand-mesh flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md border-border/60 shadow-sm">
-        <CardHeader className="space-y-3">
-          <div className="space-y-3">
-            <BrandLockup className="h-14" />
-            <div>
-              <CardTitle>Вход в кабинет</CardTitle>
-              <CardDescription>Войдите в аккаунт, чтобы продолжить</CardDescription>
-            </div>
-          </div>
+      {busy ? (
+        <BrandLoader
+          label={phase === "opening" ? "Открываем кабинет" : "Входим"}
+        />
+      ) : null}
+      <Card
+        className={cn(
+          "w-full max-w-md border-border/60 shadow-sm",
+          busy && "hidden",
+        )}
+      >
+        <CardHeader className="items-center text-center">
+          <BrandLockup vertical className="mx-auto" />
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
@@ -124,15 +140,16 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
             {formError ? (
               <p className="text-sm text-destructive">{formError}</p>
             ) : null}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+            <Button type="submit" className="w-full" disabled={busy}>
+              <Loader2
+                className={cn(
+                  "h-4 w-4 animate-spin",
+                  !busy && "invisible",
+                )}
+              />
               Войти
             </Button>
           </form>
-
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            Аккаунт создаёт администратор в разделе «Команда».
-          </p>
         </CardContent>
       </Card>
     </div>
