@@ -13,6 +13,7 @@ import {
   formatAboutBlocks,
   hasCommercialCatalog,
   hasInstallmentCatalog,
+  isClientExternalUrl,
   matchesCatalogSearch,
   visibleDocuments,
 } from "@/lib/catalog";
@@ -215,6 +216,34 @@ describe("catalog helpers", () => {
       { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
       { title: "Коммерция", url: "https://docs.google.com/y", kind: "chess" },
     ]);
+    expect(
+      visibleDocuments(
+        {
+          documents: [
+            { title: "Шахматка", url: "https://docs.google.com/x", kind: "chess" },
+            { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
+            { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
+          ],
+        },
+        { client: true },
+      ),
+    ).toEqual([
+      { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
+    ]);
+  });
+
+  it("allows only location and plan links for a client", () => {
+    expect(isClientExternalUrl("https://go.2gis.com/x")).toBe(true);
+    expect(isClientExternalUrl("https://yandex.ru/maps/1")).toBe(true);
+    expect(
+      isClientExternalUrl("https://disk.yandex.ru/d/x", "Планировки ЖК"),
+    ).toBe(true);
+    expect(isClientExternalUrl("https://docs.google.com/x", "Шахматка")).toBe(
+      false,
+    );
+    expect(
+      isClientExternalUrl("https://docs.google.com/y", "Коммерция 8 марта"),
+    ).toBe(false);
   });
 
   it("reports missing price, chess and map instead of hiding them", () => {

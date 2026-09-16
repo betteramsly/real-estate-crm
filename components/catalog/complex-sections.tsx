@@ -98,6 +98,7 @@ function MaterialsChecklist({ property }: { property: Property }) {
 function TermTable({
   groups,
   heading,
+  clientLinks = false,
 }: {
   groups: {
     title: string;
@@ -105,6 +106,7 @@ function TermTable({
     note?: string;
   }[];
   heading: string;
+  clientLinks?: boolean;
 }) {
   return (
     <div className="space-y-4">
@@ -128,15 +130,20 @@ function TermTable({
                   <RichText
                     text={item.label}
                     className="text-muted-foreground"
+                    clientLinks={clientLinks}
                   />
-                  <RichText text={item.value} className="font-medium" />
+                  <RichText
+                    text={item.value}
+                    className="font-medium"
+                    clientLinks={clientLinks}
+                  />
                 </div>
               ))}
             </div>
           ) : null}
           {group.note ? (
             <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-              <RichText text={group.note} />
+              <RichText text={group.note} clientLinks={clientLinks} />
             </p>
           ) : null}
         </div>
@@ -169,7 +176,7 @@ export function ComplexSections({
   const about = compactAbout(catalog.about || property.description, used);
   const facts = compactFacts(catalog.facts, [about, location, ...used]);
   const aboutBlocks = formatAboutBlocks(about);
-  const documents = visibleDocuments(catalog);
+  const documents = visibleDocuments(catalog, { client: presentMode });
   const pricePhotos = catalogPricePhotos(property);
   const locationPhotos = catalogLocationPhotos(property);
   const rawAddress = catalog.location?.address?.trim() ?? "";
@@ -203,7 +210,7 @@ export function ComplexSections({
                 >
                   {block.items.map((item) => (
                     <li key={item}>
-                      <RichText text={item} />
+                      <RichText text={item} clientLinks={presentMode} />
                     </li>
                   ))}
                 </ul>
@@ -214,7 +221,7 @@ export function ComplexSections({
                       key={item}
                       className="max-w-3xl text-sm leading-relaxed text-foreground/90"
                     >
-                      <RichText text={item} />
+                      <RichText text={item} clientLinks={presentMode} />
                     </p>
                   ))}
                 </div>
@@ -226,7 +233,7 @@ export function ComplexSections({
                   <div key={`${fact.label}-${fact.value}`} className="min-w-0">
                     <dt className="text-xs text-muted-foreground">{fact.label}</dt>
                     <dd className="text-sm leading-relaxed">
-                      <RichText text={fact.value} />
+                      <RichText text={fact.value} clientLinks={presentMode} />
                     </dd>
                   </div>
                 ))}
@@ -244,7 +251,7 @@ export function ComplexSections({
                 {location ? (
                   <p className="inline-flex min-w-0 items-start gap-2 text-sm">
                     <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <RichText text={location} />
+                    <RichText text={location} clientLinks={presentMode} />
                   </p>
                 ) : null}
                 {mapUrl ? (
@@ -299,12 +306,20 @@ export function ComplexSections({
         >
           {showInstallment ? (
             <Section title="Рассрочка" defaultOpen>
-              <TermTable groups={installment} heading="Рассрочка" />
+              <TermTable
+                groups={installment}
+                heading="Рассрочка"
+                clientLinks={presentMode}
+              />
             </Section>
           ) : null}
           {showCommercial ? (
             <Section title="Коммерция" defaultOpen>
-              <TermTable groups={commercial} heading="Коммерция" />
+              <TermTable
+                groups={commercial}
+                heading="Коммерция"
+                clientLinks={presentMode}
+              />
             </Section>
           ) : null}
         </div>
@@ -313,7 +328,11 @@ export function ComplexSections({
       {pairCommercialWithService ? (
         <div className="grid items-stretch gap-4 md:grid-cols-2">
           <Section title="Коммерция" defaultOpen>
-            <TermTable groups={commercial} heading="Коммерция" />
+            <TermTable
+              groups={commercial}
+              heading="Коммерция"
+              clientLinks={presentMode}
+            />
           </Section>
           {service}
         </div>

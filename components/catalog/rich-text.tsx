@@ -1,4 +1,5 @@
 import { ExternalLink } from "lucide-react";
+import { isClientExternalUrl } from "@/lib/catalog";
 
 const URL_RE =
   /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+|(?:yandex\.ru|2gis\.ru|go\.2gis\.com)[^\s<>"']*)/gi;
@@ -26,15 +27,23 @@ function prettyUrl(url: string) {
 export function RichText({
   text,
   className,
+  clientLinks = false,
 }: {
   text: string;
   className?: string;
+  clientLinks?: boolean;
 }) {
   const parts = text.split(URL_RE);
   return (
     <span className={className}>
-      {parts.map((part, index) =>
-        isUrl(part) ? (
+      {parts.map((part, index) => {
+        if (!isUrl(part)) {
+          return <span key={`${part}-${index}`}>{part}</span>;
+        }
+        if (clientLinks && !isClientExternalUrl(part)) {
+          return null;
+        }
+        return (
           <a
             key={`${part}-${index}`}
             href={hrefFor(part)}
@@ -45,10 +54,8 @@ export function RichText({
             {prettyUrl(part)}
             <ExternalLink className="h-3.5 w-3.5" />
           </a>
-        ) : (
-          <span key={`${part}-${index}`}>{part}</span>
-        ),
-      )}
+        );
+      })}
     </span>
   );
 }

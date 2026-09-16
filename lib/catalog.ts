@@ -115,7 +115,20 @@ function documentTitle(title: string, kind: string, url: string) {
   return cleaned;
 }
 
-export function visibleDocuments(catalog: PropertyCatalog | null | undefined) {
+export function isClientExternalUrl(url: string, title = "") {
+  const blob = `${title} ${url}`.toLowerCase();
+  if (/коммерц/.test(blob)) return false;
+  if (/шахмат|\.xlsx|\.xls/.test(blob)) return false;
+  if (/планир/.test(blob)) return true;
+  return /(?:^|[/.])2gis\.|go\.2gis\.com|maps\.yandex|yandex\.[^\s/]+\/maps|maps\.google|google\.[^\s/]+\/maps/i.test(
+    url,
+  );
+}
+
+export function visibleDocuments(
+  catalog: PropertyCatalog | null | undefined,
+  options?: { client?: boolean },
+) {
   const mapUrl = catalog?.location?.map_url;
   const seen = new Set<string>();
   return (catalog?.documents ?? [])
@@ -130,7 +143,13 @@ export function visibleDocuments(catalog: PropertyCatalog | null | undefined) {
       seen.add(key);
       seen.add(doc.url);
       return true;
-    });
+    })
+    .filter((doc) =>
+      options?.client
+        ? doc.title === DOCUMENT_LABELS.plan ||
+          /планир/i.test(`${doc.title} ${doc.url}`)
+        : true,
+    );
 }
 
 export const CATALOG_MATERIAL_ITEMS = [

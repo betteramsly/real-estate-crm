@@ -28,6 +28,18 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
+function loginErrorMessage(error?: { message?: string; code?: string } | null) {
+  const message = error?.message ?? "";
+  const code = error?.code ?? "";
+  if (
+    code === "invalid_credentials" ||
+    /invalid login credentials/i.test(message)
+  ) {
+    return "Неверный логин или пароль";
+  }
+  return "Не удалось войти";
+}
+
 interface LoginFormProps {
   redirectTo?: string;
   error?: string;
@@ -36,6 +48,7 @@ interface LoginFormProps {
 export function LoginForm({ redirectTo, error }: LoginFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [formError, setFormError] = React.useState<string | null>(null);
 
   const {
     register,
@@ -51,13 +64,16 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
   }, [error]);
 
   const onSubmit = async (values: FormValues) => {
+    setFormError(null);
     setIsLoading(true);
     const supabase = createClient();
     const { error: authError } = await supabase.auth.signInWithPassword(values);
     setIsLoading(false);
 
     if (authError) {
-      toast.error(authError.message ?? "Не удалось войти");
+      const text = loginErrorMessage(authError);
+      setFormError(text);
+      toast.error(text);
       return;
     }
 
@@ -105,6 +121,9 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
                 <p className="text-xs text-destructive">{errors.password.message}</p>
               ) : null}
             </div>
+            {formError ? (
+              <p className="text-sm text-destructive">{formError}</p>
+            ) : null}
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Войти
