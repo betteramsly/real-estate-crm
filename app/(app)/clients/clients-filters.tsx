@@ -26,7 +26,7 @@ export function ClientsFilters() {
     if (!value || value === "all") next.delete(key);
     else next.set(key, value);
     const qs = next.toString();
-    router.push(`/clients${qs ? `?${qs}` : ""}`);
+    router.push(`/clients${qs ? `?${qs}` : ""}`, { scroll: false });
   };
 
   const hasFilters = ["q", "status", "source", "deal_type"].some((k) =>
@@ -40,7 +40,7 @@ export function ClientsFilters() {
         <Input
           defaultValue={params.get("q") ?? ""}
           placeholder="Поиск по имени, телефону, email..."
-          className="pl-9"
+          className="pl-9 text-base"
           onKeyDown={(e) => {
             if (e.key === "Enter")
               setParam("q", (e.target as HTMLInputElement).value);
@@ -103,7 +103,7 @@ export function ClientsFilters() {
         <Button
           variant="ghost"
           size="icon"
-          onClick={() => router.push("/clients")}
+          onClick={() => router.push("/clients", { scroll: false })}
           aria-label="Сбросить"
         >
           <X className="h-4 w-4" />

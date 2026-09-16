@@ -197,16 +197,12 @@ export function PropertyForm({
 
   return (
     <form action={formAction} className="mx-auto max-w-3xl space-y-5">
-      <FormSection
-        title="Фотографии"
-        hint="Первое фото станет обложкой в каталоге. Сюда — рендеры и готовые виды ЖК."
-      >
+      <FormSection title="Фотографии">
         <Field className="md:col-span-2">
           <PhotoField
             name="photos_json"
             filesName="photo_files"
             urls={property ? catalogPhotos(property) : []}
-            label="Фото комплекса"
             markCover
           />
         </Field>

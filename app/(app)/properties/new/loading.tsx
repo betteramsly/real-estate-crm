@@ -51,11 +51,7 @@ export default function NewPropertyLoading() {
       />
       <PageHeader title="Новый объект" />
       <div className="mx-auto max-w-3xl space-y-5">
-        <Section
-          title="Фотографии"
-          hint="Первое фото станет обложкой в каталоге."
-        >
-          <p className="mb-2 text-sm font-medium">Фото комплекса</p>
+        <Section title="Фотографии">
           <Skeleton className="h-32 w-full rounded-2xl" />
         </Section>
 

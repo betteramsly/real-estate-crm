@@ -124,18 +124,6 @@ export default async function PropertiesPage(props: PageProps) {
       >
         {properties.length > 0 ? (
           <CatalogGrid
-            key={[
-              searchParams.q,
-              searchParams.city,
-              searchParams.district,
-              searchParams.developer,
-              searchParams.completion_year,
-              searchParams.installment,
-              searchParams.maternity,
-              searchParams.commercial,
-              searchParams.large,
-              searchParams.relevance,
-            ].join("|")}
             properties={properties}
             hideRelevance={presentMode}
           />

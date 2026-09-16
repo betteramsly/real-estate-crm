@@ -21,6 +21,11 @@ export function CatalogGrid({
 }) {
   const [visible, setVisible] = useState(pageSize);
   const sentinel = useRef<HTMLDivElement>(null);
+  const signature = properties.map((property) => property.id).join(",");
+
+  useEffect(() => {
+    setVisible(pageSize);
+  }, [pageSize, signature]);
 
   useEffect(() => {
     const node = sentinel.current;

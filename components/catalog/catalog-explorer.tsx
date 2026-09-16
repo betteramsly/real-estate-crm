@@ -19,7 +19,8 @@ export function CatalogExplorer({
   children: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
-  const [clearing, setClearing] = useState(false);
+  const [intent, setIntent] = useState<"apply" | "clear" | "search">("apply");
+  const showOverlay = pending && intent !== "search";
 
   return (
     <CatalogFilters
@@ -29,18 +30,18 @@ export function CatalogExplorer({
       years={years}
       pending={pending}
       startTransition={startTransition}
-      onPendingIntent={(intent) => setClearing(intent === "clear")}
+      onPendingIntent={setIntent}
     >
       <div className="relative min-h-40">
-        {pending ? (
+        {showOverlay ? (
           <div className="absolute inset-0 z-20 flex items-start justify-center rounded-2xl bg-background/55 pt-20 backdrop-blur-[1px]">
             <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-2 text-sm shadow-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
-              {clearing ? "Убираем фильтры" : "Применяем фильтры"}
+              {intent === "clear" ? "Убираем фильтры" : "Применяем фильтры"}
             </div>
           </div>
         ) : null}
-        <div className={cn(pending && "pointer-events-none opacity-50")}>
+        <div className={cn(showOverlay && "pointer-events-none opacity-50")}>
           {children}
         </div>
       </div>

@@ -283,7 +283,7 @@ function DesktopFilterBoard({
                   value={needle}
                   onChange={(event) => setNeedle(event.target.value)}
                   placeholder="Найти в списке…"
-                  className="h-10 rounded-full border-transparent bg-accent/70 pl-9 shadow-none focus-visible:ring-1 focus-visible:ring-ring"
+                  className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
             </div>
@@ -357,6 +357,10 @@ function DesktopFilterBoard({
   );
 }
 
+function matchNeedle(value: string, query: string) {
+  return !query || value.toLowerCase().includes(query);
+}
+
 function FilterGroups({
   cities,
   districts,
@@ -374,72 +378,78 @@ function FilterGroups({
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
 }) {
+  const [needle, setNeedle] = useState("");
+  const query = needle.trim().toLowerCase();
+  const lists = [
+    { key: "district" as const, title: "Район", items: districts.filter((item) => matchNeedle(item, query)), limit: 6 },
+    { key: "city" as const, title: "Город", items: cities.filter((item) => matchNeedle(item, query)), limit: 8 },
+    { key: "developer" as const, title: "Застройщик", items: developers.filter((item) => matchNeedle(item, query)), limit: 6 },
+    { key: "completion_year" as const, title: "Сдача", items: years.filter((item) => matchNeedle(item, query)), limit: 10 },
+  ];
+  const flags = (Object.entries(FLAG_LABELS) as [FlagKey, string][]).filter(([, label]) =>
+    matchNeedle(label, query),
+  );
+  const showRelevance = matchNeedle("актуальность", query);
+  const empty =
+    Boolean(query) &&
+    lists.every((list) => list.items.length === 0) &&
+    flags.length === 0 &&
+    !showRelevance;
+
   return (
-    <div>
-      <FilterSection title="Район">
-        <FilterOptions
-          items={districts}
-          selected={draft.district}
-          onToggle={(value) => toggleValue("district", value)}
-        />
-      </FilterSection>
-      <FilterSection title="Город">
-        <FilterOptions
-          items={cities}
-          selected={draft.city}
-          onToggle={(value) => toggleValue("city", value)}
-          limit={8}
-        />
-      </FilterSection>
-      <FilterSection title="Застройщик">
-        <FilterOptions
-          items={developers}
-          selected={draft.developer}
-          onToggle={(value) => toggleValue("developer", value)}
-        />
-      </FilterSection>
-      <FilterSection title="Сдача">
-        <FilterOptions
-          items={years}
-          selected={draft.completion_year}
-          onToggle={(value) => toggleValue("completion_year", value)}
-          limit={10}
-        />
-      </FilterSection>
-      <FilterSection title="Условия">
-        <FilterCheck
-          checked={draft.installment}
-          onChange={() => toggleFlag("installment")}
-        >
-          Рассрочка
-        </FilterCheck>
-        <FilterCheck
-          checked={draft.maternity}
-          onChange={() => toggleFlag("maternity")}
-        >
-          Мат. капитал
-        </FilterCheck>
-        <FilterCheck
-          checked={draft.commercial}
-          onChange={() => toggleFlag("commercial")}
-        >
-          Коммерция
-        </FilterCheck>
-        <FilterCheck checked={draft.large} onChange={() => toggleFlag("large")}>
-          Больше 85 м²
-        </FilterCheck>
-      </FilterSection>
-      <FilterSection title="Актуальность">
-        {([1, 2, 3] as const).map((value) => (
-          <FilterCheck
-            key={value}
-            checked={draft.relevance.includes(String(value))}
-            onChange={() => toggleValue("relevance", String(value))}
-          >
-            <RelevanceStars value={value} />
-          </FilterCheck>
-        ))}
-      </FilterSection>
+    <div className="min-h-[50vh]">
+      <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pb-2">
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            value={needle}
+            onChange={(event) => setNeedle(event.target.value)}
+            placeholder="Найти в списке…"
+            className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
+          />
+        </div>
+      </div>
+      {lists.map((list) =>
+        list.items.length ? (
+          <FilterSection key={list.key} title={list.title}>
+            <FilterOptions
+              items={list.items}
+              selected={draft[list.key]}
+              onToggle={(value) => toggleValue(list.key, value)}
+              limit={query ? list.items.length : list.limit}
+            />
+          </FilterSection>
+        ) : null,
+      )}
+      {flags.length ? (
+        <FilterSection title="Условия">
+          {flags.map(([key, label]) => (
+            <FilterCheck
+              key={key}
+              checked={draft[key]}
+              onChange={() => toggleFlag(key)}
+            >
+              {label}
+            </FilterCheck>
+          ))}
+        </FilterSection>
+      ) : null}
+      {showRelevance ? (
+        <FilterSection title="Актуальность">
+          {([1, 2, 3] as const).map((value) => (
+            <FilterCheck
+              key={value}
+              checked={draft.relevance.includes(String(value))}
+              onChange={() => toggleValue("relevance", String(value))}
+            >
+              <RelevanceStars value={value} />
+            </FilterCheck>
+          ))}
+        </FilterSection>
+      ) : null}
+      {empty ? (
+        <p className="px-1 py-6 text-sm text-muted-foreground">Ничего не найдено</p>
+      ) : null}
     </div>
   );
 }
@@ -460,7 +470,7 @@ export function CatalogFilters({
   years: string[];
   pending: boolean;
   startTransition: TransitionStartFunction;
-  onPendingIntent?: (intent: "apply" | "clear") => void;
+  onPendingIntent?: (intent: "apply" | "clear" | "search") => void;
   children?: React.ReactNode;
 }) {
   const router = useRouter();
@@ -513,15 +523,19 @@ export function CatalogFilters({
   }, [params]);
 
   const setParam = useCallback(
-    (key: string, value: string | null) => {
+    (
+      key: string,
+      value: string | null,
+      intent: "apply" | "search" = "apply",
+    ) => {
       const next = new URLSearchParams(liveParams.current.toString());
       if (!value) next.delete(key);
       else next.set(key, value);
       liveParams.current = next;
       const qs = next.toString();
-      onPendingIntent?.("apply");
+      onPendingIntent?.(intent);
       startTransition(() => {
-        router.push(`/properties${qs ? `?${qs}` : ""}`);
+        router.push(`/properties${qs ? `?${qs}` : ""}`, { scroll: false });
       });
     },
     [onPendingIntent, router, startTransition],
@@ -532,7 +546,7 @@ export function CatalogFilters({
       window.clearTimeout(searchTimer.current);
       const next = value.trim();
       if (next === (liveParams.current.get("q") ?? "").trim()) return;
-      setParam("q", next || null);
+      setParam("q", next || null, "search");
     },
     [setParam],
   );
@@ -574,7 +588,7 @@ export function CatalogFilters({
     liveParams.current = new URLSearchParams();
     onPendingIntent?.("clear");
     startTransition(() => {
-      router.push("/properties");
+      router.push("/properties", { scroll: false });
     });
   };
 
@@ -600,7 +614,7 @@ export function CatalogFilters({
       ) : null}
       <div
         className={cn(
-          "sticky top-14 z-30 -mx-4 overflow-x-hidden px-4 py-3 md:-mx-8 md:px-8",
+          "sticky top-14 z-30 -mx-4 px-4 py-3 md:-mx-8 md:px-8",
           desktopOpen
             ? "border-b-transparent bg-transparent"
             : "border-b bg-background/95 backdrop-blur",
@@ -622,7 +636,7 @@ export function CatalogFilters({
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   placeholder="ЖК, застройщик, район..."
-                  className="h-11 min-w-0 rounded-full border-0 bg-transparent pl-9 shadow-none focus-visible:ring-0"
+                  className="h-11 min-w-0 rounded-full border-0 bg-transparent pl-9 text-base shadow-none focus-visible:ring-0"
                   onKeyDown={(event) => {
                     if (event.key === "Enter") applySearch(query);
                   }}

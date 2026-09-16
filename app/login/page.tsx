@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import { LoginForm } from "./login-form";
 
 export const metadata: Metadata = {
-  title: "Вход — MANTAEV CAPITAL агентство недвижимости",
-  description: null,
+  title: "MANTAEV CAPITAL агентство недвижимости",
+  description: "MANTAEV CAPITAL агентство недвижимости",
 };
 
 export default async function LoginPage(props: {

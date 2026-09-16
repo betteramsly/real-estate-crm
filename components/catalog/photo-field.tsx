@@ -51,7 +51,7 @@ export function PhotoField({
   name: string;
   filesName: string;
   urls: string[];
-  label: string;
+  label?: string;
   hint?: string;
   markCover?: boolean;
 }) {
@@ -118,10 +118,12 @@ export function PhotoField({
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1">
-        <Label>{label}</Label>
-        {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
-      </div>
+      {label || hint ? (
+        <div className="space-y-1">
+          {label ? <Label>{label}</Label> : null}
+          {hint ? <p className="text-sm text-muted-foreground">{hint}</p> : null}
+        </div>
+      ) : null}
       <input type="hidden" name={name} value={JSON.stringify(toOrderValue(items))} />
       {items.length ? (
         <DndContext
@@ -187,7 +189,7 @@ export function PhotoField({
       {preview != null && allPhotos[preview] ? (
         <PhotoViewer
           photos={allPhotos}
-          alt={label}
+          alt={label ?? "Фото"}
           index={preview}
           onClose={() => setPreview(null)}
         />

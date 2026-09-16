@@ -19,10 +19,22 @@ const display = Wix_Madefor_Display({
   display: "swap",
 });
 
+const SITE_TITLE = "MANTAEV CAPITAL агентство недвижимости";
+
 export const metadata: Metadata = {
-  title: "MANTAEV CAPITAL",
-  description:
-    "CRM агентства недвижимости MANTAEV CAPITAL: база ЖК, клиенты, сделки и задачи.",
+  title: SITE_TITLE,
+  description: SITE_TITLE,
+  openGraph: {
+    title: SITE_TITLE,
+    description: SITE_TITLE,
+    type: "website",
+    siteName: SITE_TITLE,
+  },
+  twitter: {
+    card: "summary",
+    title: SITE_TITLE,
+    description: SITE_TITLE,
+  },
 };
 
 export default function RootLayout({
