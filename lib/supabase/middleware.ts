@@ -1,7 +1,7 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_OPTIONS, isAuthPrefetch } from "@/lib/supabase/auth-cookies";
-import { safeAppRedirect } from "@/lib/safe-redirect";
+import { APP_HOME, safeAppRedirect } from "@/lib/safe-redirect";
 
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s", "/api/photo-download"];
 const PUBLIC_WITHOUT_SESSION = [
@@ -99,7 +99,7 @@ export async function updateSession(request: NextRequest) {
     }
     if (session && (path === "/login" || path === "/register")) {
       const url = request.nextUrl.clone();
-      url.pathname = "/dashboard";
+      url.pathname = APP_HOME;
       url.searchParams.delete("redirectTo");
       return NextResponse.redirect(url);
     }
@@ -116,7 +116,7 @@ export async function updateSession(request: NextRequest) {
 
   if (user && (path === "/login" || path === "/register")) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    url.pathname = APP_HOME;
     url.searchParams.delete("redirectTo");
     return NextResponse.redirect(url);
   }

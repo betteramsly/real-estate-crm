@@ -10,10 +10,10 @@ describe("safeAppRedirect", () => {
   it("rejects chrome probes and open redirects", () => {
     expect(
       safeAppRedirect("/.well-known/appspecific/com.chrome.devtools.json"),
-    ).toBe("/dashboard");
-    expect(safeAppRedirect("//evil.test")).toBe("/dashboard");
-    expect(safeAppRedirect("/login")).toBe("/dashboard");
-    expect(safeAppRedirect("https://evil.test")).toBe("/dashboard");
-    expect(safeAppRedirect(undefined)).toBe("/dashboard");
+    ).toBe("/properties");
+    expect(safeAppRedirect("//evil.test")).toBe("/properties");
+    expect(safeAppRedirect("/login")).toBe("/properties");
+    expect(safeAppRedirect("https://evil.test")).toBe("/properties");
+    expect(safeAppRedirect(undefined)).toBe("/properties");
   });
 });

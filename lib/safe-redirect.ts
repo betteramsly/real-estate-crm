@@ -1,11 +1,11 @@
-const FALLBACK = "/dashboard";
+export const APP_HOME = "/properties";
 
 export function safeAppRedirect(path?: string | null): string {
-  if (!path) return FALLBACK;
+  if (!path) return APP_HOME;
   if (!path.startsWith("/") || path.startsWith("//") || path.startsWith("/\\")) {
-    return FALLBACK;
+    return APP_HOME;
   }
-  if (path.includes("://") || path.includes("\\")) return FALLBACK;
+  if (path.includes("://") || path.includes("\\")) return APP_HOME;
 
   const clean = path.split("?")[0]?.split("#")[0] ?? path;
   if (
@@ -17,7 +17,7 @@ export function safeAppRedirect(path?: string | null): string {
     clean.startsWith("/auth") ||
     clean.startsWith("/api/")
   ) {
-    return FALLBACK;
+    return APP_HOME;
   }
 
   return path;

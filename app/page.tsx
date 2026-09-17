@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { APP_HOME } from "@/lib/safe-redirect";
 
 export default async function HomePage() {
   const supabase = await createClient();
@@ -8,7 +9,7 @@ export default async function HomePage() {
   } = await supabase.auth.getUser();
 
   if (user) {
-    redirect("/dashboard");
+    redirect(APP_HOME);
   }
 
   redirect("/login");
