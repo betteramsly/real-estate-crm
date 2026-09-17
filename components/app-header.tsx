@@ -162,7 +162,10 @@ export function AppHeader({
                 {profile.full_name ?? "Аккаунт"}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={() => router.push("/settings")}>
+              <DropdownMenuItem
+                onClick={() => router.push("/settings")}
+                onSelect={() => router.push("/settings")}
+              >
                 Профиль
               </DropdownMenuItem>
               <DropdownMenuSeparator />

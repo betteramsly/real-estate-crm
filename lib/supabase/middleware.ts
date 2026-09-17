@@ -1,5 +1,6 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { AUTH_COOKIE_OPTIONS, isAuthPrefetch } from "@/lib/supabase/auth-cookies";
 
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s", "/api/photo-download"];
 const PUBLIC_WITHOUT_SESSION = ["/auth", "/s", "/api/photo-download"];
@@ -48,6 +49,7 @@ export async function updateSession(request: NextRequest) {
   }
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    cookieOptions: AUTH_COOKIE_OPTIONS,
     cookies: {
       getAll() {
         return request.cookies.getAll();
@@ -66,11 +68,34 @@ export async function updateSession(request: NextRequest) {
     },
   });
 
+  const isPublic = isPublicPath(path);
+  const prefetch = isAuthPrefetch(request.headers);
+
+  // Prefetch can fire many routes at once after the JWT expires. A real
+  // navigation still refreshes via getUser(); prefetch only checks the cookie
+  // so parallel refreshes do not kill the session.
+  if (prefetch) {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session && !isPublic) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/login";
+      url.searchParams.set("redirectTo", path);
+      return NextResponse.redirect(url);
+    }
+    if (session && (path === "/login" || path === "/register")) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      url.searchParams.delete("redirectTo");
+      return NextResponse.redirect(url);
+    }
+    return response;
+  }
+
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
-  const isPublic = isPublicPath(path);
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

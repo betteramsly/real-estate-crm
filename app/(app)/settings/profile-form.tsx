@@ -47,7 +47,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
   }, [state]);
 
   return (
-    <form action={formAction} encType="multipart/form-data" className="space-y-4">
+    <form action={formAction} className="space-y-4">
       <div className="flex flex-col gap-4 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
         <Avatar className="h-20 w-20 border">
           {previewUrl ? (

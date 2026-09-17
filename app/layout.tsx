@@ -44,7 +44,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ru" suppressHydrationWarning>
-      <body className={`${golos.variable} ${display.variable} ${golos.className} font-sans`}>
+      <body
+        className={`${golos.variable} ${display.variable} ${golos.className} font-sans`}
+        suppressHydrationWarning
+      >
         <ThemeProvider
           attribute="class"
           defaultTheme="dark"
