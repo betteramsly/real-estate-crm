@@ -41,7 +41,7 @@ export function MatchedProperties({
             href={`/properties/${property.id}`}
             className="group block"
           >
-            <Card className="h-full overflow-hidden transition-colors hover:border-primary">
+            <Card className="h-full overflow-hidden transition-colors duration-200 ease-luxury hover:border-primary">
               <div className="relative aspect-[16/9] w-full bg-muted">
                 {property.cover_url ? (
                   <Image

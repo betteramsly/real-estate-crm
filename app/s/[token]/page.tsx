@@ -1,9 +1,12 @@
 import { Building2 } from "lucide-react";
 import { CatalogGrid } from "@/components/catalog/catalog-grid";
 import { ShareChrome } from "@/components/share/share-chrome";
+import { ShareContactDock } from "@/components/share/share-contact";
+import { ShareTracker } from "@/components/share/share-tracker";
 import { EmptyState } from "@/components/ui/empty-state";
 import { loadCatalogShare } from "@/lib/actions/catalog-share";
 import { complexCountLabel, shareInvalidCopy } from "@/lib/catalog-share";
+import { cn } from "@/lib/utils";
 
 export default async function SharePage(props: {
   params: Promise<{ token: string }>;
@@ -31,7 +34,20 @@ export default async function SharePage(props: {
   return (
     <>
       <ShareChrome expiresAt={share.expires_at} />
-      <main className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6 md:px-8">
+      <ShareTracker token={params.token} event="open" />
+      {share.agent?.whatsapp ? (
+        <ShareContactDock
+          token={params.token}
+          agent={share.agent}
+          shareTitle={share.title}
+        />
+      ) : null}
+      <main
+        className={cn(
+          "mx-auto w-full max-w-7xl space-y-6 px-4 py-6 md:px-8",
+          share.agent?.whatsapp && "pb-24",
+        )}
+      >
         <div className="space-y-1">
           <p className="text-xs font-medium uppercase tracking-[0.22em] text-muted-foreground">
             MANTAEV CAPITAL

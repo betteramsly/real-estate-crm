@@ -36,9 +36,13 @@ const NAV_ITEMS: NavItem[] = [
 export function AppSidebar({
   role,
   onClose,
+  collapsed = false,
+  animate = true,
 }: {
   role: UserRole;
   onClose: () => void;
+  collapsed?: boolean;
+  animate?: boolean;
 }) {
   const pathname = usePathname();
   const [clickedHref, setClickedHref] = React.useState<string | null>(null);
@@ -56,7 +60,18 @@ export function AppSidebar({
     pathname === "/properties" || pathname.startsWith("/properties/");
 
   return (
-    <aside className="sticky top-0 hidden h-screen border-r bg-card/60 md:flex md:w-60 md:flex-col">
+    <aside
+      aria-hidden={collapsed}
+      className={cn(
+        "sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r bg-card/60 md:flex md:flex-col",
+        animate &&
+          "transition-[width,opacity,border-color] duration-300 ease-luxury motion-reduce:transition-none",
+        collapsed
+          ? "pointer-events-none w-0 border-r-0 opacity-0"
+          : "w-60 opacity-100",
+      )}
+    >
+      <div className="flex h-full w-60 flex-col">
       <div className="flex h-14 items-center justify-between gap-2 border-b px-3">
         <PrefetchLink href="/dashboard" className="min-w-0">
           <BrandLockup compact className="h-9 max-w-[160px]" />
@@ -88,7 +103,7 @@ export function AppSidebar({
                 if (!active) setClickedHref(item.href);
               }}
               className={cn(
-                "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-all active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-200 ease-luxury active:scale-[0.98] motion-reduce:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -114,7 +129,7 @@ export function AppSidebar({
             if (!catalogActive) setClickedHref("/properties");
           }}
           className={cn(
-            "flex items-center justify-between gap-3 rounded-full px-3 py-3 text-sm font-semibold shadow-sm transition-all",
+            "flex items-center justify-between gap-3 rounded-full px-3 py-3 text-sm font-semibold shadow-sm transition-colors duration-200 ease-luxury",
             catalogActive
               ? "bg-primary text-primary-foreground"
               : "bg-primary/15 text-primary ring-1 ring-primary/25 hover:bg-primary/20",
@@ -128,6 +143,7 @@ export function AppSidebar({
             <Loader2 className="h-3.5 w-3.5 animate-spin" />
           ) : null}
         </PrefetchLink>
+      </div>
       </div>
     </aside>
   );

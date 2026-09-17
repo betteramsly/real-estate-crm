@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Plus, Users } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PrefetchLink } from "@/components/prefetch-link";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { ClientsTable } from "./clients-table";
 import { ClientsFilters } from "./clients-filters";
@@ -54,12 +54,10 @@ export default async function ClientsPage(props: PageProps) {
         title="Клиенты"
         description="Все клиенты и их статусы в одном месте"
         actions={
-          <Button asChild>
-            <Link href="/clients/new">
-              <Plus className="h-4 w-4" />
-              Добавить клиента
-            </Link>
-          </Button>
+          <PrefetchLink href="/clients/new" className={buttonVariants()}>
+            <Plus className="h-4 w-4" />
+            Добавить клиента
+          </PrefetchLink>
         }
       />
 
@@ -76,12 +74,10 @@ export default async function ClientsPage(props: PageProps) {
           title="Клиентов пока нет"
           description="Создайте первого клиента, чтобы начать работу."
           action={
-            <Button asChild>
-              <Link href="/clients/new">
-                <Plus className="h-4 w-4" />
-                Добавить клиента
-              </Link>
-            </Button>
+            <PrefetchLink href="/clients/new" className={buttonVariants()}>
+              <Plus className="h-4 w-4" />
+              Добавить клиента
+            </PrefetchLink>
           }
         />
       )}

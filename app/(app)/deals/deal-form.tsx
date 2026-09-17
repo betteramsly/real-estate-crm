@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
@@ -9,7 +10,7 @@ import { toast } from "sonner";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { AmountInput } from "@/components/amount-input";
 import { RequiredMark } from "@/components/required-mark";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -72,7 +73,7 @@ export function DealForm({
 }: DealFormProps) {
   const router = useRouter();
   const action = deal ? updateDealAction.bind(null, deal.id) : createDealAction;
-  const [state, formAction] = useFormState<DealFormState, FormData>(action, {});
+  const [state, formAction] = useActionState<DealFormState, FormData>(action, {});
   const [expectedCloseDate, setExpectedCloseDate] = React.useState<
     Date | undefined
   >(parseDateOnly(deal?.expected_close_date));
@@ -205,22 +206,19 @@ export function DealForm({
               }
             />
             <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  type="button"
-                  variant="outline"
-                  className={cn(
-                    "w-full justify-start text-left font-normal",
-                    !expectedCloseDate && "text-muted-foreground",
-                  )}
-                >
-                  <CalendarIcon className="h-4 w-4" />
-                  {expectedCloseDate ? (
-                    format(expectedCloseDate, "d MMMM yyyy", { locale: ru })
-                  ) : (
-                    <span>Выберите дату</span>
-                  )}
-                </Button>
+              <PopoverTrigger
+                className={cn(
+                  buttonVariants({ variant: "outline" }),
+                  "w-full justify-start text-left font-normal",
+                  !expectedCloseDate && "text-muted-foreground",
+                )}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {expectedCloseDate ? (
+                  format(expectedCloseDate, "d MMMM yyyy", { locale: ru })
+                ) : (
+                  <span>Выберите дату</span>
+                )}
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="start">
                 <Calendar

@@ -5,7 +5,7 @@ import { PrefetchLink } from "@/components/prefetch-link";
 import { LogOut, Menu, PanelLeft } from "lucide-react";
 import { BrandLockup, BrandMark } from "@/components/brand-mark";
 import { ThemeToggle } from "@/components/theme-toggle";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -19,10 +19,11 @@ import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/formatters";
 import type { Profile, UserRole } from "@/lib/types";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { PresentModeToggle } from "@/components/catalog/present-mode-toggle";
 import { ShareClientButton } from "@/components/catalog/share-client-sheet";
 import { BrandLoaderOverlay } from "@/components/brand-loader";
+import { usePresence } from "@/hooks/use-presence";
 
 const NAV_ITEMS: { href: string; label: string; adminOnly?: boolean; accent?: boolean }[] = [
   { href: "/dashboard", label: "Дашборд" },
@@ -45,8 +46,10 @@ export function AppHeader({
   onToggleSidebar?: () => void;
 }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = React.useState(false);
   const [leaving, setLeaving] = React.useState(false);
+  const menu = usePresence(open && !presentMode);
   const onCatalog = pathname.startsWith("/properties");
 
   React.useEffect(() => {
@@ -80,17 +83,25 @@ export function AppHeader({
           >
             <Menu className="h-4 w-4" />
           </Button>
-          {sidebarOpen ? null : (
+          <div
+            className={cn(
+              "hidden overflow-hidden md:block",
+              "transition-[width,opacity,margin] duration-300 ease-luxury motion-reduce:transition-none",
+              sidebarOpen
+                ? "pointer-events-none w-0 opacity-0"
+                : "w-9 opacity-100",
+            )}
+          >
             <Button
               variant="ghost"
               size="icon"
-              className="hidden md:inline-flex"
               onClick={onToggleSidebar}
               aria-label="Открыть панель"
+              tabIndex={sidebarOpen ? -1 : 0}
             >
               <PanelLeft className="h-4 w-4" />
             </Button>
-          )}
+          </div>
         </>
       )}
 
@@ -102,8 +113,8 @@ export function AppHeader({
             href="/dashboard"
             aria-label="На дашборд"
             className={cn(
-              "inline-flex min-w-0 items-center",
-              sidebarOpen && "md:hidden",
+              "inline-flex min-w-0 items-center transition-opacity duration-300 ease-luxury motion-reduce:transition-none",
+              sidebarOpen && "md:pointer-events-none md:hidden md:opacity-0",
             )}
           >
             <BrandMark className="h-7" />
@@ -122,34 +133,37 @@ export function AppHeader({
         <>
           <ThemeToggle />
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="gap-2 px-2">
-                <Avatar className="h-7 w-7">
-                  {profile.avatar_url ? (
-                    <AvatarImage
-                      src={profile.avatar_url}
-                      alt={profile.full_name ?? "Аватар"}
-                    />
-                  ) : null}
-                  <AvatarFallback>{initials(profile.full_name)}</AvatarFallback>
-                </Avatar>
-                <div className="hidden text-left md:block">
-                  <p className="text-sm font-medium leading-none">
-                    {profile.full_name ?? "Без имени"}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {role === "admin" ? "Администратор" : "Агент"}
-                  </p>
-                </div>
-              </Button>
+            <DropdownMenuTrigger
+              className={cn(
+                buttonVariants({ variant: "ghost" }),
+                "gap-2 px-2",
+              )}
+            >
+              <Avatar className="h-7 w-7">
+                {profile.avatar_url ? (
+                  <AvatarImage
+                    src={profile.avatar_url}
+                    alt={profile.full_name ?? "Аватар"}
+                  />
+                ) : null}
+                <AvatarFallback>{initials(profile.full_name)}</AvatarFallback>
+              </Avatar>
+              <div className="hidden text-left md:block">
+                <p className="text-sm font-medium leading-none">
+                  {profile.full_name ?? "Без имени"}
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  {role === "admin" ? "Администратор" : "Агент"}
+                </p>
+              </div>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 {profile.full_name ?? "Аккаунт"}
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem asChild>
-                <PrefetchLink href="/settings">Профиль</PrefetchLink>
+              <DropdownMenuItem onSelect={() => router.push("/settings")}>
+                Профиль
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleSignOut} disabled={leaving}>
@@ -161,15 +175,26 @@ export function AppHeader({
         </>
       )}
       </header>
-      {open && !presentMode ? (
+      {menu.mounted ? (
         <div className="fixed inset-x-0 top-14 bottom-0 z-50 md:hidden">
           <button
             type="button"
-            className="absolute inset-0 bg-black/40"
+            className={cn(
+              "absolute inset-0 bg-black/40 transition-opacity duration-200 ease-luxury motion-reduce:transition-none",
+              menu.visible ? "opacity-100" : "opacity-0",
+            )}
             aria-label="Закрыть меню"
             onClick={() => setOpen(false)}
           />
-          <nav className="relative flex flex-col gap-1 border-b bg-background p-3 shadow-sm">
+          <nav
+            className={cn(
+              "relative flex flex-col gap-1 border-b bg-background p-3 shadow-sm",
+              "transition-[opacity,transform] duration-200 ease-luxury motion-reduce:transition-none",
+              menu.visible
+                ? "translate-y-0 opacity-100"
+                : "-translate-y-2 opacity-0",
+            )}
+          >
             {items.map((item) => {
               const active = pathname.startsWith(item.href);
               return (
@@ -178,7 +203,7 @@ export function AppHeader({
                   href={item.href}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm",
+                    "rounded-md px-3 py-2 text-sm transition-colors duration-200 ease-luxury",
                     item.accent && "font-semibold",
                     active
                       ? item.accent

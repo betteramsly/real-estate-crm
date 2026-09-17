@@ -66,6 +66,9 @@ const config: Config = {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      transitionTimingFunction: {
+        luxury: "cubic-bezier(0.22, 1, 0.36, 1)",
+      },
       keyframes: {
         "accordion-down": {
           from: { height: "0" },
@@ -79,11 +82,16 @@ const config: Config = {
           "0%": { transform: "translateX(-120%)" },
           "100%": { transform: "translateX(220%)" },
         },
+        "page-enter": {
+          from: { opacity: "0", transform: "translateY(8px)" },
+          to: { opacity: "1", transform: "translateY(0)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "brand-sweep": "brand-sweep 1.35s ease-in-out infinite",
+        "page-enter": "page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both",
       },
     },
   },

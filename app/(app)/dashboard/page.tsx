@@ -1,4 +1,3 @@
-import Link from "next/link";
 import {
   Building2,
   CheckSquare,
@@ -10,7 +9,7 @@ import {
 import { InsightsWidget } from "@/components/insights-widget";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -201,9 +200,12 @@ export default async function DashboardPage() {
               <CheckSquare className="h-4 w-4" />
               Задачи на ближайшее время
             </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/tasks">Все задачи</Link>
-            </Button>
+            <PrefetchLink
+              href="/tasks"
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
+            >
+              Все задачи
+            </PrefetchLink>
           </CardHeader>
           <CardContent>
             {tasks && tasks.length > 0 ? (
@@ -263,9 +265,12 @@ export default async function DashboardPage() {
               <Users className="h-4 w-4" />
               Последние клиенты
             </CardTitle>
-            <Button asChild variant="ghost" size="sm">
-              <Link href="/clients">Все клиенты</Link>
-            </Button>
+            <PrefetchLink
+              href="/clients"
+              className={buttonVariants({ variant: "ghost", size: "sm" })}
+            >
+              Все клиенты
+            </PrefetchLink>
           </CardHeader>
           <CardContent>
             {recentClients && recentClients.length > 0 ? (

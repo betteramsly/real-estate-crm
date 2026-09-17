@@ -19,8 +19,12 @@ import {
 } from "@/lib/actions/catalog-share";
 import {
   SHARE_TTL_DAYS,
+  emptyShareStats,
   sharePath,
+  shareStatsLabel,
   whatsappShareUrl,
+  type CatalogShareStats,
+  type CatalogShareWithStats,
   type ShareTtlDays,
 } from "@/lib/catalog-share";
 import { formatDate } from "@/lib/formatters";
@@ -37,7 +41,7 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
   const [days, setDays] = React.useState<ShareTtlDays>(3);
   const [pending, startTransition] = React.useTransition();
   const [created, setCreated] = React.useState<CatalogShare | null>(null);
-  const [active, setActive] = React.useState<CatalogShare[]>([]);
+  const [active, setActive] = React.useState<CatalogShareWithStats[]>([]);
   const [copied, setCopied] = React.useState(false);
 
   const refreshActive = React.useCallback(() => {
@@ -60,7 +64,7 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
       }
       setCreated(result.share);
       setActive((current) => [
-        result.share,
+        { ...result.share, stats: emptyShareStats() },
         ...current.filter((row) => row.id !== result.share.id),
       ]);
       toast.success("Ссылка для клиента готова");
@@ -137,14 +141,18 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
           <DialogHeader>
             <DialogTitle className="font-display">Ссылка клиенту</DialogTitle>
             <DialogDescription>
-              Клиент увидит только отмеченные комплексы. Ссылку можно отозвать в
-              любой момент.
+              Клиент увидит только отмеченные комплексы. Если в профиле указан
+              телефон, он сможет написать вам в WhatsApp.
             </DialogDescription>
           </DialogHeader>
 
           {created ? (
             <CreatedLink
               share={created}
+              stats={
+                active.find((row) => row.id === created.id)?.stats ??
+                emptyShareStats()
+              }
               copied={copied}
               pending={pending}
               onCopy={() => void copy(created.token)}
@@ -204,7 +212,7 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
                   type="button"
                   onClick={() => setDays(value)}
                   className={cn(
-                    "rounded-full border px-3 py-2 text-sm transition-colors",
+                    "rounded-full border px-3 py-2 text-sm transition-colors duration-200 ease-luxury",
                     days === value
                       ? "border-primary bg-primary text-primary-foreground"
                       : "border-input bg-background text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -241,6 +249,16 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
                       <p className="text-xs text-muted-foreground">
                         до {formatDate(share.expires_at)} · {share.property_ids.length} ЖК
                       </p>
+                      <p
+                        className={cn(
+                          "text-xs",
+                          share.stats.contacts > 0
+                            ? "text-foreground"
+                            : "text-muted-foreground",
+                        )}
+                      >
+                        {shareStatsLabel(share.stats)}
+                      </p>
                     </div>
                     <div className="flex shrink-0 gap-1">
                       <Button
@@ -276,6 +294,7 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
 
 function CreatedLink({
   share,
+  stats,
   copied,
   pending,
   onCopy,
@@ -283,6 +302,7 @@ function CreatedLink({
   onRevoke,
 }: {
   share: CatalogShare;
+  stats: CatalogShareStats;
   copied: boolean;
   pending: boolean;
   onCopy: () => void;
@@ -318,6 +338,14 @@ function CreatedLink({
       </div>
       <p className="text-xs text-muted-foreground">
         Действует до {formatDate(share.expires_at)}
+      </p>
+      <p
+        className={cn(
+          "text-xs",
+          stats.contacts > 0 ? "text-foreground" : "text-muted-foreground",
+        )}
+      >
+        {shareStatsLabel(stats)}
       </p>
     </section>
   );

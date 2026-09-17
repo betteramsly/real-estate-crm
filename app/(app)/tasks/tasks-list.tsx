@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -211,10 +211,10 @@ export function TasksList({
                   </Avatar>
                 ) : null}
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
+                  <DropdownMenuTrigger
+                    className={buttonVariants({ variant: "ghost", size: "icon" })}
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuLabel>Изменить статус</DropdownMenuLabel>

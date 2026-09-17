@@ -1,7 +1,7 @@
 import { PrefetchLink } from "@/components/prefetch-link";
 import { cookies } from "next/headers";
 import { Building2, Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 import { CatalogExplorer } from "@/components/catalog/catalog-explorer";
 import { CatalogGrid } from "@/components/catalog/catalog-grid";
@@ -118,12 +118,10 @@ export default async function PropertiesPage(props: PageProps) {
           </p>
         </div>
         {canEdit ? (
-          <Button asChild>
-            <PrefetchLink href="/properties/new">
-              <Plus className="h-4 w-4" />
-              Добавить объект
-            </PrefetchLink>
-          </Button>
+          <PrefetchLink href="/properties/new" className={buttonVariants()}>
+            <Plus className="h-4 w-4" />
+            Добавить объект
+          </PrefetchLink>
         ) : null}
       </div>
 
@@ -150,12 +148,10 @@ export default async function PropertiesPage(props: PageProps) {
             }
             action={
               canEdit ? (
-                <Button asChild>
-                  <PrefetchLink href="/properties/new">
-                    <Plus className="h-4 w-4" />
-                    Добавить объект
-                  </PrefetchLink>
-                </Button>
+                <PrefetchLink href="/properties/new" className={buttonVariants()}>
+                  <Plus className="h-4 w-4" />
+                  Добавить объект
+                </PrefetchLink>
               ) : undefined
             }
           />

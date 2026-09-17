@@ -174,7 +174,7 @@ function DealColumn({
     <div
       ref={setNodeRef}
       className={cn(
-        "flex h-full min-h-[400px] flex-col rounded-xl border bg-card/40 p-3 transition-colors",
+        "flex h-full min-h-[400px] flex-col rounded-xl border bg-card/40 p-3 transition-colors duration-200 ease-luxury",
         isOver && "border-primary/50 bg-primary/5",
       )}
     >

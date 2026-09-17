@@ -4,7 +4,7 @@ import { ActivityTimeline } from "@/components/activity-timeline";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -176,11 +176,12 @@ export default async function DealPage(props: {
           }
         />
         {deal.client_id ? (
-          <Button asChild size="sm" variant="outline">
-            <PrefetchLink href={`/clients/${deal.client_id}`}>
-              <Plus className="h-4 w-4" />К клиенту
-            </PrefetchLink>
-          </Button>
+          <PrefetchLink
+            href={`/clients/${deal.client_id}`}
+            className={buttonVariants({ size: "sm", variant: "outline" })}
+          >
+            <Plus className="h-4 w-4" />К клиенту
+          </PrefetchLink>
         ) : null}
       </div>
 

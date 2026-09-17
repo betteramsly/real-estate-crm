@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
@@ -172,7 +173,7 @@ export function PropertyForm({
   const action = property
     ? updatePropertyAction.bind(null, property.id)
     : createPropertyAction;
-  const [state, formAction] = useFormState<PropertyFormState, FormData>(
+  const [state, formAction] = useActionState<PropertyFormState, FormData>(
     action,
     {},
   );

@@ -23,9 +23,14 @@ import {
   isShareId,
   isShareToken,
   isShareTtlDays,
+  agentWhatsappUrl,
   parseOpenCatalogShare,
+  parseShareAgent,
+  phoneToWhatsapp,
   sanitizeSharePropertyIds,
   sharePath,
+  shareStatsLabel,
+  summarizeShareEvents,
   whatsappShareUrl,
 } from "@/lib/catalog-share";
 import { isPresentCookie } from "@/lib/present-mode";
@@ -518,7 +523,68 @@ describe("catalog share helpers", () => {
     expect(parseOpenCatalogShare({ ok: true, title: "Подборка", properties: [] })).toMatchObject({
       ok: true,
       title: "Подборка",
+      agent: null,
       properties: [],
     });
+    expect(
+      parseOpenCatalogShare({
+        ok: true,
+        title: "Подборка",
+        properties: [],
+        agent: { name: "Бетербеков Амин", phone: "+7 (967) 956-62-00" },
+      }),
+    ).toMatchObject({
+      ok: true,
+      agent: { name: "Бетербеков Амин", whatsapp: "79679566200" },
+    });
+  });
+
+  it("normalizes phones and summarizes guest events", () => {
+    expect(phoneToWhatsapp("+7 (967) 956-62-00")).toBe("79679566200");
+    expect(phoneToWhatsapp("89679566200")).toBe("79679566200");
+    expect(phoneToWhatsapp("12")).toBeNull();
+    expect(parseShareAgent({ name: "Амин", phone: "79679566200" })).toEqual({
+      name: "Амин",
+      whatsapp: "79679566200",
+    });
+    expect(agentWhatsappUrl({
+      whatsapp: "79679566200",
+      propertyTitle: "Вулф Тауэрс",
+    })).toContain("wa.me/79679566200?text=");
+
+    const stats = summarizeShareEvents(
+      [
+        {
+          share_id: "s1",
+          event_type: "open",
+          property_id: null,
+          visitor_key: "aaaaaaaaaaaaaaaaaaaa",
+          created_at: "2026-09-17T10:00:00.000Z",
+        },
+        {
+          share_id: "s1",
+          event_type: "view",
+          property_id: "p1",
+          visitor_key: "aaaaaaaaaaaaaaaaaaaa",
+          created_at: "2026-09-17T10:01:00.000Z",
+        },
+        {
+          share_id: "s1",
+          event_type: "contact",
+          property_id: "p1",
+          visitor_key: "aaaaaaaaaaaaaaaaaaaa",
+          created_at: "2026-09-17T10:02:00.000Z",
+        },
+      ],
+      { p1: "Вулф Тауэрс" },
+    );
+    expect(stats.s1).toMatchObject({
+      opens: 1,
+      views: 1,
+      contacts: 1,
+    });
+    expect(shareStatsLabel(stats.s1)).toBe(
+      "открыли 1 · смотрели Вулф Тауэрс · написали 1",
+    );
   });
 });

@@ -1,17 +1,26 @@
 "use server";
 
 import { randomBytes } from "crypto";
+import { cookies } from "next/headers";
 import { requireProfile } from "@/lib/auth";
 import {
   SHARE_MAX_ACTIVE,
   SHARE_TOKEN_BYTES,
+  SHARE_VISITOR_COOKIE,
+  emptyShareStats,
+  isShareEventType,
   isShareId,
   isShareToken,
   isShareTtlDays,
+  isShareVisitorKey,
   parseOpenCatalogShare,
   sanitizeSharePropertyIds,
+  summarizeShareEvents,
+  type CatalogShareEventRow,
+  type CatalogShareWithStats,
   type OpenCatalogShareResult,
 } from "@/lib/catalog-share";
+import { createClient } from "@/lib/supabase/server";
 import type { CatalogShare } from "@/lib/types";
 
 export type CatalogShareActionResult =
@@ -114,7 +123,7 @@ export async function revokeCatalogShareAction(
   return { ok: true };
 }
 
-export async function listCatalogSharesAction(): Promise<CatalogShare[]> {
+export async function listCatalogSharesAction(): Promise<CatalogShareWithStats[]> {
   const { supabase, profile } = await requireProfile();
   const { data } = await supabase
     .from("catalog_shares")
@@ -128,7 +137,75 @@ export async function listCatalogSharesAction(): Promise<CatalogShare[]> {
     .limit(SHARE_MAX_ACTIVE)
     .returns<CatalogShare[]>();
 
-  return data ?? [];
+  const shares = data ?? [];
+  if (!shares.length) return [];
+
+  const { data: events } = await supabase
+    .from("catalog_share_events")
+    .select("share_id, event_type, property_id, visitor_key, created_at")
+    .in(
+      "share_id",
+      shares.map((share) => share.id),
+    )
+    .returns<CatalogShareEventRow[]>();
+
+  const viewedIds = [
+    ...new Set(
+      (events ?? [])
+        .map((event) => event.property_id)
+        .filter((id): id is string => Boolean(id)),
+    ),
+  ];
+  const titles: Record<string, string> = {};
+  if (viewedIds.length) {
+    const { data: properties } = await supabase
+      .from("properties")
+      .select("id, title")
+      .in("id", viewedIds);
+    for (const property of properties ?? []) {
+      titles[property.id] = property.title;
+    }
+  }
+
+  const stats = summarizeShareEvents(events ?? [], titles);
+  return shares.map((share) => ({
+    ...share,
+    stats: stats[share.id] ?? emptyShareStats(),
+  }));
+}
+
+export async function recordShareEventAction(input: {
+  token: string;
+  event: string;
+  propertyId?: string | null;
+}): Promise<void> {
+  if (!isShareToken(input.token) || !isShareEventType(input.event)) return;
+  if (input.propertyId && !isShareId(input.propertyId)) return;
+
+  const cookieStore = await cookies();
+  let visitor = cookieStore.get(SHARE_VISITOR_COOKIE)?.value ?? "";
+  if (!isShareVisitorKey(visitor)) {
+    visitor = randomBytes(SHARE_TOKEN_BYTES).toString("base64url");
+    try {
+      cookieStore.set(SHARE_VISITOR_COOKIE, visitor, {
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 24 * 180,
+        secure: process.env.NODE_ENV === "production",
+      });
+    } catch {
+      // Server component / prefetch cannot write cookies.
+    }
+  }
+
+  const supabase = await createClient();
+  await supabase.rpc("record_catalog_share_event", {
+    share_token: input.token,
+    event_type: input.event,
+    property_id: input.event === "open" ? null : (input.propertyId ?? null),
+    visitor_key: visitor,
+  });
 }
 
 export async function loadCatalogShare(
@@ -137,7 +214,6 @@ export async function loadCatalogShare(
   if (!isShareToken(token)) {
     return { ok: false, reason: "invalid" };
   }
-  const { createClient } = await import("@/lib/supabase/server");
   const supabase = await createClient();
   const { data, error } = await supabase.rpc("open_catalog_share", {
     share_token: token,

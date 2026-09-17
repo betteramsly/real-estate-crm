@@ -2,7 +2,8 @@
 
 import * as React from "react";
 import { Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -30,10 +31,13 @@ export function DeletePropertyButton({ id }: { id: string }) {
 
   return (
     <Dialog>
-      <DialogTrigger asChild>
-        <Button variant="ghost" size="icon" className="text-destructive">
-          <Trash2 className="h-4 w-4" />
-        </Button>
+      <DialogTrigger
+        className={cn(
+          buttonVariants({ variant: "ghost", size: "icon" }),
+          "text-destructive",
+        )}
+      >
+        <Trash2 className="h-4 w-4" />
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>

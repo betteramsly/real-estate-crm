@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
@@ -53,7 +54,7 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
   const action = client
     ? updateClientAction.bind(null, client.id)
     : createClientAction;
-  const [state, formAction] = useFormState<ClientFormState, FormData>(action, {});
+  const [state, formAction] = useActionState<ClientFormState, FormData>(action, {});
 
   React.useEffect(() => {
     if (state.error) toast.error(state.error);

@@ -13,7 +13,7 @@ import { MatchedProperties } from "@/components/matched-properties";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientForm } from "../client-form";
@@ -214,12 +214,13 @@ export default async function ClientPage(props: {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <Button asChild size="sm" variant="outline">
-          <PrefetchLink href={`/deals/new?client_id=${client.id}`}>
-            <Plus className="h-4 w-4" />
-            Создать сделку
-          </PrefetchLink>
-        </Button>
+        <PrefetchLink
+          href={`/deals/new?client_id=${client.id}`}
+          className={buttonVariants({ size: "sm", variant: "outline" })}
+        >
+          <Plus className="h-4 w-4" />
+          Создать сделку
+        </PrefetchLink>
         <TaskFormDialog
           clients={[{ id: client.id, full_name: client.full_name }]}
           deals={(deals ?? []).map((d) => ({ id: d.id, title: d.title }))}
@@ -364,12 +365,13 @@ export default async function ClientPage(props: {
                   <p className="text-sm text-muted-foreground">
                     У клиента ещё нет сделок
                   </p>
-                  <Button asChild size="sm" variant="outline">
-                    <PrefetchLink href={`/deals/new?client_id=${client.id}`}>
-                      <Plus className="h-4 w-4" />
-                      Создать первую сделку
-                    </PrefetchLink>
-                  </Button>
+                  <PrefetchLink
+                    href={`/deals/new?client_id=${client.id}`}
+                    className={buttonVariants({ size: "sm", variant: "outline" })}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Создать первую сделку
+                  </PrefetchLink>
                 </div>
               )}
             </CardContent>

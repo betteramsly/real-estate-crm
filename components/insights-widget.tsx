@@ -44,7 +44,7 @@ export function InsightsWidget({ insights }: InsightsWidgetProps) {
               <PrefetchLink
                 key={insight.id}
                 href={insight.href}
-                className="group flex items-start gap-3 rounded-lg border border-transparent p-3 transition-colors hover:border-border hover:bg-accent/50"
+                className="group flex items-start gap-3 rounded-lg border border-transparent p-3 transition-colors duration-200 ease-luxury hover:border-border hover:bg-accent/50"
               >
                 <span
                   className={cn(
@@ -60,7 +60,7 @@ export function InsightsWidget({ insights }: InsightsWidgetProps) {
                     {insight.description}
                   </p>
                 </div>
-                <ArrowRight className="mt-2 h-4 w-4 shrink-0 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ArrowRight className="mt-2 h-4 w-4 shrink-0 opacity-0 transition-opacity duration-200 ease-luxury group-hover:opacity-100" />
               </PrefetchLink>
             );
           })

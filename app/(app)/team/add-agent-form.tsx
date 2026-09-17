@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { createAgentAction, type CreateAgentState } from "@/lib/actions/profile";
@@ -24,7 +25,7 @@ function SubmitButton() {
 
 export function AddAgentForm() {
   const formRef = React.useRef<HTMLFormElement>(null);
-  const [state, action] = useFormState(createAgentAction, initial);
+  const [state, action] = useActionState(createAgentAction, initial);
 
   React.useEffect(() => {
     if (state.success) {

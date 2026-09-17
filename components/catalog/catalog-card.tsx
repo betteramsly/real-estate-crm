@@ -42,7 +42,7 @@ export function CatalogCard({
   const cardHref = href ?? `/properties/${property.id}`;
 
   return (
-    <article className="h-full overflow-hidden rounded-2xl border bg-card shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg">
+    <article className="h-full overflow-hidden rounded-2xl border bg-card shadow-sm transition-[transform,box-shadow] duration-300 ease-luxury motion-reduce:transition-none hover:-translate-y-0.5 hover:shadow-lg motion-reduce:hover:translate-y-0">
       <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
         <PrefetchLink href={cardHref} className="group absolute inset-0 block">
           {cover ? (
@@ -53,7 +53,7 @@ export function CatalogCard({
               sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
               quality={70}
               priority={priority}
-              className="z-0 object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              className="z-0 object-cover transition-transform duration-500 ease-luxury motion-reduce:transition-none group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
             />
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,_hsl(var(--muted-foreground)/0.12),_transparent_55%)]" />
@@ -111,7 +111,7 @@ export function CatalogCard({
               basket.toggle(property);
             }}
             className={cn(
-              "absolute bottom-3 right-3 z-20 inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium shadow-sm backdrop-blur transition-colors",
+              "absolute bottom-3 right-3 z-20 inline-flex h-9 items-center gap-1.5 rounded-full px-3 text-xs font-medium shadow-sm backdrop-blur transition-colors duration-200 ease-luxury",
               selected
                 ? "bg-russian text-gold"
                 : "bg-background/90 text-foreground hover:bg-background",

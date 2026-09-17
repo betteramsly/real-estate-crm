@@ -1,6 +1,6 @@
-import Link from "next/link";
 import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { PrefetchLink } from "@/components/prefetch-link";
+import { buttonVariants } from "@/components/ui/button";
 import { PageHeader } from "@/components/page-header";
 import { DealsBoard } from "./deals-board";
 import { requireProfile } from "@/lib/auth";
@@ -38,12 +38,10 @@ export default async function DealsPage() {
         title="Сделки"
         description="Канбан-воронка: перетаскивайте сделки между этапами"
         actions={
-          <Button asChild>
-            <Link href="/deals/new">
-              <Plus className="h-4 w-4" />
-              Новая сделка
-            </Link>
-          </Button>
+          <PrefetchLink href="/deals/new" className={buttonVariants()}>
+            <Plus className="h-4 w-4" />
+            Новая сделка
+          </PrefetchLink>
         }
       />
 

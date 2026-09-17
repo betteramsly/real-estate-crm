@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -66,7 +67,7 @@ export function TaskFormDialog({
   defaultPropertyId,
 }: TaskFormDialogProps) {
   const [open, setOpen] = React.useState(false);
-  const [state, formAction] = useFormState<TaskFormState, FormData>(
+  const [state, formAction] = useActionState<TaskFormState, FormData>(
     createTaskAction,
     {},
   );
@@ -77,7 +78,9 @@ export function TaskFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>{trigger}</DialogTrigger>
+      <DialogTrigger asChild>
+        <span className="inline-flex">{trigger}</span>
+      </DialogTrigger>
       <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Новая задача</DialogTitle>

@@ -1,7 +1,8 @@
 "use client";
 
 import * as React from "react";
-import { useFormState, useFormStatus } from "react-dom";
+import { useActionState } from "react";
+import { useFormStatus } from "react-dom";
 import { toast } from "sonner";
 import { Camera, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -35,7 +36,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
   const [previewUrl, setPreviewUrl] = React.useState<string | null>(
     profile.avatar_url,
   );
-  const [state, formAction] = useFormState<ProfileFormState, FormData>(
+  const [state, formAction] = useActionState<ProfileFormState, FormData>(
     updateProfileAction,
     {},
   );

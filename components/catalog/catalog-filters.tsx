@@ -20,6 +20,7 @@ import {
 import { RelevanceStars } from "@/components/relevance-stars";
 import { installmentFilterLabel } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
+import { usePresence } from "@/hooks/use-presence";
 
 const FILTER_KEYS = [
   "q",
@@ -96,17 +97,22 @@ function FilterCheck({
       role="checkbox"
       aria-checked={checked}
       onClick={onChange}
-      className="flex min-h-8 w-full items-center gap-2.5 rounded-md px-1 py-1 text-left text-sm transition-colors hover:bg-accent/70"
+      className="flex min-h-8 w-full items-center gap-2.5 rounded-md px-1 py-1 text-left text-sm transition-colors duration-200 ease-luxury hover:bg-accent/70"
     >
       <span
         className={cn(
-          "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border transition-colors",
+          "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border transition-colors duration-200 ease-luxury",
           checked
             ? "border-primary bg-primary text-primary-foreground"
             : "border-muted-foreground/45 bg-transparent",
         )}
       >
-        <Check className={cn("h-3 w-3", checked ? "opacity-100" : "opacity-0")} />
+        <Check
+          className={cn(
+            "h-3 w-3 transition-opacity duration-200 ease-luxury",
+            checked ? "opacity-100" : "opacity-0",
+          )}
+        />
       </span>
       <span className="min-w-0 flex-1 leading-snug text-foreground">{children}</span>
     </button>
@@ -274,7 +280,7 @@ function DesktopFilterBoard({
                   setNeedle("");
                 }}
                 className={cn(
-                  "flex h-9 w-full items-center justify-between rounded-full px-3 text-sm transition-colors",
+                  "flex h-9 w-full items-center justify-between rounded-full px-3 text-sm transition-colors duration-200 ease-luxury",
                   active
                     ? "bg-accent text-foreground"
                     : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
@@ -516,6 +522,7 @@ export function CatalogFilters({
   const popped = useRef(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
+  const desktopPanel = usePresence(desktopOpen, 200);
   const desktopBar = useRef<HTMLDivElement>(null);
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [draft, setDraft] = useState(() => draftFrom(params));
@@ -648,12 +655,20 @@ export function CatalogFilters({
 
   return (
     <div className="space-y-4">
-      {desktopOpen ? (
-        <div className="fixed inset-0 z-20 hidden bg-black/30 md:block" />
+      {desktopPanel.mounted ? (
+        <div
+          className={cn(
+            "fixed inset-0 z-20 hidden bg-black/30 md:block",
+            "transition-opacity duration-200 ease-luxury motion-reduce:transition-none",
+            desktopPanel.visible
+              ? "opacity-100"
+              : "pointer-events-none opacity-0",
+          )}
+        />
       ) : null}
       <div
         className={cn(
-          "sticky top-14 z-30 -mx-4 px-4 py-3 md:-mx-8 md:px-8",
+          "sticky top-14 z-30 -mx-4 px-4 py-3 transition-[background-color,border-color] duration-200 ease-luxury md:-mx-8 md:px-8",
           desktopOpen
             ? "border-b-transparent bg-transparent"
             : "border-b bg-background/95 backdrop-blur",
@@ -663,7 +678,7 @@ export function CatalogFilters({
           <div className="flex h-11 min-w-0 items-center">
             <div
               className={cn(
-                "flex min-w-0 w-full items-center rounded-full border bg-background/80 pr-1 shadow-sm",
+                "flex min-w-0 w-full items-center rounded-full border bg-background/80 pr-1 shadow-sm transition-[background-color,border-color] duration-200 ease-luxury",
                 desktopOpen
                   ? "border-white/10 bg-popover"
                   : "border-input",
@@ -701,7 +716,7 @@ export function CatalogFilters({
               </Button>
               <div
                 className={cn(
-                  "grid transition-[grid-template-columns] duration-200 ease-out motion-reduce:transition-none",
+                  "grid transition-[grid-template-columns] duration-200 ease-luxury motion-reduce:transition-none",
                   showReset ? "grid-cols-[2.25rem]" : "grid-cols-[0fr]",
                 )}
                 aria-hidden={!showReset}
@@ -734,8 +749,16 @@ export function CatalogFilters({
               </div>
             </div>
           </div>
-          {desktopOpen ? (
-            <div className="absolute left-0 right-0 top-[calc(100%+0.75rem)] z-40 hidden overflow-hidden rounded-3xl border border-white/10 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:block">
+          {desktopPanel.mounted ? (
+            <div
+              className={cn(
+                "absolute left-0 right-0 top-[calc(100%+0.75rem)] z-40 hidden overflow-hidden rounded-3xl border border-white/10 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:block",
+                "origin-top transition-[opacity,transform] duration-200 ease-luxury motion-reduce:transition-none",
+                desktopPanel.visible
+                  ? "translate-y-0 scale-100 opacity-100"
+                  : "pointer-events-none -translate-y-1 scale-[0.985] opacity-0",
+              )}
+            >
                 <div className="flex h-12 items-center gap-3 border-b border-border/50 px-4">
                   <p className="shrink-0 font-display text-sm font-semibold">Фильтры</p>
                   <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
@@ -754,7 +777,7 @@ export function CatalogFilters({
                             chip.id.slice(sep + 1),
                           );
                         }}
-                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-accent px-2.5 text-xs text-foreground hover:bg-accent/80"
+                        className="inline-flex h-7 shrink-0 items-center gap-1 rounded-full bg-accent px-2.5 text-xs text-foreground transition-colors duration-200 ease-luxury hover:bg-accent/80"
                       >
                         {chip.label}
                         <X className="h-3 w-3 text-muted-foreground" />
@@ -765,7 +788,7 @@ export function CatalogFilters({
                     type="button"
                     onClick={reset}
                     className={cn(
-                      "shrink-0 text-sm text-muted-foreground transition-colors hover:text-foreground",
+                      "shrink-0 text-sm text-muted-foreground transition-colors duration-200 ease-luxury hover:text-foreground",
                       !hasFilters && "invisible",
                     )}
                   >
@@ -791,7 +814,7 @@ export function CatalogFilters({
       <div className="min-w-0">{children}</div>
 
       <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[85vh] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-3xl sm:rounded-t-3xl">
+        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[85vh] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-3xl duration-200 ease-luxury sm:rounded-t-3xl data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:slide-out-to-bottom-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
           <DialogHeader>
             <DialogTitle className="font-display">Фильтры</DialogTitle>
           </DialogHeader>

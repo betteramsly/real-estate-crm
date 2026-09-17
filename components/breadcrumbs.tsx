@@ -29,7 +29,7 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
             {item.href && !isLast ? (
               <PrefetchLink
                 href={item.href}
-                className="px-1 transition-colors hover:text-foreground"
+                className="px-1 transition-colors duration-200 ease-luxury hover:text-foreground"
               >
                 {item.label}
               </PrefetchLink>

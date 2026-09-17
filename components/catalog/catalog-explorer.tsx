@@ -37,14 +37,19 @@ export function CatalogExplorer({
     >
       <div className="relative min-h-40">
         {showOverlay ? (
-          <div className="absolute inset-0 z-20 flex items-start justify-center rounded-2xl bg-background/55 pt-20 backdrop-blur-[1px]">
+          <div className="absolute inset-0 z-20 flex animate-in fade-in items-start justify-center rounded-2xl bg-background/55 pt-20 backdrop-blur-[1px] duration-200 ease-luxury">
             <div className="inline-flex items-center gap-2 rounded-full border bg-background px-3 py-2 text-sm shadow-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
               {intent === "clear" ? "Убираем фильтры" : "Применяем фильтры"}
             </div>
           </div>
         ) : null}
-        <div className={cn(showOverlay && "pointer-events-none opacity-50")}>
+        <div
+          className={cn(
+            "transition-opacity duration-200 ease-luxury motion-reduce:transition-none",
+            showOverlay && "pointer-events-none opacity-50",
+          )}
+        >
           {children}
         </div>
       </div>

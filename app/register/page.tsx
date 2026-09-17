@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BrandLockup } from "@/components/brand-mark";
-import { Button } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -29,9 +29,9 @@ export default function RegisterPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Button asChild className="w-full">
-            <Link href="/login">Войти</Link>
-          </Button>
+          <Link href="/login" className={buttonVariants({ className: "w-full" })}>
+            Войти
+          </Link>
         </CardContent>
       </Card>
     </div>

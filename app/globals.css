@@ -103,6 +103,21 @@
       "calt" 1;
   }
 
+  @media (prefers-reduced-motion: reduce) {
+    html:focus-within {
+      scroll-behavior: auto;
+    }
+
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
   h1,
   h2,
   h3,
@@ -136,5 +151,9 @@
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background: hsl(var(--border));
     border-radius: 8px;
+  }
+
+  .page-enter {
+    @apply animate-page-enter motion-reduce:animate-none;
   }
 }
