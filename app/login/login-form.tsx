@@ -24,6 +24,7 @@ import {
   readSavedLoginEmail,
   writeSavedLoginEmail,
 } from "@/lib/supabase/auth-cookies";
+import { safeAppRedirect } from "@/lib/safe-redirect";
 
 const schema = z.object({
   email: z.string().email("Введите корректный email"),
@@ -104,7 +105,7 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
     await supabase.auth.getSession();
 
     setPhase("opening");
-    router.push(redirectTo && redirectTo.startsWith("/") ? redirectTo : "/dashboard");
+    router.push(safeAppRedirect(redirectTo));
     router.refresh();
   };
 

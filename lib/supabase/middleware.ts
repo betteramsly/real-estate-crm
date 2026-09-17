@@ -1,9 +1,15 @@
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { AUTH_COOKIE_OPTIONS, isAuthPrefetch } from "@/lib/supabase/auth-cookies";
+import { safeAppRedirect } from "@/lib/safe-redirect";
 
 const PUBLIC_PATHS = ["/login", "/register", "/auth", "/s", "/api/photo-download"];
-const PUBLIC_WITHOUT_SESSION = ["/auth", "/s", "/api/photo-download"];
+const PUBLIC_WITHOUT_SESSION = [
+  "/auth",
+  "/s",
+  "/api/photo-download",
+  "/.well-known",
+];
 
 const PRESENT_BLOCKED = [
   "/dashboard",
@@ -23,6 +29,16 @@ function isPresentBlocked(path: string) {
     return true;
   }
   return PRESENT_BLOCKED.some((p) => path === p || path.startsWith(`${p}/`));
+}
+
+function redirectToLogin(request: NextRequest, path: string) {
+  const url = request.nextUrl.clone();
+  url.pathname = "/login";
+  url.search = "";
+  if (safeAppRedirect(path) === path) {
+    url.searchParams.set("redirectTo", path);
+  }
+  return NextResponse.redirect(url);
 }
 
 export async function updateSession(request: NextRequest) {
@@ -79,10 +95,7 @@ export async function updateSession(request: NextRequest) {
       data: { session },
     } = await supabase.auth.getSession();
     if (!session && !isPublic) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/login";
-      url.searchParams.set("redirectTo", path);
-      return NextResponse.redirect(url);
+      return redirectToLogin(request, path);
     }
     if (session && (path === "/login" || path === "/register")) {
       const url = request.nextUrl.clone();
@@ -98,10 +111,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   if (!user && !isPublic) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/login";
-    url.searchParams.set("redirectTo", path);
-    return NextResponse.redirect(url);
+    return redirectToLogin(request, path);
   }
 
   if (user && (path === "/login" || path === "/register")) {
