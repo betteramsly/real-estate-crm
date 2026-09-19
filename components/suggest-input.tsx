@@ -110,11 +110,11 @@ export function SuggestInput({
 
   return (
     <div ref={rootRef} className="relative">
-      <input type="hidden" name={name} value={value} />
       <div className="relative">
         <Input
           ref={inputRef}
           id={id}
+          name={name}
           value={query}
           placeholder={placeholder}
           autoComplete="off"

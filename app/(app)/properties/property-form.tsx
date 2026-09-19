@@ -45,6 +45,7 @@ import {
   catalogPhotos,
   catalogPricePhotos,
   getCatalog,
+  looksLikeUrl,
 } from "@/lib/catalog";
 import type { PropertyFormSuggestions } from "@/lib/property-form-suggestions";
 import type {
@@ -57,6 +58,17 @@ import type {
 import { cn } from "@/lib/utils";
 
 export type { PropertyFormSuggestions };
+
+function formStreetAddress(
+  property: Property | undefined,
+  catalog: ReturnType<typeof getCatalog>,
+) {
+  const fromCatalog = catalog.location?.address
+    ?.replace(/\s+[—-]\s*2ГИС$/i, "")
+    .trim();
+  if (fromCatalog && !looksLikeUrl(fromCatalog)) return fromCatalog;
+  return property?.address ?? "";
+}
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -337,7 +349,7 @@ export function PropertyForm({
           <Input
             id="address"
             name="address"
-            defaultValue={property?.address ?? catalog.location?.address ?? ""}
+            defaultValue={formStreetAddress(property, catalog)}
             placeholder="улица Гуцериева, 80"
           />
         </Field>
