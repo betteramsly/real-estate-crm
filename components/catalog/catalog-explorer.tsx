@@ -11,6 +11,7 @@ export function CatalogExplorer({
   developers,
   years,
   installments,
+  canAddFilters = false,
   children,
 }: {
   cities: string[];
@@ -18,6 +19,7 @@ export function CatalogExplorer({
   developers: string[];
   years: string[];
   installments: string[];
+  canAddFilters?: boolean;
   children: React.ReactNode;
 }) {
   const [pending, startTransition] = useTransition();
@@ -31,6 +33,7 @@ export function CatalogExplorer({
       developers={developers}
       years={years}
       installments={installments}
+      canAddFilters={canAddFilters}
       pending={pending}
       startTransition={startTransition}
       onPendingIntent={setIntent}

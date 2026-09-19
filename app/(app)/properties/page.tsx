@@ -131,6 +131,7 @@ export default async function PropertiesPage(props: PageProps) {
         developers={developers}
         years={years}
         installments={installments}
+        canAddFilters={canEdit}
       >
         {properties.length > 0 ? (
           <CatalogGrid

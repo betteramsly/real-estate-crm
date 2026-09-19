@@ -332,6 +332,7 @@ function DesktopFilterBoard({
   onAddValue,
   onRemoveValue,
   canRemoveValue,
+  canAddFilters,
   onDone,
 }: {
   cities: string[];
@@ -345,6 +346,7 @@ function DesktopFilterBoard({
   onAddValue: (key: CatalogFilterExtraKey, value: string) => void;
   onRemoveValue: (key: CatalogFilterExtraKey, value: string) => void;
   canRemoveValue: (key: CatalogFilterExtraKey, value: string) => boolean;
+  canAddFilters: boolean;
   onDone: () => void;
 }) {
   const [group, setGroup] = useState<DesktopGroupId>("district");
@@ -416,11 +418,13 @@ function DesktopFilterBoard({
                   className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
-              <FilterAddValue
-                label={groupTitle}
-                defaultValue={query && !currentItems.length ? needle.trim() : ""}
-                onAdd={(value) => onAddValue(group, value)}
-              />
+              {canAddFilters ? (
+                <FilterAddValue
+                  label={groupTitle}
+                  defaultValue={query && !currentItems.length ? needle.trim() : ""}
+                  onAdd={(value) => onAddValue(group, value)}
+                />
+              ) : null}
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto p-3 scrollbar-thin">
@@ -471,7 +475,7 @@ function DesktopFilterBoard({
                     checked={draft[group].includes(item)}
                     onChange={() => toggleValue(group, item)}
                     onRemove={
-                      canRemoveValue(group, item)
+                      canAddFilters && canRemoveValue(group, item)
                         ? () => onRemoveValue(group, item)
                         : undefined
                     }
@@ -516,6 +520,7 @@ function FilterGroups({
   onAddValue,
   onRemoveValue,
   canRemoveValue,
+  canAddFilters,
 }: {
   cities: string[];
   districts: string[];
@@ -528,6 +533,7 @@ function FilterGroups({
   onAddValue: (key: CatalogFilterExtraKey, value: string) => void;
   onRemoveValue: (key: CatalogFilterExtraKey, value: string) => void;
   canRemoveValue: (key: CatalogFilterExtraKey, value: string) => boolean;
+  canAddFilters: boolean;
 }) {
   const [needle, setNeedle] = useState("");
   const query = needle.trim().toLowerCase();
@@ -574,7 +580,7 @@ function FilterGroups({
       {lists.map((list) =>
         list.items.length || !query ? (
           <FilterSection key={list.key} title={list.title}>
-            {!query ? (
+            {canAddFilters && !query ? (
               <FilterAddValue
                 label={list.title}
                 onAdd={(value) => onAddValue(list.key, value)}
@@ -587,7 +593,9 @@ function FilterGroups({
                   selected={draft[list.key]}
                   onToggle={(value) => toggleValue(list.key, value)}
                   onRemove={(value) => onRemoveValue(list.key, value)}
-                  canRemove={(value) => canRemoveValue(list.key, value)}
+                  canRemove={(value) =>
+                    canAddFilters && canRemoveValue(list.key, value)
+                  }
                   limit={query ? list.items.length : list.limit}
                   formatLabel={
                     list.key === "installment"
@@ -600,7 +608,7 @@ function FilterGroups({
           </FilterSection>
         ) : null,
       )}
-      {empty && needle.trim() ? (
+      {empty && canAddFilters && needle.trim() ? (
         <div className="space-y-3 px-1 py-4">
           <p className="text-sm text-muted-foreground">
             «{needle.trim()}» нет в списках. Добавить как:
@@ -659,6 +667,7 @@ export function CatalogFilters({
   developers,
   years,
   installments,
+  canAddFilters = false,
   pending,
   startTransition,
   onPendingIntent,
@@ -669,6 +678,7 @@ export function CatalogFilters({
   developers: string[];
   years: string[];
   installments: string[];
+  canAddFilters?: boolean;
   pending: boolean;
   startTransition: TransitionStartFunction;
   onPendingIntent?: (intent: "apply" | "clear" | "search") => void;
@@ -995,6 +1005,7 @@ export function CatalogFilters({
                   onAddValue={addValue}
                   onRemoveValue={removeValue}
                   canRemoveValue={canRemoveValue}
+                  canAddFilters={canAddFilters}
                   onDone={() => setDesktopOpen(false)}
                 />
               </div>
@@ -1021,6 +1032,7 @@ export function CatalogFilters({
             onAddValue={addValue}
             onRemoveValue={removeValue}
             canRemoveValue={canRemoveValue}
+            canAddFilters={canAddFilters}
           />
           <Button className="mt-2 h-11 w-full" onClick={() => setMobileOpen(false)}>
             Показать комплексы
