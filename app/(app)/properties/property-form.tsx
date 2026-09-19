@@ -246,7 +246,10 @@ export function PropertyForm({
   const fe = state.fieldErrors ?? {};
 
   return (
-    <form action={formAction} className="mx-auto max-w-3xl space-y-5">
+    <form
+      action={formAction}
+      className="mx-auto max-w-3xl space-y-5 max-md:[&_input]:text-base max-md:[&_select]:text-base max-md:[&_textarea]:text-base"
+    >
       <FormSection title="Фотографии">
         <Field className="md:col-span-2">
           <PhotoField
