@@ -39,11 +39,13 @@ export function AppHeader({
   presentMode = false,
   sidebarOpen = true,
   onToggleSidebar,
+  teamOpenCount = 0,
 }: {
   profile: Profile;
   presentMode?: boolean;
   sidebarOpen?: boolean;
   onToggleSidebar?: () => void;
+  teamOpenCount?: number;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -207,7 +209,7 @@ export function AppHeader({
                   href={item.href}
                   onClick={() => setOpen(false)}
                   className={cn(
-                    "rounded-md px-3 py-2 text-sm transition-colors duration-200 ease-luxury",
+                    "flex items-center justify-between gap-3 rounded-md px-3 py-2 text-sm transition-colors duration-200 ease-luxury",
                     item.accent && "font-semibold",
                     active
                       ? item.accent
@@ -217,6 +219,11 @@ export function AppHeader({
                   )}
                 >
                   {item.label}
+                  {item.href === "/team" && teamOpenCount > 0 ? (
+                    <span className="inline-flex min-w-5 justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground">
+                      {teamOpenCount > 99 ? "99+" : teamOpenCount}
+                    </span>
+                  ) : null}
                 </PrefetchLink>
               );
             })}

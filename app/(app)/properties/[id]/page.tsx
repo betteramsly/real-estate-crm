@@ -4,6 +4,7 @@ import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ComplexHero } from "@/components/catalog/complex-hero";
 import { ComplexSections } from "@/components/catalog/complex-sections";
 import { PresentPropertyBeacon } from "@/components/catalog/presentation-basket";
+import { PropertyFeedbackButton } from "@/components/catalog/property-feedback-button";
 import { PropertyForm } from "../property-form";
 import { DeletePropertyButton } from "./delete-property-button";
 import { PropertyEditPanel } from "./property-edit-panel";
@@ -11,6 +12,7 @@ import { canManageProperties, requireProfile } from "@/lib/auth";
 import { PROPERTY_PUBLIC_COLUMNS } from "@/lib/catalog";
 import { loadPropertyFormSuggestions } from "@/lib/property-form-suggestions";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
+import { canShowPropertyFeedback } from "@/lib/property-feedback";
 import type { Property } from "@/lib/types";
 
 export default async function PropertyPage(props: {
@@ -22,6 +24,8 @@ export default async function PropertyPage(props: {
     (await cookies()).get(PRESENT_COOKIE)?.value,
   );
   const canEdit = canManageProperties(profile.role) && !presentMode;
+  const showFeedback = canShowPropertyFeedback({ presentMode });
+  const showMaterials = profile.role === "admin" && !presentMode;
 
   const [{ data: property }, suggestions] = await Promise.all([
     supabase
@@ -61,8 +65,20 @@ export default async function PropertyPage(props: {
         {canEdit ? <DeletePropertyButton id={property.id} /> : null}
       </div>
 
-      <ComplexHero property={property} hideRelevance={presentMode} />
-      <ComplexSections property={property} presentMode={presentMode} />
+      <ComplexHero
+        property={property}
+        hideRelevance={presentMode}
+        overlay={
+          showFeedback ? (
+            <PropertyFeedbackButton propertyId={property.id} />
+          ) : null
+        }
+      />
+      <ComplexSections
+        property={property}
+        presentMode={presentMode}
+        showMaterials={showMaterials}
+      />
 
       {canEdit ? (
         <PropertyEditPanel>

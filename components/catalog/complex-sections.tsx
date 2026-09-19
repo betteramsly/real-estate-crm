@@ -382,9 +382,11 @@ function EmptyHint({ children }: { children: ReactNode }) {
 export function ComplexSections({
   property,
   presentMode,
+  showMaterials = false,
 }: {
   property: Property;
   presentMode: boolean;
+  showMaterials?: boolean;
 }) {
   const catalog = getCatalog(property);
   const location = catalogLocationLabel(property);
@@ -428,7 +430,7 @@ export function ComplexSections({
 
   return (
     <div className="space-y-7">
-      {presentMode ? null : <MaterialsBar property={property} />}
+      {showMaterials ? <MaterialsBar property={property} /> : null}
 
       <QuickDocs documents={documents} mapUrl={mapUrl} />
 

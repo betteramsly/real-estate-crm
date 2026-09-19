@@ -15,11 +15,13 @@ export function AppChrome({
   role,
   profile,
   presentMode,
+  teamOpenCount = 0,
   children,
 }: {
   role: UserRole;
   profile: Profile;
   presentMode: boolean;
+  teamOpenCount?: number;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(true);
@@ -70,6 +72,7 @@ export function AppChrome({
             onClose={toggle}
             collapsed={!open}
             animate={ready}
+            teamOpenCount={teamOpenCount}
           />
         )}
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -78,6 +81,7 @@ export function AppChrome({
             presentMode={presentMode}
             sidebarOpen={open}
             onToggleSidebar={toggle}
+            teamOpenCount={teamOpenCount}
           />
           <main
             ref={mainRef}

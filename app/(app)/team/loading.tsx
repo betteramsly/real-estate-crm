@@ -55,6 +55,22 @@ export default function TeamLoading() {
             </div>
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Предложения по базе</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <div className="flex gap-2">
+                <Skeleton className="h-8 w-28 rounded-full" />
+                <Skeleton className="h-8 w-24 rounded-full" />
+              </div>
+              {Array.from({ length: 3 }).map((_, index) => (
+                <Skeleton key={index} className="h-16 w-full rounded-2xl" />
+              ))}
+            </div>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

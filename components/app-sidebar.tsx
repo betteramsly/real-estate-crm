@@ -38,11 +38,13 @@ export function AppSidebar({
   onClose,
   collapsed = false,
   animate = true,
+  teamOpenCount = 0,
 }: {
   role: UserRole;
   onClose: () => void;
   collapsed?: boolean;
   animate?: boolean;
+  teamOpenCount?: number;
 }) {
   const pathname = usePathname();
   const [clickedHref, setClickedHref] = React.useState<string | null>(null);
@@ -117,6 +119,10 @@ export function AppSidebar({
               </span>
               {clicked ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : item.href === "/team" && teamOpenCount > 0 ? (
+                <span className="inline-flex min-w-5 justify-center rounded-full bg-primary px-1.5 text-[10px] font-semibold leading-5 text-primary-foreground">
+                  {teamOpenCount > 99 ? "99+" : teamOpenCount}
+                </span>
               ) : null}
             </PrefetchLink>
           );

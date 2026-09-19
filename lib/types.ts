@@ -230,3 +230,24 @@ export type PresentationBasketItem = {
   developer: string | null;
   cover_url: string | null;
 };
+
+export type PropertyFeedbackStatus = "open" | "done" | "tasked";
+
+export interface PropertyFeedback {
+  id: string;
+  property_id: string;
+  author_id: string;
+  body: string;
+  status: PropertyFeedbackStatus;
+  task_id: string | null;
+  resolved_at: string | null;
+  resolved_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PropertyFeedbackWithRelations extends PropertyFeedback {
+  author?: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
+  property?: Pick<Property, "id" | "title"> | null;
+  resolver?: Pick<Profile, "id" | "full_name"> | null;
+}

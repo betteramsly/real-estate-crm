@@ -262,18 +262,27 @@ describe("catalog helpers", () => {
         { client: true },
       ),
     ).toEqual([
+      { title: "Шахматка", url: "https://docs.google.com/x", kind: "chess" },
       { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
+      { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
     ]);
   });
 
-  it("keeps only floor plans visible for a client presentation", () => {
+  it("keeps plans, chess and commercial visible for a client presentation", () => {
     expect(
       isPresentCatalogDocument({
         title: "Шахматка",
         url: "https://docs.google.com/x",
         kind: "chess",
       }),
-    ).toBe(false);
+    ).toBe(true);
+    expect(
+      isPresentCatalogDocument({
+        title: "Коммерция",
+        url: "https://docs.google.com/y",
+        kind: "commercial",
+      }),
+    ).toBe(true);
     expect(
       isPresentCatalogDocument({
         title: "Планировки",
@@ -285,18 +294,18 @@ describe("catalog helpers", () => {
     expect(inferCatalogDocumentKind("шахматка.xlsx")).toBe("chess");
   });
 
-  it("allows only location and plan links for a client", () => {
+  it("allows location, plan, chess and commercial links for a client", () => {
     expect(isClientExternalUrl("https://go.2gis.com/x")).toBe(true);
     expect(isClientExternalUrl("https://yandex.ru/maps/1")).toBe(true);
     expect(
       isClientExternalUrl("https://disk.yandex.ru/d/x", "Планировки ЖК"),
     ).toBe(true);
     expect(isClientExternalUrl("https://docs.google.com/x", "Шахматка")).toBe(
-      false,
+      true,
     );
     expect(
       isClientExternalUrl("https://docs.google.com/y", "Коммерция 8 марта"),
-    ).toBe(false);
+    ).toBe(true);
   });
 
   it("reports missing price, chess and map instead of hiding them", () => {

@@ -137,7 +137,14 @@ export function isPresentCatalogDocument(doc: {
   kind?: string;
 }) {
   const blob = `${doc.title} ${doc.url}`.toLowerCase();
-  return doc.kind === "plan" || /планир/.test(blob);
+  return (
+    doc.kind === "plan" ||
+    doc.kind === "chess" ||
+    doc.kind === "commercial" ||
+    /планир/.test(blob) ||
+    /шахмат/.test(blob) ||
+    /коммерц/.test(blob)
+  );
 }
 
 export function inferCatalogDocumentKind(name: string) {
@@ -158,8 +165,8 @@ export function catalogDocumentLabel(
 
 export function isClientExternalUrl(url: string, title = "") {
   const blob = `${title} ${url}`.toLowerCase();
-  if (/коммерц/.test(blob)) return false;
-  if (/шахмат|\.xlsx|\.xls/.test(blob)) return false;
+  if (/коммерц/.test(blob)) return true;
+  if (/шахмат|\.xlsx|\.xls/.test(blob)) return true;
   if (/планир/.test(blob)) return true;
   return /(?:^|[/.])2gis\.|go\.2gis\.com|maps\.yandex|yandex\.[^\s/]+\/maps|maps\.google|google\.[^\s/]+\/maps/i.test(
     url,

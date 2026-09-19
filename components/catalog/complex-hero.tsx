@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Calendar, CreditCard, MapPin } from "lucide-react";
 import { PhotoGallery } from "@/components/catalog/photo-gallery";
 import { Badge } from "@/components/ui/badge";
@@ -13,16 +14,18 @@ import type { Property } from "@/lib/types";
 export function ComplexHero({
   property,
   hideRelevance = false,
+  overlay,
 }: {
   property: Property;
   hideRelevance?: boolean;
+  overlay?: ReactNode;
 }) {
   const location = catalogLocationLabel(property);
   const photos = catalogPhotos(property);
   const completion = completionLabel(property);
 
   return (
-    <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
+    <section className="relative overflow-hidden rounded-3xl border bg-card shadow-sm">
       <PhotoGallery photos={photos} alt={property.title}>
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent px-4 pb-4 pt-24 md:px-6 md:pb-5">
           <div className="flex items-end justify-between gap-3">
@@ -82,6 +85,11 @@ export function ComplexHero({
           </div>
         </div>
       </PhotoGallery>
+      {overlay ? (
+        <div className="absolute left-3 top-3 z-20 max-w-[min(100%-5.5rem,18rem)]">
+          {overlay}
+        </div>
+      ) : null}
     </section>
   );
 }

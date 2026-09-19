@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
+import { canChangeUserRole, isPrimaryAdminEmail } from "@/lib/primary-admin";
 import { createClient } from "@/lib/supabase/server";
 import type { UserRole } from "@/lib/types";
 
@@ -93,14 +94,35 @@ export async function updateProfileAction(
 
 export async function setUserRoleAction(userId: string, role: UserRole) {
   const { supabase, profile, user } = await requireProfile();
-  if (profile.role !== "admin") {
-    throw new Error("Только администратор может менять роли");
-  }
-  if (userId === user.id) {
-    throw new Error("Нельзя сменить свою роль");
-  }
   if (role !== "admin" && role !== "agent") {
     throw new Error("Неизвестная роль");
+  }
+
+  const { data: target, error: targetError } = await supabase
+    .from("profiles")
+    .select("id, email")
+    .eq("id", userId)
+    .maybeSingle<{ id: string; email: string | null }>();
+
+  if (targetError || !target) {
+    throw new Error("Пользователь не найден");
+  }
+
+  if (
+    !canChangeUserRole({
+      actorId: user.id,
+      actorRole: profile.role,
+      targetId: target.id,
+      targetEmail: target.email,
+    })
+  ) {
+    if (userId === user.id) {
+      throw new Error("Нельзя сменить свою роль");
+    }
+    if (isPrimaryAdminEmail(target.email)) {
+      throw new Error("Нельзя менять роль главного администратора");
+    }
+    throw new Error("Только администратор может менять роли");
   }
 
   const { error } = await supabase
