@@ -856,7 +856,7 @@ export function CatalogFilters({
       ) : null}
       <div
         className={cn(
-          "sticky top-14 z-30 -mx-4 px-4 py-3 transition-[background-color,border-color] duration-200 ease-luxury md:-mx-8 md:px-8",
+          "sticky top-0 z-30 -mx-4 px-4 py-3 transition-[background-color,border-color] duration-200 ease-luxury md:-mx-8 md:px-8",
           desktopOpen
             ? "border-b-transparent bg-transparent"
             : "border-b bg-background/95 backdrop-blur",
