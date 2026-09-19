@@ -437,9 +437,11 @@ export function PhotoViewer({
 export function LightboxPhotos({
   photos,
   alt,
+  size = "default",
 }: {
   photos: string[];
   alt: string;
+  size?: "default" | "map" | "price";
 }) {
   const { open, index, setIndex, setOpen, go, openAt, startX } = usePhotoLightbox(
     photos.length,
@@ -447,12 +449,20 @@ export function LightboxPhotos({
 
   if (!photos.length) return null;
 
+  const imageClass =
+    size === "map"
+      ? "block h-auto w-full max-h-[min(22rem,55vh)] object-contain"
+      : size === "price"
+        ? "block max-h-[min(32rem,75vh)] w-auto max-w-full object-contain"
+        : "block max-h-80 w-auto max-w-full object-contain";
+
   return (
     <>
       <div
         className={cn(
-          "grid gap-3",
-          photos.length > 1 && "sm:grid-cols-2",
+          "grid gap-4",
+          size === "map" ? "justify-items-stretch" : "justify-items-center",
+          photos.length > 1 && size !== "map" && "sm:grid-cols-2",
         )}
       >
         {photos.map((url, photoIndex) => (
@@ -461,8 +471,8 @@ export function LightboxPhotos({
             type="button"
             onClick={() => openAt(photoIndex)}
             className={cn(
-              "relative overflow-hidden rounded-xl border bg-muted",
-              photos.length === 1 && "max-w-xl",
+              "overflow-hidden rounded-xl border border-border/70 bg-background shadow-[0_8px_30px_rgba(0,0,0,0.18)]",
+              size === "map" && "w-full",
             )}
             aria-label={`Открыть фото ${photoIndex + 1}`}
           >
@@ -472,7 +482,7 @@ export function LightboxPhotos({
               alt={`${alt} ${photoIndex + 1}`}
               loading="lazy"
               decoding="async"
-              className="mx-auto max-h-80 w-full object-contain"
+              className={imageClass}
             />
           </button>
         ))}
@@ -495,11 +505,13 @@ export function LightboxPhotos({
 export function PricePhotos({
   photos,
   alt,
+  size = "price",
 }: {
   photos: string[];
   alt: string;
+  size?: "default" | "map" | "price";
 }) {
-  return <LightboxPhotos photos={photos} alt={alt} />;
+  return <LightboxPhotos photos={photos} alt={alt} size={size} />;
 }
 
 export function PhotoGallery({

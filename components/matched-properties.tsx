@@ -103,7 +103,7 @@ export function MatchedProperties({
                     {reasons.map((r) => (
                       <span
                         key={r}
-                        className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-[10px] font-medium text-emerald-500"
+                        className="rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary"
                       >
                         {r}
                       </span>

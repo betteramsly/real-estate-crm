@@ -13,7 +13,9 @@ import {
   formatAboutBlocks,
   hasCommercialCatalog,
   hasInstallmentCatalog,
+  inferCatalogDocumentKind,
   isClientExternalUrl,
+  isPresentCatalogDocument,
   matchesCatalogSearch,
   installmentFilterLabel,
   sortInstallmentTerms,
@@ -262,6 +264,25 @@ describe("catalog helpers", () => {
     ).toEqual([
       { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
     ]);
+  });
+
+  it("keeps only floor plans visible for a client presentation", () => {
+    expect(
+      isPresentCatalogDocument({
+        title: "Шахматка",
+        url: "https://docs.google.com/x",
+        kind: "chess",
+      }),
+    ).toBe(false);
+    expect(
+      isPresentCatalogDocument({
+        title: "Планировки",
+        url: "https://disk.yandex.ru/i/x",
+        kind: "plan",
+      }),
+    ).toBe(true);
+    expect(inferCatalogDocumentKind("планировки.pdf")).toBe("plan");
+    expect(inferCatalogDocumentKind("шахматка.xlsx")).toBe("chess");
   });
 
   it("allows only location and plan links for a client", () => {

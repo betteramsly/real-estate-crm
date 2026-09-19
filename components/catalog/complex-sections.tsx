@@ -1,13 +1,23 @@
 "use client";
 
-import { useState } from "react";
-import { Check, ChevronDown, Circle, ExternalLink, FileText, MapPin } from "lucide-react";
+import { useState, type ReactNode } from "react";
+import {
+  Check,
+  ChevronDown,
+  Circle,
+  ExternalLink,
+  FileText,
+  MapPin,
+} from "lucide-react";
 import {
   LightboxPhotos,
   PricePhotos,
 } from "@/components/catalog/photo-gallery";
 import { InternalLock } from "@/components/catalog/internal-lock";
 import { RichText } from "@/components/catalog/rich-text";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { safeExternalHref } from "@/lib/linkify";
 import {
   CATALOG_MATERIAL_ITEMS,
   catalogLocationLabel,
@@ -26,72 +36,227 @@ import {
 import { cn } from "@/lib/utils";
 import type { Property } from "@/lib/types";
 
-function Section({
+function SectionHeading({
   title,
-  defaultOpen,
-  children,
-  className,
+  description,
+  action,
 }: {
   title: string;
-  defaultOpen: boolean;
-  children: React.ReactNode;
-  className?: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-wrap items-end justify-between gap-2">
+      <div className="min-w-0 space-y-0.5">
+        <h2 className="font-display text-xl font-semibold tracking-tight md:text-[1.35rem]">
+          {title}
+        </h2>
+        {description ? (
+          <p className="max-w-2xl text-sm text-muted-foreground">{description}</p>
+        ) : null}
+      </div>
+      {action ? <div className="shrink-0">{action}</div> : null}
+    </div>
+  );
+}
+
+function MobileCollapsible({
+  title,
+  defaultOpen = true,
+  children,
+}: {
+  title: string;
+  defaultOpen?: boolean;
+  children: ReactNode;
 }) {
   const [open, setOpen] = useState(defaultOpen);
 
   return (
-    <section
-      className={cn(
-        "flex h-full flex-col overflow-hidden rounded-2xl border bg-card",
-        className,
-      )}
-    >
+    <div>
       <button
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className="flex w-full items-center justify-between gap-3 px-5 py-3.5 text-left md:cursor-default md:pointer-events-none"
+        className="flex w-full items-center justify-between gap-3 py-1 text-left md:pointer-events-none"
+        aria-expanded={open}
       >
-        <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+        <h2 className="font-display text-xl font-semibold tracking-tight md:text-[1.35rem]">
+          {title}
+        </h2>
         <ChevronDown
           className={cn(
-            "h-5 w-5 text-muted-foreground transition-transform md:hidden",
+            "h-4 w-4 text-muted-foreground transition-transform md:hidden",
             open && "rotate-180",
           )}
         />
       </button>
-      <div className={cn("flex-1 px-5 pb-5", !open && "hidden md:block")}>
-        {children}
-      </div>
-    </section>
+      <div className={cn("mt-4", !open && "hidden md:block")}>{children}</div>
+    </div>
   );
 }
 
-function MaterialsChecklist({ property }: { property: Property }) {
+function MaterialsBar({ property }: { property: Property }) {
   const status = catalogMaterialStatus(property);
+  const ready = CATALOG_MATERIAL_ITEMS.filter((item) => status[item.id]).length;
+  const total = CATALOG_MATERIAL_ITEMS.length;
 
   return (
-    <section className="rounded-2xl border bg-card px-5 py-4">
-      <h2 className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
-        Материалы
+    <div className="rounded-2xl border border-border/70 bg-card/70 px-4 py-3.5">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+            Готовность материалов
+          </p>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {ready === total
+              ? "Всё необходимое на месте"
+              : `${ready} из ${total} — дополните карточку`}
+          </p>
+        </div>
+        <ul className="flex flex-wrap gap-2">
+          {CATALOG_MATERIAL_ITEMS.map((item) => {
+            const ok = status[item.id];
+            return (
+              <li key={item.id}>
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium",
+                    ok
+                      ? "border-gold/40 bg-gold/10 text-foreground"
+                      : "border-border/80 bg-muted/40 text-muted-foreground",
+                  )}
+                >
+                  {ok ? (
+                    <Check className="h-3.5 w-3.5 text-gold" aria-hidden />
+                  ) : (
+                    <Circle
+                      className="h-3.5 w-3.5 text-muted-foreground/50"
+                      aria-hidden
+                    />
+                  )}
+                  {ok ? item.present : item.missing}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function QuickDocs({
+  documents,
+  mapUrl,
+}: {
+  documents: Array<{ title: string; href: string }>;
+  mapUrl: string | null;
+}) {
+  if (!documents.length && !mapUrl) return null;
+
+  return (
+    <div className="space-y-2.5">
+      <h2 className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+        Быстрый доступ
       </h2>
-      <ul className="mt-3 grid gap-2 sm:grid-cols-3">
-        {CATALOG_MATERIAL_ITEMS.map((item) => {
-          const ok = status[item.id];
-          return (
-            <li key={item.id} className="flex min-h-8 items-center gap-2.5 text-sm">
-              {ok ? (
-                <Check className="h-4 w-4 shrink-0 text-gold" />
-              ) : (
-                <Circle className="h-4 w-4 shrink-0 text-muted-foreground" />
-              )}
-              <span className={ok ? "font-medium" : "text-muted-foreground"}>
-                {ok ? item.present : item.missing}
-              </span>
+      <div className="flex flex-wrap gap-2">
+        {mapUrl ? (
+          <Button asChild variant="outline" size="sm" className="h-9">
+            <a href={mapUrl} target="_blank" rel="noreferrer">
+              <MapPin className="h-3.5 w-3.5" />
+              {/2gis/i.test(mapUrl) ? "2ГИС" : "Карта"}
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            </a>
+          </Button>
+        ) : null}
+        {documents.map((doc) => (
+          <Button
+            key={`${doc.title}-${doc.href}`}
+            asChild
+            variant="secondary"
+            size="sm"
+            className="h-9"
+          >
+            <a href={doc.href} target="_blank" rel="noreferrer">
+              <FileText className="h-3.5 w-3.5" />
+              <span className="max-w-[12rem] truncate">{doc.title}</span>
+              <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
+            </a>
+          </Button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function splitFactLine(line: string) {
+  const match = line.match(/^([^:]{1,36}):\s*(.+)$/);
+  if (!match) return null;
+  return { label: match[1].trim(), value: match[2].trim() };
+}
+
+function AboutContent({
+  aboutBlocks,
+  facts,
+  presentMode,
+}: {
+  aboutBlocks: Array<{ type: "p" | "list"; items: string[] }>;
+  facts: { label: string; value: string }[];
+  presentMode: boolean;
+}) {
+  const fromLists = aboutBlocks.flatMap((block) =>
+    block.type === "list"
+      ? block.items.map((item) => ({ raw: item, fact: splitFactLine(item) }))
+      : [],
+  );
+  const factRows = [
+    ...fromLists
+      .filter((row) => row.fact)
+      .map((row) => row.fact as { label: string; value: string }),
+    ...facts,
+  ];
+  const noteLines = [
+    ...fromLists.filter((row) => !row.fact).map((row) => row.raw),
+    ...aboutBlocks.flatMap((block) => (block.type === "p" ? block.items : [])),
+  ];
+
+  return (
+    <div className="space-y-5">
+      {factRows.length ? (
+        <dl className="flex flex-wrap gap-2">
+          {factRows.map((fact) => (
+            <div
+              key={`${fact.label}-${fact.value}`}
+              className="inline-flex min-w-[7.5rem] flex-col rounded-xl border border-border/60 bg-muted/30 px-3.5 py-2.5"
+            >
+              <dt className="text-[11px] uppercase tracking-[0.14em] text-muted-foreground">
+                {fact.label}
+              </dt>
+              <dd className="mt-0.5 text-sm font-medium leading-snug">
+                <RichText text={fact.value} clientLinks={presentMode} />
+              </dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+
+      {noteLines.length ? (
+        <ul
+          className={cn(
+            "space-y-3",
+            factRows.length > 0 && "border-t border-border/50 pt-5",
+          )}
+        >
+          {noteLines.map((item) => (
+            <li
+              key={item}
+              className="relative max-w-3xl pl-4 text-sm leading-relaxed text-foreground/90 before:absolute before:left-0 before:top-[0.55em] before:h-1 before:w-1 before:rounded-full before:bg-gold/80"
+            >
+              <RichText text={item} clientLinks={presentMode} />
             </li>
-          );
-        })}
-      </ul>
-    </section>
+          ))}
+        </ul>
+      ) : null}
+    </div>
   );
 }
 
@@ -109,46 +274,108 @@ function TermTable({
   clientLinks?: boolean;
 }) {
   return (
-    <div className="space-y-4">
+    <div className="flex h-full flex-col gap-3">
       {groups.map((group) => (
-        <div key={group.title} className="space-y-2">
+        <div key={group.title} className="flex min-h-0 flex-1 flex-col gap-2">
           {group.title && group.title !== heading ? (
-            <h3 className="text-sm font-medium text-muted-foreground">
+            <h3 className="text-xs font-medium uppercase tracking-[0.12em] text-muted-foreground">
               {group.title}
             </h3>
           ) : null}
           {group.items.length ? (
-            <div className="overflow-hidden rounded-xl border">
-              {group.items.map((item, index) => (
-                <div
-                  key={`${item.label}-${item.value}`}
-                  className={cn(
-                    "flex items-center justify-between gap-3 px-3 py-2 text-sm",
-                    index > 0 && "border-t",
-                  )}
-                >
-                  <RichText
-                    text={item.label}
-                    className="text-muted-foreground"
-                    clientLinks={clientLinks}
-                  />
-                  <RichText
-                    text={item.value}
-                    className="font-medium"
-                    clientLinks={clientLinks}
-                  />
-                </div>
-              ))}
+            <div className="overflow-hidden rounded-xl border border-border bg-card shadow-sm">
+              <table className="w-full text-sm">
+                <tbody>
+                  {group.items.map((item, index) => (
+                    <tr
+                      key={`${item.label}-${item.value}`}
+                      className={cn(
+                        "border-b border-border/60 last:border-b-0",
+                        index % 2 === 1 && "bg-muted/35",
+                      )}
+                    >
+                      <th
+                        scope="row"
+                        className="max-w-[65%] px-3 py-2 text-left font-normal text-muted-foreground"
+                      >
+                        <RichText text={item.label} clientLinks={clientLinks} />
+                      </th>
+                      <td className="px-3 py-2 text-right font-medium tabular-nums">
+                        <RichText text={item.value} clientLinks={clientLinks} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           ) : null}
           {group.note ? (
-            <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+            <p className="mt-auto pt-1 text-sm leading-relaxed text-muted-foreground">
               <RichText text={group.note} clientLinks={clientLinks} />
             </p>
           ) : null}
         </div>
       ))}
     </div>
+  );
+}
+
+function LocationPanel({
+  property,
+  location,
+  mapUrl,
+  locationPhotos,
+  presentMode,
+}: {
+  property: Property;
+  location: string;
+  mapUrl: string | null;
+  locationPhotos: string[];
+  presentMode: boolean;
+}) {
+  return (
+    <div className="space-y-4 rounded-2xl border border-border/70 bg-card/60 p-4 md:p-5 lg:sticky lg:top-4">
+      <div className="space-y-1">
+        <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+          Расположение
+        </p>
+        {location ? (
+          <p className="text-base font-medium leading-snug tracking-tight">
+            <span className="mr-2 inline-flex align-middle text-muted-foreground">
+              <MapPin className="h-4 w-4" aria-hidden />
+            </span>
+            <RichText text={location} clientLinks={presentMode} />
+          </p>
+        ) : (
+          <p className="text-sm text-muted-foreground">Адрес не указан</p>
+        )}
+      </div>
+
+      {mapUrl ? (
+        <Button asChild variant="outline" className="w-full">
+          <a href={mapUrl} target="_blank" rel="noreferrer">
+            {/2gis/i.test(mapUrl) ? "Смотреть в 2ГИС" : "Открыть карту"}
+            <ExternalLink className="h-3.5 w-3.5" />
+          </a>
+        </Button>
+      ) : null}
+
+      {locationPhotos.length ? (
+        <LightboxPhotos
+          photos={locationPhotos}
+          alt={`${property.title} — расположение`}
+          size="map"
+        />
+      ) : null}
+    </div>
+  );
+}
+
+function EmptyHint({ children }: { children: ReactNode }) {
+  return (
+    <p className="rounded-xl border border-dashed border-border/70 px-4 py-6 text-center text-sm text-muted-foreground">
+      {children}
+    </p>
   );
 }
 
@@ -176,7 +403,12 @@ export function ComplexSections({
   const about = compactAbout(catalog.about || property.description, used);
   const facts = compactFacts(catalog.facts, [about, location, ...used]);
   const aboutBlocks = formatAboutBlocks(about);
-  const documents = visibleDocuments(catalog, { client: presentMode });
+  const documents = visibleDocuments(catalog, { client: presentMode }).flatMap(
+    (doc) => {
+      const href = safeExternalHref(doc.url);
+      return href ? [{ ...doc, href }] : [];
+    },
+  );
   const pricePhotos = catalogPricePhotos(property);
   const locationPhotos = catalogLocationPhotos(property);
   const rawAddress = catalog.location?.address?.trim() ?? "";
@@ -185,175 +417,133 @@ export function ComplexSections({
       ? rawAddress
       : `https://${rawAddress}`
     : null;
-  const mapUrl = catalog.location?.map_url || addressUrl;
+  const mapUrl = safeExternalHref(catalog.location?.map_url || addressUrl || "");
   const hasLocation = Boolean(location || mapUrl || locationPhotos.length);
   const showInstallment = installment.length > 0;
   const showCommercial = commercial.length > 0;
   const showPrices = pricePhotos.length > 0;
-  const service = presentMode ? null : (
-    <InternalLock propertyId={property.id} presentMode={presentMode} />
-  );
-  const pairCommercialWithService =
-    showCommercial && Boolean(service) && !showInstallment && !showPrices;
+  const showAbout = Boolean(about || facts.length);
+  const showTerms = showInstallment || showCommercial;
+  const hasBody = showAbout || hasLocation || showTerms || showPrices;
 
   return (
-    <div className="space-y-4">
-      {presentMode ? null : <MaterialsChecklist property={property} />}
-      {about || facts.length ? (
-        <Section title="О комплексе" defaultOpen>
-          <div className="space-y-4">
-            {aboutBlocks.map((block, index) =>
-              block.type === "list" ? (
-                <ul
-                  key={`about-${index}`}
-                  className="list-disc space-y-1.5 pl-5 text-sm leading-relaxed"
-                >
-                  {block.items.map((item) => (
-                    <li key={item}>
-                      <RichText text={item} clientLinks={presentMode} />
-                    </li>
-                  ))}
-                </ul>
-              ) : (
-                <div key={`about-${index}`} className="space-y-3">
-                  {block.items.map((item) => (
-                    <p
-                      key={item}
-                      className="max-w-3xl text-sm leading-relaxed text-foreground/90"
-                    >
-                      <RichText text={item} clientLinks={presentMode} />
-                    </p>
-                  ))}
-                </div>
-              ),
-            )}
-            {facts.length ? (
-              <dl className="grid gap-3 sm:grid-cols-2">
-                {facts.map((fact) => (
-                  <div key={`${fact.label}-${fact.value}`} className="min-w-0">
-                    <dt className="text-xs text-muted-foreground">{fact.label}</dt>
-                    <dd className="text-sm leading-relaxed">
-                      <RichText text={fact.value} clientLinks={presentMode} />
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            ) : null}
-          </div>
-        </Section>
+    <div className="space-y-7">
+      {presentMode ? null : <MaterialsBar property={property} />}
+
+      <QuickDocs documents={documents} mapUrl={mapUrl} />
+
+      {!hasBody ? (
+        <EmptyHint>
+          По этому комплексу пока нет описания, условий и материалов. Откройте
+          редактирование ниже, чтобы заполнить карточку.
+        </EmptyHint>
       ) : null}
 
-      {hasLocation ? (
-        <Section title="Расположение" defaultOpen>
-          <div className="space-y-4">
-            {location || mapUrl ? (
-              <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
-                {location ? (
-                  <p className="inline-flex min-w-0 items-start gap-2 text-sm">
-                    <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                    <RichText text={location} clientLinks={presentMode} />
-                  </p>
-                ) : null}
-                {mapUrl ? (
-                  <a
-                    href={mapUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex h-9 shrink-0 items-center gap-2 rounded-full border bg-background px-3.5 text-sm font-medium shadow-sm hover:bg-accent"
-                  >
-                    {/2gis/i.test(mapUrl) ? "Смотреть в 2ГИС" : "Открыть карту"}
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </a>
-                ) : null}
-              </div>
-            ) : null}
-            {locationPhotos.length ? (
-              <LightboxPhotos
-                photos={locationPhotos}
-                alt={`${property.title} — расположение`}
-              />
-            ) : null}
-          </div>
-        </Section>
-      ) : null}
-
-      {documents.length ? (
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          {documents.map((doc) => (
-            <a
-              key={`${doc.title}-${doc.url}`}
-              href={doc.url}
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center justify-between gap-3 rounded-2xl border bg-card px-4 py-3 text-sm hover:bg-accent"
-            >
-              <span className="inline-flex min-w-0 items-center gap-2">
-                <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <span className="truncate font-medium">{doc.title}</span>
-              </span>
-              <ExternalLink className="h-4 w-4 shrink-0 text-muted-foreground" />
-            </a>
-          ))}
-        </div>
-      ) : null}
-
-      {showInstallment || (showCommercial && !pairCommercialWithService) ? (
+      {showAbout || hasLocation ? (
         <div
           className={cn(
-            "grid items-stretch gap-4",
-            showInstallment && showCommercial && "md:grid-cols-2",
+            "grid items-start gap-6 lg:gap-8",
+            showAbout && hasLocation
+              ? "lg:grid-cols-[minmax(0,1fr)_minmax(16rem,22rem)]"
+              : "",
           )}
         >
-          {showInstallment ? (
-            <Section title="Рассрочка" defaultOpen>
-              <TermTable
-                groups={installment}
-                heading="Рассрочка"
-                clientLinks={presentMode}
-              />
-            </Section>
+          {showAbout ? (
+            <section className="min-w-0 space-y-4">
+              <MobileCollapsible title="О комплексе">
+                <AboutContent
+                  aboutBlocks={aboutBlocks}
+                  facts={facts}
+                  presentMode={presentMode}
+                />
+              </MobileCollapsible>
+            </section>
           ) : null}
-          {showCommercial ? (
-            <Section title="Коммерция" defaultOpen>
-              <TermTable
-                groups={commercial}
-                heading="Коммерция"
-                clientLinks={presentMode}
-              />
-            </Section>
+
+          {hasLocation ? (
+            <LocationPanel
+              property={property}
+              location={location}
+              mapUrl={mapUrl}
+              locationPhotos={locationPhotos}
+              presentMode={presentMode}
+            />
           ) : null}
         </div>
       ) : null}
 
-      {pairCommercialWithService ? (
-        <div className="grid items-stretch gap-4 md:grid-cols-2">
-          <Section title="Коммерция" defaultOpen>
-            <TermTable
-              groups={commercial}
-              heading="Коммерция"
-              clientLinks={presentMode}
-            />
-          </Section>
-          {service}
-        </div>
-      ) : pricePhotos.length === 1 && service ? (
-        <div className="grid items-stretch gap-4 md:grid-cols-2">
-          <Section title="Цены" defaultOpen>
-            <PricePhotos photos={pricePhotos} alt={`${property.title} — цены`} />
-          </Section>
-          {service}
-        </div>
-      ) : (
+      {showTerms ? (
         <>
-          {showPrices ? (
-            <Section title="Цены" defaultOpen>
+          <Separator className="bg-border/60" />
+          <div
+            className={cn(
+              "grid items-stretch gap-5",
+              showInstallment && showCommercial && "lg:grid-cols-2",
+            )}
+          >
+            {showInstallment ? (
+              <section className="flex min-w-0 flex-col gap-2.5">
+                <SectionHeading
+                  title="Рассрочка"
+                  description="Сроки и наценки, как в рабочем прайсе"
+                />
+                <TermTable
+                  groups={installment}
+                  heading="Рассрочка"
+                  clientLinks={presentMode}
+                />
+              </section>
+            ) : null}
+            {showCommercial ? (
+              <section className="flex min-w-0 flex-col gap-2.5">
+                <SectionHeading
+                  title="Коммерция"
+                  description="Помещения и условия по коммерции"
+                />
+                <TermTable
+                  groups={commercial}
+                  heading="Коммерция"
+                  clientLinks={presentMode}
+                />
+              </section>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {showPrices ? (
+        <>
+          <Separator className="bg-border/60" />
+          <section className="space-y-4">
+            <SectionHeading
+              title="Цены"
+              description="Скриншоты прайса — нажмите, чтобы увеличить"
+            />
+            <div className="flex justify-center rounded-2xl border border-border/60 bg-card/40 p-3 md:p-5">
               <PricePhotos
                 photos={pricePhotos}
                 alt={`${property.title} — цены`}
+                size="price"
               />
-            </Section>
-          ) : null}
-          {service}
+            </div>
+          </section>
+        </>
+      ) : null}
+
+      {presentMode ? null : (
+        <>
+          <Separator className="bg-border/60" />
+          <div className="space-y-3">
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                Только для команды
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Комиссии и внутренние пометки скрыты от клиента в режиме показа
+              </p>
+            </div>
+            <InternalLock propertyId={property.id} presentMode={presentMode} />
+          </div>
         </>
       )}
     </div>

@@ -1,5 +1,6 @@
 import { Calendar, CreditCard, MapPin } from "lucide-react";
 import { PhotoGallery } from "@/components/catalog/photo-gallery";
+import { Badge } from "@/components/ui/badge";
 import { RelevanceStars } from "@/components/relevance-stars";
 import {
   catalogLocationLabel,
@@ -23,53 +24,58 @@ export function ComplexHero({
   return (
     <section className="overflow-hidden rounded-3xl border bg-card shadow-sm">
       <PhotoGallery photos={photos} alt={property.title}>
-        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/80 to-transparent px-4 pb-4 pt-20 md:px-6 md:pb-5">
+        <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black via-black/75 to-transparent px-4 pb-4 pt-24 md:px-6 md:pb-5">
           <div className="flex items-end justify-between gap-3">
-            <h1 className="min-w-0 text-left text-3xl font-semibold tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] md:text-4xl">
-              {property.title}
-            </h1>
+            <div className="min-w-0 space-y-2">
+              <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/70">
+                Жилой комплекс
+              </p>
+              <h1 className="text-left text-3xl font-semibold tracking-tight text-white drop-shadow-[0_2px_10px_rgba(0,0,0,0.85)] md:text-4xl">
+                {property.title}
+              </h1>
+            </div>
             {!hideRelevance && property.relevance ? (
               <RelevanceStars value={property.relevance} className="mb-1" />
             ) : null}
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
+          <div className="mt-3 flex flex-wrap gap-1.5">
             {property.developer ? (
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-950">
+              <Badge className="rounded-full border-0 bg-background/90 px-2.5 py-0.5 text-xs font-medium text-foreground backdrop-blur">
                 {property.developer}
-              </span>
+              </Badge>
             ) : null}
             {hasCommercialCatalog(property) ? (
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-950">
+              <Badge className="rounded-full border-0 bg-background/90 px-2.5 py-0.5 text-xs font-medium text-foreground backdrop-blur">
                 Коммерция
-              </span>
+              </Badge>
             ) : null}
             {property.maternity_capital ? (
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-950">
+              <Badge className="rounded-full border-0 bg-background/90 px-2.5 py-0.5 text-xs font-medium text-foreground backdrop-blur">
                 Мат. капитал
-              </span>
+              </Badge>
             ) : null}
             {property.cash_payment ? (
-              <span className="rounded-full bg-white px-2.5 py-0.5 text-xs font-medium text-zinc-950">
+              <Badge className="rounded-full border-0 bg-background/90 px-2.5 py-0.5 text-xs font-medium text-foreground backdrop-blur">
                 Наличный расчёт
-              </span>
+              </Badge>
             ) : null}
           </div>
-          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-white">
+          <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-sm text-white/95">
             {location ? (
-              <span className="inline-flex items-center gap-1.5">
-                <MapPin className="h-4 w-4" />
-                {location}
+              <span className="inline-flex min-w-0 items-center gap-1.5">
+                <MapPin className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
+                <span className="truncate">{location}</span>
               </span>
             ) : null}
             {completion ? (
               <span className="inline-flex items-center gap-1.5">
-                <Calendar className="h-4 w-4" />
+                <Calendar className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 {completion}
               </span>
             ) : null}
             {property.installment_max ? (
               <span className="inline-flex items-center gap-1.5">
-                <CreditCard className="h-4 w-4" />
+                <CreditCard className="h-4 w-4 shrink-0 opacity-80" aria-hidden />
                 рассрочка до {property.installment_max}
               </span>
             ) : null}

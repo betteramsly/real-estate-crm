@@ -6,6 +6,7 @@ import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -43,7 +44,9 @@ export function DeleteDealButton({ id }: { id: string }) {
           <DialogDescription>Это действие нельзя отменить.</DialogDescription>
         </DialogHeader>
         <DialogFooter>
-          <Button variant="outline">Отмена</Button>
+          <DialogClose asChild>
+            <Button variant="outline">Отмена</Button>
+          </DialogClose>
           <Button
             variant="destructive"
             onClick={handleDelete}

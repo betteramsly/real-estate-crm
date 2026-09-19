@@ -35,21 +35,18 @@ const TYPE_META: Record<
   ActivityType,
   { icon: React.ComponentType<{ className?: string }>; color: string }
 > = {
-  created: { icon: Plus, color: "bg-emerald-500/15 text-emerald-500" },
+  created: { icon: Plus, color: "bg-primary/10 text-primary" },
   updated: { icon: RefreshCcw, color: "bg-grey/15 text-grey" },
-  deleted: { icon: Trash2, color: "bg-rose-500/15 text-rose-500" },
+  deleted: { icon: Trash2, color: "bg-destructive/10 text-destructive" },
   stage_changed: {
     icon: ArrowRight,
-    color: "bg-violet-500/15 text-violet-500",
+    color: "bg-grey/20 text-foreground",
   },
   status_changed: {
     icon: ArrowRight,
-    color: "bg-amber-500/15 text-amber-500",
+    color: "bg-gold/20 text-foreground",
   },
-  task_completed: {
-    icon: CheckCircle2,
-    color: "bg-emerald-500/15 text-emerald-500",
-  },
+  task_completed: { icon: CheckCircle2, color: "bg-primary/10 text-primary" },
   note_added: { icon: CircleDashed, color: "bg-muted text-muted-foreground" },
 };
 

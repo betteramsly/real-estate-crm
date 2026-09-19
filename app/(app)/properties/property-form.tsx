@@ -6,7 +6,9 @@ import { useFormStatus } from "react-dom";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Plus, Trash2 } from "lucide-react";
+import { DocumentFilesField } from "@/components/catalog/document-files-field";
 import { PhotoField } from "@/components/catalog/photo-field";
+import { SuggestInput } from "@/components/suggest-input";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -32,21 +34,29 @@ import {
   updatePropertyAction,
 } from "@/lib/actions/properties";
 import {
+  addFilterExtra,
+  mergeFilterOptions,
+  removeFilterExtra,
+  useFilterExtras,
+  type CatalogFilterExtraKey,
+} from "@/lib/catalog-filter-extras";
+import {
   catalogLocationPhotos,
   catalogPhotos,
   catalogPricePhotos,
   getCatalog,
 } from "@/lib/catalog";
+import type { PropertyFormSuggestions } from "@/lib/property-form-suggestions";
 import type {
   CatalogDocument,
   CatalogFact,
   CatalogTermItem,
-  Profile,
   Property,
   PropertyInternal,
-  UserRole,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
+
+export type { PropertyFormSuggestions };
 
 function SubmitButton({ label }: { label: string }) {
   const { pending } = useFormStatus();
@@ -73,7 +83,7 @@ function FormSection({
         <CardTitle className="text-lg">{title}</CardTitle>
         {hint ? <CardDescription>{hint}</CardDescription> : null}
       </CardHeader>
-      <CardContent className="grid gap-5 md:grid-cols-2">{children}</CardContent>
+      <CardContent className="grid gap-4 md:grid-cols-2">{children}</CardContent>
     </Card>
   );
 }
@@ -102,7 +112,7 @@ function PairRows({
   labelB: string;
 }) {
   return (
-    <div className="space-y-2">
+    <div className="space-y-1.5">
       <input type="hidden" name={name} value={JSON.stringify(rows)} />
       {rows.length ? (
         <div className="hidden gap-2 px-1 text-xs text-muted-foreground md:grid md:grid-cols-[1fr_1fr_auto]">
@@ -160,14 +170,12 @@ function PairRows({
 
 export function PropertyForm({
   property,
-  profiles: _profiles,
-  currentRole: _currentRole,
   internal,
+  suggestions,
 }: {
   property?: Property;
-  profiles: Profile[];
-  currentRole: UserRole;
   internal?: PropertyInternal | null;
+  suggestions?: PropertyFormSuggestions;
 }) {
   const router = useRouter();
   const action = property
@@ -178,6 +186,31 @@ export function PropertyForm({
     {},
   );
   const catalog = getCatalog(property);
+  const extras = useFilterExtras();
+  const developers = mergeFilterOptions(
+    suggestions?.developers ?? [],
+    extras.developer,
+  );
+  const cities = mergeFilterOptions(suggestions?.cities ?? [], extras.city);
+  const districts = mergeFilterOptions(
+    suggestions?.districts ?? [],
+    extras.district,
+  );
+  const years = mergeFilterOptions(
+    suggestions?.years ?? [],
+    extras.completion_year,
+  );
+  const installments = mergeFilterOptions(
+    suggestions?.installments ?? [],
+    extras.installment,
+  );
+
+  const remember = (key: CatalogFilterExtraKey) => (value: string) => {
+    addFilterExtra(key, value);
+  };
+  const forget = (key: CatalogFilterExtraKey) => (value: string) => {
+    removeFilterExtra(key, value);
+  };
   const [facts, setFacts] = React.useState<CatalogFact[]>(catalog.facts ?? []);
   const [installmentItems, setInstallmentItems] = React.useState<
     CatalogTermItem[]
@@ -191,8 +224,12 @@ export function PropertyForm({
 
   React.useEffect(() => {
     if (state.error) toast.error(state.error);
+    if (state.redirectTo) {
+      router.push(state.redirectTo);
+      return;
+    }
     if (state.success) toast.success("Изменения сохранены");
-  }, [state]);
+  }, [router, state]);
 
   const fe = state.fieldErrors ?? {};
 
@@ -230,11 +267,16 @@ export function PropertyForm({
         </Field>
         <Field>
           <Label htmlFor="developer">Застройщик</Label>
-          <Input
+          <SuggestInput
             id="developer"
             name="developer"
+            label="Застройщик"
+            options={developers}
+            customOptions={extras.developer}
             defaultValue={property?.developer ?? ""}
             placeholder="Фаворит"
+            onCommit={remember("developer")}
+            onRemove={forget("developer")}
           />
         </Field>
         <Field>
@@ -264,20 +306,30 @@ export function PropertyForm({
       >
         <Field>
           <Label htmlFor="city">Город</Label>
-          <Input
+          <SuggestInput
             id="city"
             name="city"
+            label="Город"
+            options={cities}
+            customOptions={extras.city}
             defaultValue={property?.city ?? ""}
             placeholder="Грозный"
+            onCommit={remember("city")}
+            onRemove={forget("city")}
           />
         </Field>
         <Field>
           <Label htmlFor="district">Район</Label>
-          <Input
+          <SuggestInput
             id="district"
             name="district"
+            label="Район"
+            options={districts}
+            customOptions={extras.district}
             defaultValue={property?.district ?? ""}
             placeholder="Новый район"
+            onCommit={remember("district")}
+            onRemove={forget("district")}
           />
         </Field>
         <Field className="md:col-span-2">
@@ -347,11 +399,16 @@ export function PropertyForm({
       >
         <Field>
           <Label htmlFor="completion_year">Год сдачи</Label>
-          <Input
+          <SuggestInput
             id="completion_year"
             name="completion_year"
+            label="Год сдачи"
+            options={years}
+            customOptions={extras.completion_year}
             defaultValue={property?.completion_year ?? ""}
             placeholder="2027"
+            onCommit={remember("completion_year")}
+            onRemove={forget("completion_year")}
           />
         </Field>
         <Field>
@@ -368,11 +425,16 @@ export function PropertyForm({
         </Field>
         <Field>
           <Label htmlFor="installment_max">Рассрочка до</Label>
-          <Input
+          <SuggestInput
             id="installment_max"
             name="installment_max"
+            label="Рассрочка до"
+            options={installments}
+            customOptions={extras.installment}
             defaultValue={property?.installment_max ?? ""}
             placeholder="5 лет"
+            onCommit={remember("installment")}
+            onRemove={forget("installment")}
           />
         </Field>
         <Field>
@@ -398,7 +460,7 @@ export function PropertyForm({
             </SelectContent>
           </Select>
         </Field>
-        <Field>
+        <Field className="md:col-span-2 md:max-w-xs">
           <Label>Наличный расчёт</Label>
           <Select
             name="cash_payment"
@@ -421,48 +483,53 @@ export function PropertyForm({
             </SelectContent>
           </Select>
         </Field>
-        <Field>
-          <div className="space-y-1">
-            <Label>Таблица рассрочки</Label>
-            <p className="text-sm text-muted-foreground">
-              Срок и наценка, как в карточке.
-            </p>
-          </div>
-          <PairRows
-            name="installment_json"
-            rows={installmentItems}
-            setRows={setInstallmentItems}
-            labelA="Срок"
-            labelB="Наценка"
-          />
-          <Textarea
-            name="installment_note"
-            rows={2}
-            defaultValue={catalog.installment?.[0]?.note ?? ""}
-            placeholder="Комментарий к рассрочке"
-          />
-        </Field>
-        <Field>
-          <div className="space-y-1">
-            <Label>Коммерция</Label>
-            <p className="text-sm text-muted-foreground">
-              Помещения и цена за м², если есть.
-            </p>
-          </div>
-          <PairRows
-            name="commercial_json"
-            rows={commercialItems}
-            setRows={setCommercialItems}
-            labelA="Объект"
-            labelB="Цена"
-          />
-          <Textarea
-            name="commercial_note"
-            rows={2}
-            defaultValue={catalog.commercial?.[0]?.note ?? ""}
-            placeholder="Комментарий к коммерции"
-          />
-        </Field>
+
+        <div className="grid gap-4 md:col-span-2 md:grid-cols-2 md:items-stretch">
+          <Field className="grid h-full grid-rows-[auto_1fr_auto] gap-2 space-y-0">
+            <div className="space-y-1">
+              <Label>Таблица рассрочки</Label>
+              <p className="text-sm text-muted-foreground">
+                Срок и наценка, как в карточке.
+              </p>
+            </div>
+            <PairRows
+              name="installment_json"
+              rows={installmentItems}
+              setRows={setInstallmentItems}
+              labelA="Срок"
+              labelB="Наценка"
+            />
+            <Textarea
+              name="installment_note"
+              rows={3}
+              className="min-h-[4.5rem] resize-y"
+              defaultValue={catalog.installment?.[0]?.note ?? ""}
+              placeholder="Комментарий к рассрочке"
+            />
+          </Field>
+          <Field className="grid h-full grid-rows-[auto_1fr_auto] gap-2 space-y-0">
+            <div className="space-y-1">
+              <Label>Коммерция</Label>
+              <p className="text-sm text-muted-foreground">
+                Помещения и цена за м², если есть.
+              </p>
+            </div>
+            <PairRows
+              name="commercial_json"
+              rows={commercialItems}
+              setRows={setCommercialItems}
+              labelA="Объект"
+              labelB="Цена"
+            />
+            <Textarea
+              name="commercial_note"
+              rows={3}
+              className="min-h-[4.5rem] resize-y"
+              defaultValue={catalog.commercial?.[0]?.note ?? ""}
+              placeholder="Комментарий к коммерции"
+            />
+          </Field>
+        </div>
       </FormSection>
 
       <FormSection
@@ -529,6 +596,7 @@ export function PropertyForm({
             </Button>
           </div>
         </Field>
+        <DocumentFilesField />
         <Field className="md:col-span-2">
           <PhotoField
             name="price_photos_json"

@@ -131,6 +131,31 @@ function documentTitle(title: string, kind: string, url: string) {
   return cleaned;
 }
 
+export function isPresentCatalogDocument(doc: {
+  title: string;
+  url: string;
+  kind?: string;
+}) {
+  const blob = `${doc.title} ${doc.url}`.toLowerCase();
+  return doc.kind === "plan" || /планир/.test(blob);
+}
+
+export function inferCatalogDocumentKind(name: string) {
+  const blob = name.toLowerCase();
+  if (/коммерц/.test(blob)) return "commercial" as const;
+  if (/шахмат|\.xlsx|\.xls/.test(blob)) return "chess" as const;
+  if (/прайс|price/.test(blob)) return "price" as const;
+  if (/планир|\.pdf/.test(blob)) return "plan" as const;
+  return "other" as const;
+}
+
+export function catalogDocumentLabel(
+  kind: string,
+  fallback = DOCUMENT_LABELS.other,
+) {
+  return DOCUMENT_LABELS[kind] ?? fallback;
+}
+
 export function isClientExternalUrl(url: string, title = "") {
   const blob = `${title} ${url}`.toLowerCase();
   if (/коммерц/.test(blob)) return false;
@@ -161,10 +186,7 @@ export function visibleDocuments(
       return true;
     })
     .filter((doc) =>
-      options?.client
-        ? doc.title === DOCUMENT_LABELS.plan ||
-          /планир/i.test(`${doc.title} ${doc.url}`)
-        : true,
+      options?.client ? isPresentCatalogDocument(doc) : true,
     );
 }
 

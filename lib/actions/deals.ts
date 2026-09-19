@@ -3,24 +3,27 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
 import { diffRecords } from "@/lib/diff";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import type { DealStage } from "@/lib/types";
 
+const dealStageSchema = z.enum([
+  "new",
+  "viewing",
+  "negotiation",
+  "contract",
+  "closed_won",
+  "closed_lost",
+]);
+
 const dealSchema = z.object({
   title: z.string().min(2, "Минимум 2 символа"),
   client_id: z.string().uuid().nullable().optional(),
   property_id: z.string().uuid().nullable().optional(),
-  stage: z.enum([
-    "new",
-    "viewing",
-    "negotiation",
-    "contract",
-    "closed_won",
-    "closed_lost",
-  ]),
+  stage: dealStageSchema,
   amount: z.number().nullable().optional(),
   commission: z.number().nullable().optional(),
   expected_close_date: z.string().nullable().optional(),
@@ -126,15 +129,18 @@ export async function updateDealAction(
     };
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("deals")
     .select(
       "stage, closed_at, client_id, property_id, title, amount, expected_close_date, assigned_to",
     )
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (existingError || !existing) {
+    return { error: "Сделка не найдена или недоступна" };
+  }
 
   let closed_at = existing?.closed_at ?? null;
   if (parsed.data.stage === "closed_won" || parsed.data.stage === "closed_lost") {
@@ -143,7 +149,7 @@ export async function updateDealAction(
     closed_at = null;
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("deals")
     .update({
       ...parsed.data,
@@ -151,9 +157,13 @@ export async function updateDealAction(
       property_id: parsed.data.property_id ?? null,
       closed_at,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error || !updated) {
+    return { error: error?.message ?? "Не удалось сохранить сделку" };
+  }
 
   if (existing && existing.stage !== parsed.data.stage) {
     await logActivity({
@@ -192,23 +202,33 @@ export async function updateDealAction(
 }
 
 export async function moveDealStage(id: string, stage: DealStage) {
-  const supabase = await createClient();
+  if (!dealStageSchema.safeParse(stage).success) {
+    throw new Error("Некорректный этап сделки");
+  }
+  const { supabase } = await requireUser();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("deals")
     .select("stage, client_id, property_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (existingError || !existing) {
+    throw new Error("Сделка не найдена или недоступна");
+  }
 
   const closed_at =
     stage === "closed_won" || stage === "closed_lost"
       ? new Date().toISOString()
       : null;
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("deals")
     .update({ stage, closed_at })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !updated) {
+    throw new Error(error?.message ?? "Не удалось изменить этап сделки");
+  }
 
   if (existing && existing.stage !== stage) {
     await logActivity({
@@ -227,9 +247,16 @@ export async function moveDealStage(id: string, stage: DealStage) {
 }
 
 export async function deleteDealAction(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("deals").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { supabase } = await requireUser();
+  const { data: deleted, error } = await supabase
+    .from("deals")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !deleted) {
+    throw new Error(error?.message ?? "Сделка не найдена или недоступна");
+  }
   await logActivity({
     entityType: "deal",
     entityId: id,

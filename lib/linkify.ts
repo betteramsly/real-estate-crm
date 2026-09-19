@@ -5,6 +5,24 @@ export function hrefFor(url: string) {
   return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
 }
 
+export function safeExternalHref(value: string) {
+  const trimmed = value.trim().replace(TRAILING_PUNCT, "");
+  if (
+    !/^(?:https?:\/\/|www\.|yandex\.ru|2gis\.ru|go\.2gis\.com|maps\.google)/i.test(
+      trimmed,
+    )
+  ) {
+    return null;
+  }
+  try {
+    const href = hrefFor(trimmed);
+    const protocol = new URL(href).protocol;
+    return protocol === "http:" || protocol === "https:" ? href : null;
+  } catch {
+    return null;
+  }
+}
+
 export function isHttpUrl(value: string) {
   return /^(https?:\/\/|www\.)/i.test(value.trim());
 }

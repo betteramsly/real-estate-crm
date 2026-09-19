@@ -29,13 +29,18 @@ function InternalContent({ data }: { data: PropertyInternal }) {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="grid gap-3 sm:grid-cols-2">
       {rows.map((row) => (
-        <div key={row.label} className="rounded-xl bg-muted/70 px-3 py-3">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <div
+          key={row.label}
+          className="rounded-xl border border-border/60 bg-muted/40 px-4 py-3"
+        >
+          <p className="text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
             {row.label}
           </p>
-          <p className="mt-1 whitespace-pre-line text-sm">{row.value}</p>
+          <p className="mt-1.5 whitespace-pre-line text-sm leading-relaxed">
+            {row.value}
+          </p>
         </div>
       ))}
     </div>
@@ -94,15 +99,17 @@ export function InternalLock({
   }, [presentMode, propertyId]);
 
   return (
-    <section className="flex h-full flex-col rounded-2xl border border-dashed bg-card p-5">
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-2">
+    <section className="overflow-hidden rounded-2xl border border-border/70 bg-card/80">
+      <div className="flex items-center justify-between gap-3 border-b border-border/60 px-5 py-3.5 md:px-6">
+        <div className="inline-flex items-center gap-2.5">
           {internal ? (
-            <Unlock className="h-4 w-4 text-muted-foreground" />
+            <Unlock className="h-4 w-4 text-gold" aria-hidden />
           ) : (
-            <Lock className="h-4 w-4 text-muted-foreground" />
+            <Lock className="h-4 w-4 text-muted-foreground" aria-hidden />
           )}
-          <h2 className="text-lg font-semibold tracking-tight">Служебное</h2>
+          <h2 className="font-display text-lg font-semibold tracking-tight">
+            Служебное
+          </h2>
         </div>
         {internal ? (
           <Button variant="ghost" size="sm" onClick={() => void hide()}>
@@ -112,34 +119,43 @@ export function InternalLock({
       </div>
 
       {internal ? (
-        <InternalContent data={internal} />
+        <div className="px-5 py-5 md:px-6">
+          <InternalContent data={internal} />
+        </div>
       ) : (
         <form
-          className="space-y-3"
+          className="space-y-4 px-5 py-5 md:px-6"
           onSubmit={(event) => {
             event.preventDefault();
             void unlock(pin);
           }}
         >
-          <p className="text-sm text-muted-foreground">
+          <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
             Комиссии, инвесторские цены и стоп-продажи открываются по коду.
           </p>
-          <Input
-            inputMode="numeric"
-            autoComplete="off"
-            name="catalog-pin"
-            placeholder="Код доступа"
-            value={pin}
-            onChange={(event) => {
-              const next = event.target.value.replace(/\D/g, "").slice(0, 8);
-              setPin(next);
-              if (next.length === 5) void unlock(next);
-            }}
-            className="h-12 tracking-[0.3em]"
-          />
-          <Button type="submit" className="w-full" disabled={pending || !pin}>
-            Открыть
-          </Button>
+          <div className="flex max-w-md flex-col gap-3 sm:flex-row">
+            <Input
+              inputMode="numeric"
+              autoComplete="off"
+              name="catalog-pin"
+              placeholder="Код доступа"
+              aria-label="Код доступа к служебному блоку"
+              value={pin}
+              onChange={(event) => {
+                const next = event.target.value.replace(/\D/g, "").slice(0, 8);
+                setPin(next);
+                if (next.length === 5) void unlock(next);
+              }}
+              className="h-11 tracking-[0.3em] sm:flex-1"
+            />
+            <Button
+              type="submit"
+              className="h-11 sm:w-36"
+              disabled={pending || !pin}
+            >
+              {pending ? "Проверка…" : "Открыть"}
+            </Button>
+          </div>
         </form>
       )}
     </section>

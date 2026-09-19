@@ -83,15 +83,15 @@ const config: Config = {
           "100%": { transform: "translateX(220%)" },
         },
         "page-enter": {
-          from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "translateY(0)" },
+          from: { opacity: "0" },
+          to: { opacity: "1" },
         },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "brand-sweep": "brand-sweep 1.35s ease-in-out infinite",
-        "page-enter": "page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1) both",
+        "page-enter": "page-enter 0.32s cubic-bezier(0.22, 1, 0.36, 1)",
       },
     },
   },

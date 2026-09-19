@@ -9,8 +9,9 @@ import { DeletePropertyButton } from "./delete-property-button";
 import { PropertyEditPanel } from "./property-edit-panel";
 import { canManageProperties, requireProfile } from "@/lib/auth";
 import { PROPERTY_PUBLIC_COLUMNS } from "@/lib/catalog";
+import { loadPropertyFormSuggestions } from "@/lib/property-form-suggestions";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
-import type { Profile, Property } from "@/lib/types";
+import type { Property } from "@/lib/types";
 
 export default async function PropertyPage(props: {
   params: Promise<{ id: string }>;
@@ -22,17 +23,22 @@ export default async function PropertyPage(props: {
   );
   const canEdit = canManageProperties(profile.role) && !presentMode;
 
-  const { data: property } = await supabase
-    .from("properties")
-    .select(presentMode ? PROPERTY_PUBLIC_COLUMNS : `${PROPERTY_PUBLIC_COLUMNS}, internal`)
-    .eq("id", params.id)
-    .maybeSingle<Property>();
+  const [{ data: property }, suggestions] = await Promise.all([
+    supabase
+      .from("properties")
+      .select(
+        canEdit
+          ? `${PROPERTY_PUBLIC_COLUMNS}, internal`
+          : PROPERTY_PUBLIC_COLUMNS,
+      )
+      .eq("id", params.id)
+      .maybeSingle<Property>(),
+    canEdit
+      ? loadPropertyFormSuggestions(supabase)
+      : Promise.resolve(undefined),
+  ]);
 
   if (!property) notFound();
-
-  const { data: profiles } = presentMode
-    ? { data: [] as Profile[] }
-    : await supabase.from("profiles").select("*").returns<Profile[]>();
 
   return (
     <>
@@ -62,9 +68,8 @@ export default async function PropertyPage(props: {
         <PropertyEditPanel>
           <PropertyForm
             property={property}
-            profiles={profiles ?? []}
-            currentRole={profile.role}
             internal={property.internal}
+            suggestions={suggestions}
           />
         </PropertyEditPanel>
       ) : null}

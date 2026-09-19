@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { buttonVariants } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -78,6 +78,32 @@ export function TasksList({
       await setTaskStatus(task.id, next);
     } catch (e) {
       toast.error((e as Error).message);
+      setTasks((prev) =>
+        prev.map((item) =>
+          item.id === task.id && item.status === next
+            ? { ...item, status: task.status }
+            : item,
+        ),
+      );
+    }
+  };
+
+  const changeStatus = async (task: Task, status: TaskStatus) => {
+    if (task.status === status) return;
+    setTasks((prev) =>
+      prev.map((item) => (item.id === task.id ? { ...item, status } : item)),
+    );
+    try {
+      await setTaskStatus(task.id, status);
+    } catch (e) {
+      toast.error((e as Error).message);
+      setTasks((prev) =>
+        prev.map((item) =>
+          item.id === task.id && item.status === status
+            ? { ...item, status: task.status }
+            : item,
+        ),
+      );
     }
   };
 
@@ -121,7 +147,7 @@ export function TasksList({
                 aria-label="Переключить статус"
               >
                 {task.status === "done" ? (
-                  <CheckCircle2 className="h-5 w-5 text-emerald-500" />
+                  <CheckCircle2 className="h-5 w-5 text-primary" />
                 ) : (
                   <Circle className="h-5 w-5" />
                 )}
@@ -228,18 +254,7 @@ export function TasksList({
                     ).map((s) => (
                       <DropdownMenuItem
                         key={s}
-                        onClick={async () => {
-                          setTasks((prev) =>
-                            prev.map((t) =>
-                              t.id === task.id ? { ...t, status: s } : t,
-                            ),
-                          );
-                          try {
-                            await setTaskStatus(task.id, s);
-                          } catch (e) {
-                            toast.error((e as Error).message);
-                          }
-                        }}
+                        onClick={() => void changeStatus(task, s)}
                       >
                         {TASK_STATUS_LABELS[s]}
                       </DropdownMenuItem>

@@ -18,10 +18,10 @@ export const CLIENT_STATUS_LABELS: Record<ClientStatus, string> = {
 };
 
 export const CLIENT_STATUS_VARIANTS: Record<ClientStatus, string> = {
-  new: "bg-sky-500/15 text-sky-500",
-  in_progress: "bg-amber-500/15 text-amber-500",
-  won: "bg-emerald-500/15 text-emerald-500",
-  lost: "bg-rose-500/15 text-rose-500",
+  new: "bg-primary/10 text-primary",
+  in_progress: "bg-gold/20 text-foreground",
+  won: "bg-grey/20 text-foreground",
+  lost: "bg-destructive/10 text-destructive",
 };
 
 export const CLIENT_SOURCE_LABELS: Record<ClientSource, string> = {
@@ -59,9 +59,9 @@ export const PROPERTY_STATUS_LABELS: Record<PropertyStatus, string> = {
 };
 
 export const PROPERTY_STATUS_VARIANTS: Record<PropertyStatus, string> = {
-  active: "bg-emerald-500/15 text-emerald-500",
-  reserved: "bg-amber-500/15 text-amber-500",
-  sold: "bg-sky-500/15 text-sky-500",
+  active: "bg-primary/10 text-primary",
+  reserved: "bg-gold/20 text-foreground",
+  sold: "bg-grey/20 text-foreground",
   archived: "bg-muted text-muted-foreground",
 };
 
@@ -90,12 +90,12 @@ export const DEAL_STAGE_ORDER: DealStage[] = [
 ];
 
 export const DEAL_STAGE_COLORS: Record<DealStage, string> = {
-  new: "bg-sky-500",
-  viewing: "bg-violet-500",
-  negotiation: "bg-amber-500",
-  contract: "bg-orange-500",
-  closed_won: "bg-emerald-500",
-  closed_lost: "bg-rose-500",
+  new: "bg-primary",
+  viewing: "bg-gold",
+  negotiation: "bg-grey",
+  contract: "bg-muted-foreground",
+  closed_won: "bg-foreground",
+  closed_lost: "bg-destructive",
 };
 
 export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
@@ -106,9 +106,9 @@ export const TASK_STATUS_LABELS: Record<TaskStatus, string> = {
 };
 
 export const TASK_STATUS_VARIANTS: Record<TaskStatus, string> = {
-  todo: "bg-sky-500/15 text-sky-500",
-  in_progress: "bg-amber-500/15 text-amber-500",
-  done: "bg-emerald-500/15 text-emerald-500",
+  todo: "bg-primary/10 text-primary",
+  in_progress: "bg-gold/20 text-foreground",
+  done: "bg-grey/20 text-foreground",
   cancelled: "bg-muted text-muted-foreground",
 };
 
@@ -120,6 +120,6 @@ export const TASK_PRIORITY_LABELS: Record<TaskPriority, string> = {
 
 export const TASK_PRIORITY_VARIANTS: Record<TaskPriority, string> = {
   low: "bg-muted text-muted-foreground",
-  medium: "bg-amber-500/15 text-amber-500",
-  high: "bg-rose-500/15 text-rose-500",
+  medium: "bg-gold/20 text-foreground",
+  high: "bg-destructive/10 text-destructive",
 };

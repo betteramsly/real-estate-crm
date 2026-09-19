@@ -23,14 +23,17 @@ export function RoleSelect({ userId, role, disabled }: RoleSelectProps) {
   const [value, setValue] = React.useState<UserRole>(role);
 
   const handleChange = (next: string) => {
-    const role = next as UserRole;
-    setValue(role);
+    if (next !== "admin" && next !== "agent") return;
+    const nextRole = next;
+    const previousRole = value;
+    setValue(nextRole);
     start(async () => {
       try {
-        await setUserRoleAction(userId, role);
+        await setUserRoleAction(userId, nextRole);
         toast.success("Роль обновлена");
       } catch (e) {
         toast.error((e as Error).message);
+        setValue(previousRole);
       }
     });
   };

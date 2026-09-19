@@ -61,7 +61,7 @@ export function AppHeader({
     setLeaving(true);
     const supabase = createClient();
     await supabase.auth.signOut();
-    window.location.assign("/login");
+    router.replace("/login");
   };
 
   const role: UserRole = profile.role;
@@ -129,9 +129,10 @@ export function AppHeader({
         </div>
       ) : null}
 
+      <ThemeToggle />
+
       {presentMode ? null : (
         <>
-          <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger
               className={cn(

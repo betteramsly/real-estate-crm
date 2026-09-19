@@ -6,6 +6,10 @@ import { z } from "zod";
 import { canManageProperties, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
+import {
+  catalogDocumentLabel,
+  inferCatalogDocumentKind,
+} from "@/lib/catalog";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import { mergePhotoOrder } from "@/lib/photo-order";
 import type {
@@ -16,6 +20,17 @@ import type {
   PropertyCatalog,
   PropertyInternal,
 } from "@/lib/types";
+
+const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+const DOCUMENT_MIME_TYPES = new Set([
+  "application/pdf",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 
 const propertySchema = z.object({
   title: z.string().min(2, "Минимум 2 символа"),
@@ -36,6 +51,7 @@ export type PropertyFormState = {
   error?: string;
   success?: boolean;
   fieldErrors?: Record<string, string>;
+  redirectTo?: string;
 };
 
 function parseOptionalBoolean(value: FormDataEntryValue | null) {
@@ -63,10 +79,44 @@ function filesOf(formData: FormData, name: string) {
     .filter((value): value is File => value instanceof File && value.size > 0);
 }
 
+function fileExtension(file: File) {
+  const fromName = file.name.split(".").pop()?.toLowerCase();
+  if (fromName && /^[a-z0-9]{1,8}$/.test(fromName)) return fromName;
+  if (file.type.includes("pdf")) return "pdf";
+  if (file.type.includes("png")) return "png";
+  if (file.type.includes("webp")) return "webp";
+  if (file.type.includes("gif")) return "gif";
+  if (file.type.includes("sheet") || file.type.includes("excel")) return "xlsx";
+  return "jpg";
+}
+
+function validateDocumentFiles(files: File[]) {
+  for (const file of files) {
+    if (file.size > DOCUMENT_MAX_BYTES) {
+      return `Файл «${file.name}» больше 10 МБ`;
+    }
+    if (file.type && !DOCUMENT_MIME_TYPES.has(file.type)) {
+      return `Формат «${file.name}» не поддерживается`;
+    }
+  }
+  return null;
+}
+
+function isNextRedirect(error: unknown) {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof (error as { digest?: unknown }).digest === "string" &&
+    (error as { digest: string }).digest.startsWith("NEXT_REDIRECT")
+  );
+}
+
 function buildCatalog(formData: FormData, extras: {
   photos: string[];
   pricePhotos: string[];
   locationPhotos: string[];
+  documents?: CatalogDocument[];
 }): PropertyCatalog {
   const facts = cleanPairs(parseJson<CatalogFact[]>(formData.get("facts_json"), []));
   const installmentItems = cleanPairs(
@@ -75,7 +125,10 @@ function buildCatalog(formData: FormData, extras: {
   const commercialItems = cleanPairs(
     parseJson<CatalogTermItem[]>(formData.get("commercial_json"), []),
   );
-  const documents = parseJson<CatalogDocument[]>(formData.get("documents_json"), [])
+  const documents = [
+    ...parseJson<CatalogDocument[]>(formData.get("documents_json"), []),
+    ...(extras.documents ?? []),
+  ]
     .filter((doc) => doc.url.trim())
     .map((doc) => ({
       title: doc.title.trim() || "Документ",
@@ -205,6 +258,37 @@ async function collectMedia(
   return { photos, locationPhotos, pricePhotos };
 }
 
+async function uploadDocuments(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  propertyId: string,
+  files: File[],
+): Promise<{ documents: CatalogDocument[]; error?: string }> {
+  const documents: CatalogDocument[] = [];
+  for (const [index, file] of files.entries()) {
+    const ext = fileExtension(file);
+    const kind = inferCatalogDocumentKind(file.name);
+    const path = `${propertyId}/docs/${Date.now()}-${index}.${ext}`;
+    const buffer = Buffer.from(await file.arrayBuffer());
+    const { error } = await supabase.storage.from("complexes").upload(path, buffer, {
+      contentType: file.type || "application/octet-stream",
+      upsert: true,
+    });
+    if (error) {
+      return {
+        documents,
+        error: error.message || `Не удалось загрузить «${file.name}»`,
+      };
+    }
+    const { data } = supabase.storage.from("complexes").getPublicUrl(path);
+    documents.push({
+      title: catalogDocumentLabel(kind, file.name.replace(/\.[^.]+$/, "")),
+      url: data.publicUrl,
+      kind,
+    });
+  }
+  return { documents };
+}
+
 async function requirePropertyManager() {
   const ctx = await requireProfile();
   if (!canManageProperties(ctx.profile.role)) {
@@ -217,57 +301,81 @@ export async function createPropertyAction(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
-  const parsed = propertySchema.safeParse(parseCore(formData));
-  if (!parsed.success) {
+  try {
+    const parsed = propertySchema.safeParse(parseCore(formData));
+    if (!parsed.success) {
+      return {
+        error: "Проверьте поля формы",
+        fieldErrors: Object.fromEntries(
+          parsed.error.errors.map((error) => [error.path.join("."), error.message]),
+        ),
+      };
+    }
+
+    const { supabase, user, allowed } = await requirePropertyManager();
+    if (!allowed) return { error: "Недостаточно прав" };
+    const documentFiles = filesOf(formData, "document_files");
+    const documentsError = validateDocumentFiles(documentFiles);
+    if (documentsError) return { error: documentsError };
+
+    const { data: created, error } = await supabase
+      .from("properties")
+      .insert({
+        ...parsed.data,
+        property_type: "apartment",
+        listing_type: "sale",
+        status: "active",
+        price: 0,
+        assigned_to: user.id,
+        created_by: user.id,
+        catalog: {},
+        internal: parseInternal(formData),
+      })
+      .select("id")
+      .single();
+
+    if (error || !created) return { error: error?.message ?? "Не удалось создать" };
+
+    const media = await collectMedia(supabase, created.id, formData);
+    const uploaded = await uploadDocuments(
+      supabase,
+      created.id,
+      documentFiles,
+    );
+    if (uploaded.error) return { error: uploaded.error };
+    const catalog = buildCatalog(formData, {
+      ...media,
+      documents: uploaded.documents,
+    });
+    const { error: catalogError } = await supabase
+      .from("properties")
+      .update({
+        catalog,
+        cover_url: media.photos[0] ?? null,
+      })
+      .eq("id", created.id);
+    if (catalogError) return { error: catalogError.message };
+
+    await logActivity({
+      entityType: "property",
+      entityId: created.id,
+      type: "created",
+      payload: { title: parsed.data.title },
+      propertyId: created.id,
+    });
+
+    revalidatePath("/properties");
     return {
-      error: "Проверьте поля формы",
-      fieldErrors: Object.fromEntries(
-        parsed.error.errors.map((error) => [error.path.join("."), error.message]),
-      ),
+      success: true,
+      redirectTo: `/properties/${created.id}?created=property`,
+    };
+  } catch (error) {
+    if (isNextRedirect(error)) throw error;
+    return {
+      error:
+        error instanceof Error ? error.message : "Не удалось создать объект",
     };
   }
-
-  const { supabase, user, allowed } = await requirePropertyManager();
-  if (!allowed) return { error: "Недостаточно прав" };
-
-  const { data: created, error } = await supabase
-    .from("properties")
-    .insert({
-      ...parsed.data,
-      property_type: "apartment",
-      listing_type: "sale",
-      status: "active",
-      price: 0,
-      assigned_to: user.id,
-      created_by: user.id,
-      catalog: {},
-      internal: parseInternal(formData),
-    })
-    .select("id")
-    .single();
-
-  if (error || !created) return { error: error?.message ?? "Не удалось создать" };
-
-  const media = await collectMedia(supabase, created.id, formData);
-  const catalog = buildCatalog(formData, media);
-  await supabase
-    .from("properties")
-    .update({
-      catalog,
-      cover_url: media.photos[0] ?? null,
-    })
-    .eq("id", created.id);
-
-  await logActivity({
-    entityType: "property",
-    entityId: created.id,
-    type: "created",
-    payload: { title: parsed.data.title },
-    propertyId: created.id,
-  });
-
-  revalidatePath("/properties");
-  redirect(`/properties/${created.id}?created=property`);
 }
 
 export async function updatePropertyAction(
@@ -287,9 +395,21 @@ export async function updatePropertyAction(
 
   const { supabase, allowed } = await requirePropertyManager();
   if (!allowed) return { error: "Недостаточно прав" };
+  const documentFiles = filesOf(formData, "document_files");
+  const documentsError = validateDocumentFiles(documentFiles);
+  if (documentsError) return { error: documentsError };
 
   const media = await collectMedia(supabase, id, formData);
-  const catalog = buildCatalog(formData, media);
+  const uploaded = await uploadDocuments(
+    supabase,
+    id,
+    documentFiles,
+  );
+  if (uploaded.error) return { error: uploaded.error };
+  const catalog = buildCatalog(formData, {
+    ...media,
+    documents: uploaded.documents,
+  });
 
   const { error } = await supabase
     .from("properties")

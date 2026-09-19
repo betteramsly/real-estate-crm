@@ -65,7 +65,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
             Загрузите квадратное изображение до 3 МБ. Оно будет видно в шапке и
             списке команды.
           </p>
-          <label className="inline-flex h-9 cursor-pointer items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
+          <label className="relative inline-flex h-9 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
             <Camera className="h-4 w-4" />
             Выбрать фото
             <Input
@@ -73,7 +73,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
               name="avatar"
               type="file"
               accept="image/jpeg,image/png,image/webp,image/gif"
-              className="sr-only"
+              className="absolute inset-0 cursor-pointer opacity-0"
               onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;

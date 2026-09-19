@@ -3,14 +3,17 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
 import type { TaskStatus } from "@/lib/types";
 
+const taskStatusSchema = z.enum(["todo", "in_progress", "done", "cancelled"]);
+
 const taskSchema = z.object({
   title: z.string().min(2, "Минимум 2 символа"),
   description: z.string().nullable().optional(),
-  status: z.enum(["todo", "in_progress", "done", "cancelled"]),
+  status: taskStatusSchema,
   priority: z.enum(["low", "medium", "high"]),
   due_at: z.string().nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
@@ -117,8 +120,8 @@ export async function updateTaskAction(
     };
   }
 
-  const supabase = await createClient();
-  const { error } = await supabase
+  const { supabase } = await requireUser();
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({
       ...parsed.data,
@@ -126,9 +129,13 @@ export async function updateTaskAction(
       deal_id: parsed.data.deal_id ?? null,
       property_id: parsed.data.property_id ?? null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error || !updated) {
+    return { error: error?.message ?? "Задача не найдена или недоступна" };
+  }
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
@@ -136,19 +143,29 @@ export async function updateTaskAction(
 }
 
 export async function setTaskStatus(id: string, status: TaskStatus) {
-  const supabase = await createClient();
+  if (!taskStatusSchema.safeParse(status).success) {
+    throw new Error("Некорректный статус задачи");
+  }
+  const { supabase } = await requireUser();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("tasks")
     .select("status, title, client_id, deal_id, property_id")
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (existingError || !existing) {
+    throw new Error("Задача не найдена или недоступна");
+  }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("tasks")
     .update({ status })
-    .eq("id", id);
-  if (error) throw new Error(error.message);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !updated) {
+    throw new Error(error?.message ?? "Не удалось изменить статус задачи");
+  }
 
   if (existing && existing.status !== status) {
     await logActivity({
@@ -167,16 +184,26 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
 }
 
 export async function deleteTaskAction(id: string) {
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("tasks")
     .select("client_id, deal_id, property_id, title")
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (existingError || !existing) {
+    throw new Error("Задача не найдена или недоступна");
+  }
 
-  const { error } = await supabase.from("tasks").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { data: deleted, error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !deleted) {
+    throw new Error(error?.message ?? "Не удалось удалить задачу");
+  }
 
   await logActivity({
     entityType: "task",

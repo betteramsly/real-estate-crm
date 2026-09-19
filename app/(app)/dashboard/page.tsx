@@ -38,7 +38,7 @@ import { cn } from "@/lib/utils";
 import type { Client, Deal, Task } from "@/lib/types";
 
 export default async function DashboardPage() {
-  const { supabase, profile } = await requireProfile();
+  const { supabase } = await requireProfile();
 
   const sixMonthsAgo = new Date();
   sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);

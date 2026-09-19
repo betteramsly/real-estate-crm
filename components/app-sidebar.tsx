@@ -63,7 +63,7 @@ export function AppSidebar({
     <aside
       aria-hidden={collapsed}
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 overflow-hidden border-r bg-card/60 md:flex md:flex-col",
+        "hidden h-full max-h-dvh shrink-0 overflow-hidden border-r bg-card/60 md:flex md:flex-col",
         animate &&
           "transition-[width,opacity,border-color] duration-300 ease-luxury motion-reduce:transition-none",
         collapsed
@@ -87,7 +87,7 @@ export function AppSidebar({
           <PanelLeftClose className="h-4 w-4" />
         </Button>
       </div>
-      <nav className="flex-1 space-y-1 p-3">
+      <nav className="min-h-0 flex-1 space-y-1 overflow-y-auto p-3">
         {items.map((item) => {
           const Icon = item.icon;
           const active =
@@ -122,7 +122,7 @@ export function AppSidebar({
           );
         })}
       </nav>
-      <div className="p-3">
+      <div className="mt-auto shrink-0 p-3">
         <PrefetchLink
           href="/properties"
           onClick={() => {

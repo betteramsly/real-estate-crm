@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
 import { logActivity } from "@/lib/actions/activities";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
@@ -118,23 +119,30 @@ export async function updateClientAction(
     };
   }
 
-  const supabase = await createClient();
+  const { supabase } = await requireUser();
 
-  const { data: existing } = await supabase
+  const { data: existing, error: existingError } = await supabase
     .from("clients")
     .select("status, full_name, deal_type, assigned_to, budget_min, budget_max")
     .eq("id", id)
-    .single();
+    .maybeSingle();
+  if (existingError || !existing) {
+    return { error: "Клиент не найден или недоступен" };
+  }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("clients")
     .update({
       ...parsed.data,
       email: parsed.data.email || null,
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error || !updated) {
+    return { error: error?.message ?? "Не удалось сохранить клиента" };
+  }
 
   const changes = diffRecords(existing, parsed.data, [
     "status",
@@ -162,9 +170,16 @@ export async function updateClientAction(
 }
 
 export async function deleteClientAction(id: string) {
-  const supabase = await createClient();
-  const { error } = await supabase.from("clients").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { supabase } = await requireUser();
+  const { data: deleted, error } = await supabase
+    .from("clients")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !deleted) {
+    throw new Error(error?.message ?? "Клиент не найден или недоступен");
+  }
   await logActivity({
     entityType: "client",
     entityId: id,

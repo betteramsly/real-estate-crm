@@ -387,7 +387,7 @@ export default async function ClientPage(props: {
                     <li key={task.id} className="py-3">
                       <p className="font-medium">
                         {task.status === "done" ? (
-                          <CheckCircle2 className="mr-1 inline-block h-4 w-4 text-emerald-500" />
+                          <CheckCircle2 className="mr-1 inline-block h-4 w-4 text-primary" />
                         ) : null}
                         {task.title}
                       </p>

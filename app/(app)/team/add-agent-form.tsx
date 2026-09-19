@@ -13,46 +13,12 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 
 const initial: CreateAgentState = {};
-const ISSUED_KEY = "team_last_agent_login";
 
 type IssuedLogin = {
   full_name: string;
   email: string;
   password: string;
 };
-
-function readIssued(): IssuedLogin | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.sessionStorage.getItem(ISSUED_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<IssuedLogin>;
-    if (!parsed.email || !parsed.password) return null;
-    return {
-      full_name: parsed.full_name ?? "",
-      email: parsed.email,
-      password: parsed.password,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeIssued(value: IssuedLogin) {
-  try {
-    window.sessionStorage.setItem(ISSUED_KEY, JSON.stringify(value));
-  } catch {
-    // private mode
-  }
-}
-
-function clearIssued() {
-  try {
-    window.sessionStorage.removeItem(ISSUED_KEY);
-  } catch {
-    // private mode
-  }
-}
 
 function loginCopyText(issued: IssuedLogin) {
   const lines = [
@@ -82,14 +48,10 @@ export function AddAgentForm() {
   const hideTimer = React.useRef<number>(0);
   const [state, dispatch] = useActionState(createAgentAction, initial);
 
-  React.useEffect(() => {
-    setIssued(readIssued());
-    return () => window.clearTimeout(hideTimer.current);
-  }, []);
+  React.useEffect(() => () => window.clearTimeout(hideTimer.current), []);
 
   const hideIssued = React.useCallback(() => {
     window.clearTimeout(hideTimer.current);
-    clearIssued();
     setIssued(null);
     setCopied(false);
   }, []);
@@ -105,7 +67,6 @@ export function AddAgentForm() {
 
   React.useEffect(() => {
     if (state.success && pendingLogin.current) {
-      writeIssued(pendingLogin.current);
       setIssued(pendingLogin.current);
       window.clearTimeout(hideTimer.current);
       setCopied(false);

@@ -157,7 +157,7 @@ export function PhotoField({
           </DragOverlay>
         </DndContext>
       ) : null}
-      <label className="flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed px-4 py-6 text-center hover:bg-accent">
+      <label className="relative flex min-h-32 cursor-pointer flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border-2 border-dashed px-4 py-6 text-center hover:bg-accent">
         <Upload className="h-6 w-6 text-muted-foreground" />
         <span className="text-sm font-medium">Загрузить фото с компьютера</span>
         <span className="text-xs text-muted-foreground">
@@ -169,7 +169,7 @@ export function PhotoField({
           name={filesName}
           accept="image/jpeg,image/png,image/webp,image/gif"
           multiple
-          className="sr-only"
+          className="absolute inset-0 cursor-pointer opacity-0"
           onChange={(event) => {
             const files = Array.from(event.target.files ?? []);
             if (!files.length) return;

@@ -8,7 +8,7 @@ import {
   type TransitionStartFunction,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check, Loader2, Search, SlidersHorizontal, X } from "lucide-react";
+import { Check, Loader2, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -19,6 +19,14 @@ import {
 } from "@/components/ui/dialog";
 import { RelevanceStars } from "@/components/relevance-stars";
 import { installmentFilterLabel } from "@/lib/catalog";
+import {
+  addFilterExtra,
+  isFilterExtra,
+  mergeFilterOptions,
+  removeFilterExtra,
+  useFilterExtras,
+  type CatalogFilterExtraKey,
+} from "@/lib/catalog-filter-extras";
 import { cn } from "@/lib/utils";
 import { usePresence } from "@/hooks/use-presence";
 
@@ -85,37 +93,57 @@ function draftFrom(params: URLSearchParams): FilterDraft {
 function FilterCheck({
   checked,
   onChange,
+  onRemove,
   children,
 }: {
   checked: boolean;
   onChange: () => void;
+  onRemove?: () => void;
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="checkbox"
-      aria-checked={checked}
-      onClick={onChange}
-      className="flex min-h-8 w-full items-center gap-2.5 rounded-md px-1 py-1 text-left text-sm transition-colors duration-200 ease-luxury hover:bg-accent/70"
-    >
-      <span
-        className={cn(
-          "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border transition-colors duration-200 ease-luxury",
-          checked
-            ? "border-primary bg-primary text-primary-foreground"
-            : "border-muted-foreground/45 bg-transparent",
-        )}
+    <div className="flex min-h-8 w-full items-center gap-1 rounded-md hover:bg-accent/70">
+      <button
+        type="button"
+        role="checkbox"
+        aria-checked={checked}
+        onClick={onChange}
+        className="flex min-h-8 min-w-0 flex-1 items-center gap-2.5 rounded-md px-1 py-1 text-left text-sm transition-colors duration-200 ease-luxury"
       >
-        <Check
+        <span
           className={cn(
-            "h-3 w-3 transition-opacity duration-200 ease-luxury",
-            checked ? "opacity-100" : "opacity-0",
+            "flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[2px] border transition-colors duration-200 ease-luxury",
+            checked
+              ? "border-primary bg-primary text-primary-foreground"
+              : "border-muted-foreground/45 bg-transparent",
           )}
-        />
-      </span>
-      <span className="min-w-0 flex-1 leading-snug text-foreground">{children}</span>
-    </button>
+        >
+          <Check
+            className={cn(
+              "h-3 w-3 transition-opacity duration-200 ease-luxury",
+              checked ? "opacity-100" : "opacity-0",
+            )}
+          />
+        </span>
+        <span className="min-w-0 flex-1 leading-snug text-foreground">
+          {children}
+        </span>
+      </button>
+      {onRemove ? (
+        <button
+          type="button"
+          aria-label="Удалить из списка"
+          title="Удалить из списка"
+          className="mr-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-destructive/15 hover:text-destructive"
+          onClick={(event) => {
+            event.stopPropagation();
+            onRemove();
+          }}
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
+      ) : null}
+    </div>
   );
 }
 
@@ -134,16 +162,82 @@ function FilterSection({
   );
 }
 
+function FilterAddValue({
+  label,
+  onAdd,
+  defaultValue = "",
+}: {
+  label: string;
+  onAdd: (value: string) => void;
+  defaultValue?: string;
+}) {
+  const [value, setValue] = useState(defaultValue);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setValue(defaultValue);
+  }, [defaultValue]);
+
+  const submit = () => {
+    const next = value.trim();
+    if (!next) {
+      inputRef.current?.focus();
+      return;
+    }
+    onAdd(next);
+    setValue("");
+    inputRef.current?.focus();
+  };
+
+  return (
+    <div className="mt-0 flex w-full gap-2">
+      <Input
+        ref={inputRef}
+        value={value}
+        placeholder={`Добавить ${label.toLowerCase()}…`}
+        className="h-10 min-w-0 flex-1 bg-background"
+        onChange={(event) => setValue(event.target.value)}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") {
+            event.preventDefault();
+            submit();
+          }
+        }}
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => event.stopPropagation()}
+      />
+      <Button
+        type="button"
+        size="sm"
+        className="h-10 shrink-0 gap-1.5 px-4"
+        onMouseDown={(event) => event.stopPropagation()}
+        onClick={(event) => {
+          event.stopPropagation();
+          submit();
+        }}
+      >
+        <Plus className="h-4 w-4" />
+        Добавить
+      </Button>
+    </div>
+  );
+}
+
 function FilterOptions({
   items,
   selected,
   onToggle,
+  onRemove,
+  canRemove,
   limit = 6,
   formatLabel = (item) => item,
 }: {
   items: string[];
   selected: string[];
   onToggle: (value: string) => void;
+  onRemove?: (value: string) => void;
+  canRemove?: (value: string) => boolean;
   limit?: number;
   formatLabel?: (item: string) => string;
 }) {
@@ -158,6 +252,9 @@ function FilterOptions({
           key={item}
           checked={selected.includes(item)}
           onChange={() => onToggle(item)}
+          onRemove={
+            onRemove && canRemove?.(item) ? () => onRemove(item) : undefined
+          }
         >
           {formatLabel(item)}
         </FilterCheck>
@@ -232,6 +329,9 @@ function DesktopFilterBoard({
   draft,
   toggleValue,
   toggleFlag,
+  onAddValue,
+  onRemoveValue,
+  canRemoveValue,
   onDone,
 }: {
   cities: string[];
@@ -242,6 +342,9 @@ function DesktopFilterBoard({
   draft: FilterDraft;
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
+  onAddValue: (key: CatalogFilterExtraKey, value: string) => void;
+  onRemoveValue: (key: CatalogFilterExtraKey, value: string) => void;
+  canRemoveValue: (key: CatalogFilterExtraKey, value: string) => boolean;
   onDone: () => void;
 }) {
   const [group, setGroup] = useState<DesktopGroupId>("district");
@@ -263,9 +366,11 @@ function DesktopFilterBoard({
       : lists[group].filter((item) =>
           query ? item.toLowerCase().includes(query) : true,
         );
+  const groupTitle =
+    DESKTOP_GROUPS.find((item) => item.id === group)?.title ?? "значение";
 
   return (
-    <div className="flex h-[28rem] flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <div className="flex min-h-0 flex-1">
         <nav className="w-44 shrink-0 space-y-0.5 overflow-y-auto border-r border-border/50 p-2.5">
           {DESKTOP_GROUPS.map((item) => {
@@ -301,7 +406,7 @@ function DesktopFilterBoard({
         </nav>
         <div className="flex min-w-0 flex-1 flex-col">
           {group !== "flags" && group !== "relevance" ? (
-            <div className="p-3">
+            <div className="shrink-0 space-y-2 border-b border-border/40 px-3 py-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                 <Input
@@ -311,6 +416,11 @@ function DesktopFilterBoard({
                   className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
                 />
               </div>
+              <FilterAddValue
+                label={groupTitle}
+                defaultValue={query && !currentItems.length ? needle.trim() : ""}
+                onAdd={(value) => onAddValue(group, value)}
+              />
             </div>
           ) : null}
           <div className="min-h-0 flex-1 overflow-y-auto p-3 scrollbar-thin">
@@ -360,20 +470,28 @@ function DesktopFilterBoard({
                     key={item}
                     checked={draft[group].includes(item)}
                     onChange={() => toggleValue(group, item)}
+                    onRemove={
+                      canRemoveValue(group, item)
+                        ? () => onRemoveValue(group, item)
+                        : undefined
+                    }
                   >
-                    {group === "installment" ? installmentFilterLabel(item) : item}
+                    {group === "installment"
+                      ? installmentFilterLabel(item)
+                      : item}
                   </FilterCheck>
                 ))}
               </div>
             ) : (
-              <p className="px-2 py-6 text-sm text-muted-foreground">
-                Ничего не найдено
+              <p className="px-2 py-4 text-sm text-muted-foreground">
+                {query ? "Ничего не найдено" : "Список пока пуст"}
               </p>
             )}
           </div>
         </div>
       </div>
-      <div className="flex items-center justify-end border-t border-border/50 px-4 py-3">
+
+      <div className="flex shrink-0 items-center justify-end border-t border-border/50 px-4 py-3">
         <Button type="button" className="h-9 px-5" onClick={onDone}>
           Готово
         </Button>
@@ -395,6 +513,9 @@ function FilterGroups({
   draft,
   toggleValue,
   toggleFlag,
+  onAddValue,
+  onRemoveValue,
+  canRemoveValue,
 }: {
   cities: string[];
   districts: string[];
@@ -404,6 +525,9 @@ function FilterGroups({
   draft: FilterDraft;
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
+  onAddValue: (key: CatalogFilterExtraKey, value: string) => void;
+  onRemoveValue: (key: CatalogFilterExtraKey, value: string) => void;
+  canRemoveValue: (key: CatalogFilterExtraKey, value: string) => boolean;
 }) {
   const [needle, setNeedle] = useState("");
   const query = needle.trim().toLowerCase();
@@ -448,20 +572,57 @@ function FilterGroups({
         </div>
       </div>
       {lists.map((list) =>
-        list.items.length ? (
+        list.items.length || !query ? (
           <FilterSection key={list.key} title={list.title}>
-            <FilterOptions
-              items={list.items}
-              selected={draft[list.key]}
-              onToggle={(value) => toggleValue(list.key, value)}
-              limit={query ? list.items.length : list.limit}
-              formatLabel={
-                list.key === "installment" ? installmentFilterLabel : undefined
-              }
-            />
+            {!query ? (
+              <FilterAddValue
+                label={list.title}
+                onAdd={(value) => onAddValue(list.key, value)}
+              />
+            ) : null}
+            {list.items.length ? (
+              <div className="mt-2">
+                <FilterOptions
+                  items={list.items}
+                  selected={draft[list.key]}
+                  onToggle={(value) => toggleValue(list.key, value)}
+                  onRemove={(value) => onRemoveValue(list.key, value)}
+                  canRemove={(value) => canRemoveValue(list.key, value)}
+                  limit={query ? list.items.length : list.limit}
+                  formatLabel={
+                    list.key === "installment"
+                      ? installmentFilterLabel
+                      : undefined
+                  }
+                />
+              </div>
+            ) : null}
           </FilterSection>
         ) : null,
       )}
+      {empty && needle.trim() ? (
+        <div className="space-y-3 px-1 py-4">
+          <p className="text-sm text-muted-foreground">
+            «{needle.trim()}» нет в списках. Добавить как:
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {lists.map((list) => (
+              <Button
+                key={list.key}
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => onAddValue(list.key, needle.trim())}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                {list.title}
+              </Button>
+            ))}
+          </div>
+        </div>
+      ) : empty ? (
+        <p className="px-1 py-6 text-sm text-muted-foreground">Ничего не найдено</p>
+      ) : null}
       {flags.length ? (
         <FilterSection title="Условия">
           {flags.map(([key, label]) => (
@@ -487,9 +648,6 @@ function FilterGroups({
             </FilterCheck>
           ))}
         </FilterSection>
-      ) : null}
-      {empty ? (
-        <p className="px-1 py-6 text-sm text-muted-foreground">Ничего не найдено</p>
       ) : null}
     </div>
   );
@@ -527,6 +685,15 @@ export function CatalogFilters({
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [draft, setDraft] = useState(() => draftFrom(params));
   const searchTimer = useRef<number>(0);
+  const extras = useFilterExtras();
+  const cityOptions = mergeFilterOptions(cities, extras.city);
+  const districtOptions = mergeFilterOptions(districts, extras.district);
+  const developerOptions = mergeFilterOptions(developers, extras.developer);
+  const yearOptions = mergeFilterOptions(years, extras.completion_year);
+  const installmentOptions = mergeFilterOptions(
+    installments,
+    extras.installment,
+  );
 
   useEffect(() => {
     const onPop = () => {
@@ -614,6 +781,27 @@ export function CatalogFilters({
     setDraft({ ...draft, [key]: next });
     setParam(key, next ? "1" : null);
   };
+
+  const addValue = (key: CatalogFilterExtraKey, value: string) => {
+    addFilterExtra(key, value);
+    if (!draft[key].includes(value)) {
+      const next = [...draft[key], value];
+      setDraft({ ...draft, [key]: next });
+      setParam(key, next.join(","));
+    }
+  };
+
+  const removeValue = (key: CatalogFilterExtraKey, value: string) => {
+    removeFilterExtra(key, value);
+    if (draft[key].includes(value)) {
+      const next = draft[key].filter((item) => item !== value);
+      setDraft({ ...draft, [key]: next });
+      setParam(key, next.length ? next.join(",") : null);
+    }
+  };
+
+  const canRemoveValue = (key: CatalogFilterExtraKey, value: string) =>
+    isFilterExtra(extras, key, value);
 
   const facetCount = FILTER_KEYS.filter((key) => {
     if (key === "q") return false;
@@ -752,14 +940,14 @@ export function CatalogFilters({
           {desktopPanel.mounted ? (
             <div
               className={cn(
-                "absolute left-0 right-0 top-[calc(100%+0.75rem)] z-40 hidden overflow-hidden rounded-3xl border border-white/10 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:block",
+                "absolute left-0 right-0 top-[calc(100%+0.75rem)] z-40 hidden h-[min(28rem,calc(100dvh-14rem))] flex-col overflow-hidden rounded-3xl border border-white/10 bg-popover shadow-[0_24px_80px_rgba(0,0,0,0.45)] md:flex",
                 "origin-top transition-[opacity,transform] duration-200 ease-luxury motion-reduce:transition-none",
                 desktopPanel.visible
                   ? "translate-y-0 scale-100 opacity-100"
                   : "pointer-events-none -translate-y-1 scale-[0.985] opacity-0",
               )}
             >
-                <div className="flex h-12 items-center gap-3 border-b border-border/50 px-4">
+                <div className="flex h-12 shrink-0 items-center gap-3 border-b border-border/50 px-4">
                   <p className="shrink-0 font-display text-sm font-semibold">Фильтры</p>
                   <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto">
                     {selectedChips(draft).map((chip) => (
@@ -796,14 +984,17 @@ export function CatalogFilters({
                   </button>
                 </div>
                 <DesktopFilterBoard
-                  cities={cities}
-                  districts={districts}
-                  developers={developers}
-                  years={years}
-                  installments={installments}
+                  cities={cityOptions}
+                  districts={districtOptions}
+                  developers={developerOptions}
+                  years={yearOptions}
+                  installments={installmentOptions}
                   draft={draft}
                   toggleValue={toggleValue}
                   toggleFlag={toggleFlag}
+                  onAddValue={addValue}
+                  onRemoveValue={removeValue}
+                  canRemoveValue={canRemoveValue}
                   onDone={() => setDesktopOpen(false)}
                 />
               </div>
@@ -819,14 +1010,17 @@ export function CatalogFilters({
             <DialogTitle className="font-display">Фильтры</DialogTitle>
           </DialogHeader>
           <FilterGroups
-            cities={cities}
-            districts={districts}
-            developers={developers}
-            years={years}
-            installments={installments}
+            cities={cityOptions}
+            districts={districtOptions}
+            developers={developerOptions}
+            years={yearOptions}
+            installments={installmentOptions}
             draft={draft}
             toggleValue={toggleValue}
             toggleFlag={toggleFlag}
+            onAddValue={addValue}
+            onRemoveValue={removeValue}
+            canRemoveValue={canRemoveValue}
           />
           <Button className="mt-2 h-11 w-full" onClick={() => setMobileOpen(false)}>
             Показать комплексы
