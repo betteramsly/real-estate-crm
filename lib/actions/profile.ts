@@ -12,10 +12,56 @@ const profileSchema = z.object({
   phone: z.string().nullable().optional(),
 });
 
+const AVATAR_MIME_BY_EXT: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+};
+
+const AVATAR_MIME_ALIASES: Record<string, string> = {
+  "image/jpg": "image/jpeg",
+  "image/pjpeg": "image/jpeg",
+  "image/x-png": "image/png",
+};
+
+const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+
 export type ProfileFormState = {
   error?: string;
   success?: boolean;
+  avatarUrl?: string | null;
 };
+
+function avatarExtension(file: File) {
+  const fromName = file.name.split(".").pop()?.toLowerCase() ?? "";
+  if (fromName in AVATAR_MIME_BY_EXT) return fromName;
+  const mime = normalizeAvatarMime(file.type);
+  if (mime === "image/png") return "png";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  return "jpg";
+}
+
+function normalizeAvatarMime(raw: string) {
+  const type = raw.trim().toLowerCase();
+  if (!type) return "";
+  return AVATAR_MIME_ALIASES[type] ?? type;
+}
+
+function resolveAvatarMime(file: File) {
+  const fromType = normalizeAvatarMime(file.type);
+  if (fromType && Object.values(AVATAR_MIME_BY_EXT).includes(fromType)) {
+    return fromType;
+  }
+  const ext = file.name.split(".").pop()?.toLowerCase() ?? "";
+  return AVATAR_MIME_BY_EXT[ext] ?? "";
+}
+
+function isAvatarFile(value: FormDataEntryValue | null): value is File {
+  return typeof File !== "undefined" && value instanceof File && value.size > 0;
+}
 
 export async function updateProfileAction(
   _prev: ProfileFormState,
@@ -31,7 +77,9 @@ export async function updateProfileAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.errors[0]?.message ?? "Ошибка валидации" };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Ошибка валидации",
+    };
   }
 
   const supabase = await createClient();
@@ -43,30 +91,35 @@ export async function updateProfileAction(
   const avatarFile = formData.get("avatar");
   let avatarUrl: string | null = null;
 
-  if (avatarFile instanceof File && avatarFile.size > 0) {
-    const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/gif"];
-
-    if (!allowedMimeTypes.includes(avatarFile.type)) {
-      return { error: "Можно загрузить JPG, PNG, WebP или GIF" };
+  if (isAvatarFile(avatarFile)) {
+    const mime = resolveAvatarMime(avatarFile);
+    if (!mime) {
+      return {
+        error:
+          "Можно загрузить JPG, PNG, WebP или GIF. HEIC с iPhone сохраните как JPG.",
+      };
     }
 
-    const maxSize = 3 * 1024 * 1024;
-    if (avatarFile.size > maxSize) {
+    if (avatarFile.size > AVATAR_MAX_BYTES) {
       return { error: "Размер изображения должен быть меньше 3 МБ" };
     }
 
-    const extension = avatarFile.name.split(".").pop()?.toLowerCase() ?? "jpg";
+    const extension = avatarExtension(avatarFile);
     const filePath = `${user.id}/avatar-${Date.now()}.${extension}`;
+    const buffer = Buffer.from(await avatarFile.arrayBuffer());
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(filePath, avatarFile, {
-        contentType: avatarFile.type,
+      .upload(filePath, buffer, {
+        contentType: mime,
         upsert: true,
+        cacheControl: "3600",
       });
 
     if (uploadError) {
-      return { error: uploadError.message };
+      return {
+        error: uploadError.message || "Не удалось загрузить фото",
+      };
     }
 
     const {
@@ -89,7 +142,7 @@ export async function updateProfileAction(
 
   revalidatePath("/settings");
   revalidatePath("/", "layout");
-  return { success: true };
+  return { success: true, avatarUrl };
 }
 
 export async function setUserRoleAction(userId: string, role: UserRole) {
@@ -162,7 +215,9 @@ export async function createAgentAction(
   });
 
   if (!parsed.success) {
-    return { error: parsed.error.errors[0]?.message ?? "Ошибка валидации" };
+    return {
+      error: parsed.error.issues[0]?.message ?? "Ошибка валидации",
+    };
   }
 
   const { error } = await supabase.rpc("create_team_agent", {

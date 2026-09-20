@@ -469,6 +469,10 @@ create policy "avatars_update_own_folder" on storage.objects
   for update using (
     bucket_id = 'avatars'
     and auth.uid()::text = (storage.foldername(name))[1]
+  )
+  with check (
+    bucket_id = 'avatars'
+    and auth.uid()::text = (storage.foldername(name))[1]
   );
 
 drop policy if exists "avatars_delete_own_folder" on storage.objects;
