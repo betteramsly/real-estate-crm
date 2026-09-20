@@ -2,7 +2,15 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronLeft, ChevronRight, Download, Images, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Images, Loader2, RotateCw, X } from "lucide-react";
+import {
+  catalogPhotoSrc,
+  canOptimizeCatalogPhoto,
+  photoPreloadConcurrency,
+  photoPreloadRadius,
+  readPhotoConnection,
+  type CatalogPhotoWidth,
+} from "@/lib/catalog-photo";
 import { cn } from "@/lib/utils";
 
 function photoFileName(url: string, alt: string, index: number) {
@@ -23,7 +31,7 @@ function photoDownloadHref(url: string, alt: string, index: number) {
   return `/api/photo-download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
 }
 
-function nearbyIndexes(index: number, count: number, radius = 2) {
+function nearbyIndexes(index: number, count: number, radius = 1) {
   if (count <= 0) return [];
   const indexes = new Set<number>();
   for (let offset = -radius; offset <= radius; offset += 1) {
@@ -33,7 +41,11 @@ function nearbyIndexes(index: number, count: number, radius = 2) {
   return Array.from(indexes);
 }
 
-function usePhotoPreload(photos: string[], index: number) {
+function usePhotoPreload(
+  photos: string[],
+  index: number,
+  width: CatalogPhotoWidth,
+) {
   const photosKey = photos.join("|");
   const photosRef = useRef(photos);
   photosRef.current = photos;
@@ -42,7 +54,8 @@ function usePhotoPreload(photos: string[], index: number) {
   const inflight = useRef(0);
 
   const pump = useCallback(() => {
-    while (inflight.current < 3) {
+    const limit = photoPreloadConcurrency(readPhotoConnection());
+    while (inflight.current < limit) {
       const url = queue.current.shift();
       if (!url) return;
       if (loaded.current.has(url)) continue;
@@ -56,17 +69,18 @@ function usePhotoPreload(photos: string[], index: number) {
       };
       image.onload = done;
       image.onerror = done;
-      image.src = url;
+      image.src = catalogPhotoSrc(url, width);
     }
-  }, []);
+  }, [width]);
 
   const enqueue = useCallback(
-    (urls: string[], front = false) => {
+    (urls: string[]) => {
       const fresh = urls.filter((url) => url && !loaded.current.has(url));
       if (!fresh.length) return;
-      queue.current = front
-        ? [...fresh, ...queue.current.filter((url) => !fresh.includes(url))]
-        : [...queue.current, ...fresh.filter((url) => !queue.current.includes(url))];
+      queue.current = [
+        ...fresh,
+        ...queue.current.filter((url) => !fresh.includes(url)),
+      ];
       pump();
     },
     [pump],
@@ -76,24 +90,144 @@ function usePhotoPreload(photos: string[], index: number) {
     loaded.current = new Set();
     queue.current = [];
     inflight.current = 0;
-    const list = photosRef.current;
-    enqueue(
-      nearbyIndexes(0, list.length).map((photoIndex) => list[photoIndex] ?? ""),
-      true,
-    );
-    const start = window.setTimeout(() => {
-      enqueue(list.slice(1));
-    }, 200);
-    return () => window.clearTimeout(start);
-  }, [enqueue, photosKey]);
+  }, [photosKey]);
 
   useEffect(() => {
     const list = photosRef.current;
+    const radius = photoPreloadRadius(readPhotoConnection());
     enqueue(
-      nearbyIndexes(index, list.length).map((photoIndex) => list[photoIndex] ?? ""),
-      true,
+      nearbyIndexes(index, list.length, radius).map(
+        (photoIndex) => list[photoIndex] ?? "",
+      ),
     );
   }, [enqueue, index, photosKey]);
+}
+
+function PhotoStatus({
+  status,
+  label,
+  onRetry,
+}: {
+  status: "loading" | "ready" | "error";
+  label?: string;
+  onRetry?: () => void;
+}) {
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (status !== "loading") {
+      setSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setSlow(true), 700);
+    return () => window.clearTimeout(timer);
+  }, [status]);
+
+  if (status === "ready") return null;
+
+  if (status === "error") {
+    return (
+      <span className="absolute inset-0 z-[2] flex items-center justify-center bg-muted/80 p-3">
+        <span
+          role="button"
+          tabIndex={0}
+          onClick={(event) => {
+            event.stopPropagation();
+            onRetry?.();
+          }}
+          onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            event.stopPropagation();
+            onRetry?.();
+          }}
+          className="pointer-events-auto inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-background px-3 py-1.5 text-xs font-medium"
+        >
+          <RotateCw className="h-3.5 w-3.5" />
+          Повторить
+        </span>
+      </span>
+    );
+  }
+
+  return (
+    <span className="pointer-events-none absolute inset-0 z-[2] flex flex-col items-center justify-center gap-2 bg-muted">
+      <span className="absolute inset-0 animate-pulse bg-muted" />
+      <span className="relative z-[1] inline-flex items-center gap-1.5 rounded-full bg-background/90 px-2.5 py-1 text-[11px] font-medium text-foreground shadow-sm">
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        {slow ? (label ?? "Загружаем фото…") : null}
+      </span>
+    </span>
+  );
+}
+
+function CatalogPhoto({
+  url,
+  alt,
+  className,
+  width,
+  loading = "lazy",
+  fetchPriority,
+  onReady,
+}: {
+  url: string;
+  alt: string;
+  className?: string;
+  width: CatalogPhotoWidth;
+  loading?: "lazy" | "eager";
+  fetchPriority?: "high" | "low" | "auto";
+  onReady?: () => void;
+}) {
+  const [attempt, setAttempt] = useState(0);
+  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
+  const imgRef = useRef<HTMLImageElement>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
+  const src = catalogPhotoSrc(url, width);
+  const external = !canOptimizeCatalogPhoto(url);
+
+  useEffect(() => {
+    const img = imgRef.current;
+    if (img?.complete && img.naturalWidth > 0) {
+      setStatus("ready");
+      onReadyRef.current?.();
+      return;
+    }
+    if (img?.complete) {
+      setStatus("error");
+      return;
+    }
+    setStatus("loading");
+  }, [src, attempt]);
+
+  return (
+    <>
+      <PhotoStatus
+        status={status}
+        onRetry={() => setAttempt((value) => value + 1)}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        key={`${src}-${attempt}`}
+        ref={imgRef}
+        src={src}
+        alt={alt}
+        loading={loading}
+        decoding="async"
+        referrerPolicy={external ? "no-referrer" : undefined}
+        fetchPriority={fetchPriority}
+        onLoad={() => {
+          setStatus("ready");
+          onReadyRef.current?.();
+        }}
+        onError={() => setStatus("error")}
+        className={cn(
+          className,
+          status === "ready" ? "opacity-100" : "opacity-0",
+        )}
+      />
+    </>
+  );
 }
 
 function ThumbImage({
@@ -103,26 +237,76 @@ function ThumbImage({
   url: string;
   eager?: boolean;
 }) {
-  const [loaded, setLoaded] = useState(false);
+  return (
+    <CatalogPhoto
+      url={url}
+      alt=""
+      width={256}
+      loading={eager ? "eager" : "lazy"}
+      className="h-full w-full object-cover transition-opacity duration-150"
+    />
+  );
+}
+
+function ThumbButton({
+  url,
+  index,
+  current,
+  count,
+  label,
+  className,
+  activeClass,
+  idleClass,
+  onSelect,
+}: {
+  url: string;
+  index: number;
+  current: number;
+  count: number;
+  label: string;
+  className?: string;
+  activeClass: string;
+  idleClass: string;
+  onSelect: () => void;
+}) {
+  const near = Math.abs(index - current) <= 1;
+  const eager = near || index < 4;
+  const ref = useRef<HTMLButtonElement>(null);
+  const [visible, setVisible] = useState(eager);
+
+  useEffect(() => {
+    if (near) setVisible(true);
+  }, [near]);
+
+  useEffect(() => {
+    if (visible) return;
+    const node = ref.current;
+    const root = node?.parentElement;
+    if (!node || !root) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry?.isIntersecting) setVisible(true);
+      },
+      { root, rootMargin: "96px", threshold: 0.01 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [visible, count]);
 
   return (
-    <>
-      {!loaded ? (
-        <span className="absolute inset-0 animate-pulse bg-muted" />
-      ) : null}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt=""
-        loading={eager ? "eager" : "lazy"}
-        decoding="async"
-        onLoad={() => setLoaded(true)}
-        className={cn(
-          "h-full w-full object-cover transition-opacity duration-150",
-          loaded ? "opacity-100" : "opacity-0",
-        )}
-      />
-    </>
+    <button
+      ref={ref}
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "relative shrink-0 overflow-hidden bg-muted",
+        className,
+        index === current ? activeClass : idleClass,
+      )}
+      aria-label={label}
+    >
+      {visible ? <ThumbImage url={url} eager={eager} /> : null}
+    </button>
   );
 }
 
@@ -132,29 +316,34 @@ function SlideImage({
   alt,
   className,
   priority,
+  width,
 }: {
   photos: string[];
   index: number;
   alt: string;
   className?: string;
   priority?: boolean;
+  width: CatalogPhotoWidth;
 }) {
   const photosKey = photos.join("|");
   const photosRef = useRef(photos);
   photosRef.current = photos;
   const [ready, setReady] = useState<Set<string>>(() => new Set());
+  const [failed, setFailed] = useState<Set<string>>(() => new Set());
+  const [attempt, setAttempt] = useState(0);
   const [mounted, setMounted] = useState<Set<number>>(
-    () => new Set(nearbyIndexes(index, photos.length)),
+    () => new Set(nearbyIndexes(index, photos.length, 1)),
   );
   const lastReady = useRef(photos[index]);
-  usePhotoPreload(photos, index);
+  usePhotoPreload(photos, index, width);
 
   useEffect(() => {
     const list = photosRef.current;
+    const radius = photoPreloadRadius(readPhotoConnection());
     setMounted((current) => {
       const next = new Set(current);
       next.add(index);
-      for (const photoIndex of nearbyIndexes(index, list.length)) {
+      for (const photoIndex of nearbyIndexes(index, list.length, radius)) {
         next.add(photoIndex);
       }
       return next;
@@ -163,10 +352,26 @@ function SlideImage({
 
   const activeUrl = photos[index];
   const activeReady = Boolean(activeUrl && ready.has(activeUrl));
+  const activeFailed = Boolean(activeUrl && failed.has(activeUrl));
   if (activeReady && activeUrl) lastReady.current = activeUrl;
 
   const markReady = (url: string) => {
+    setFailed((current) => {
+      if (!current.has(url)) return current;
+      const next = new Set(current);
+      next.delete(url);
+      return next;
+    });
     setReady((current) => {
+      if (current.has(url)) return current;
+      const next = new Set(current);
+      next.add(url);
+      return next;
+    });
+  };
+
+  const markFailed = (url: string) => {
+    setFailed((current) => {
       if (current.has(url)) return current;
       const next = new Set(current);
       next.add(url);
@@ -188,20 +393,41 @@ function SlideImage({
   );
 
   return (
-    <div className="pointer-events-none absolute inset-0 z-0">
+    <div className="absolute inset-0 z-0">
+      <PhotoStatus
+        status={activeFailed ? "error" : activeReady ? "ready" : "loading"}
+        onRetry={() => {
+          if (!activeUrl) return;
+          setFailed((current) => {
+            const next = new Set(current);
+            next.delete(activeUrl);
+            return next;
+          });
+          setReady((current) => {
+            const next = new Set(current);
+            next.delete(activeUrl);
+            return next;
+          });
+          setAttempt((value) => value + 1);
+        }}
+      />
       {urls.map((url) => {
         const active = url === activeUrl;
-        const fallback = !activeReady && url === lastReady.current;
+        const fallback = !activeReady && !activeFailed && url === lastReady.current;
+        const src = catalogPhotoSrc(url, width);
+        const external = !canOptimizeCatalogPhoto(url);
         return (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            key={url}
+            key={`${src}-${url === activeUrl ? attempt : 0}`}
             ref={bindReady(url)}
-            src={url}
+            src={src}
             alt={active ? alt : ""}
             decoding="async"
+            referrerPolicy={external ? "no-referrer" : undefined}
             fetchPriority={priority && active ? "high" : "low"}
             onLoad={() => markReady(url)}
+            onError={() => markFailed(url)}
             className={cn(
               "absolute inset-0 h-full w-full transition-opacity duration-150",
               className,
@@ -218,7 +444,6 @@ function SlideImage({
 function usePhotoLightbox(count: number) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const startX = useRef<number | null>(null);
 
   const go = useCallback(
     (delta: number) => {
@@ -249,7 +474,7 @@ function usePhotoLightbox(count: number) {
     };
   }, [go, open]);
 
-  return { open, index, setIndex, setOpen, go, openAt, startX };
+  return { open, index, setIndex, setOpen, go, openAt };
 }
 
 function PhotoLightbox({
@@ -259,7 +484,6 @@ function PhotoLightbox({
   onClose,
   onIndex,
   onDelta,
-  startX,
 }: {
   photos: string[];
   alt: string;
@@ -267,7 +491,6 @@ function PhotoLightbox({
   onClose: () => void;
   onIndex: (index: number) => void;
   onDelta: (delta: number) => void;
-  startX: React.MutableRefObject<number | null>;
 }) {
   const current = photos[index];
   if (!current || typeof document === "undefined") return null;
@@ -278,16 +501,6 @@ function PhotoLightbox({
       aria-modal="true"
       aria-label={alt}
       className="fixed inset-0 z-50 flex flex-col bg-black/95"
-      onTouchStart={(event) => {
-        startX.current = event.touches[0]?.clientX ?? null;
-      }}
-      onTouchEnd={(event) => {
-        if (startX.current == null) return;
-        const delta = (event.changedTouches[0]?.clientX ?? 0) - startX.current;
-        if (delta > 48) onDelta(-1);
-        if (delta < -48) onDelta(1);
-        startX.current = null;
-      }}
     >
       <div className="flex items-center justify-between px-4 py-3 text-white">
         <p className="truncate text-sm font-medium">{alt}</p>
@@ -317,30 +530,19 @@ function PhotoLightbox({
         </div>
       </div>
 
-      <div
-        className="relative min-h-0 flex-1"
-        onClick={(event) => {
-          if (photos.length < 2) return;
-          const mid =
-            event.currentTarget.getBoundingClientRect().left +
-            event.currentTarget.getBoundingClientRect().width / 2;
-          onDelta(event.clientX < mid ? -1 : 1);
-        }}
-      >
+      <div className="relative min-h-0 flex-1">
         <SlideImage
           photos={photos}
           index={index}
           alt={alt}
           className="object-contain"
+          width={1920}
         />
         {photos.length > 1 ? (
           <>
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelta(-1);
-              }}
+              onClick={() => onDelta(-1)}
               className="absolute left-3 top-1/2 z-10 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
               aria-label="Предыдущее фото"
             >
@@ -348,10 +550,7 @@ function PhotoLightbox({
             </button>
             <button
               type="button"
-              onClick={(event) => {
-                event.stopPropagation();
-                onDelta(1);
-              }}
+              onClick={() => onDelta(1)}
               className="absolute right-3 top-1/2 z-10 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20"
               aria-label="Следующее фото"
             >
@@ -364,19 +563,18 @@ function PhotoLightbox({
       {photos.length > 1 ? (
         <div className="flex justify-center gap-2 overflow-x-auto px-4 py-3">
           {photos.map((url, photoIndex) => (
-            <button
+            <ThumbButton
               key={`${url}-${photoIndex}`}
-              type="button"
-              onClick={() => onIndex(photoIndex)}
-              className={cn(
-                "relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border-2",
-                photoIndex === index
-                  ? "border-white"
-                  : "border-transparent opacity-70",
-              )}
-            >
-              <ThumbImage url={url} eager={photoIndex < 8} />
-            </button>
+              url={url}
+              index={photoIndex}
+              current={index}
+              count={photos.length}
+              label={`Показать фото ${photoIndex + 1}`}
+              className="h-14 w-20 rounded-lg border-2"
+              activeClass="border-white bg-white/10"
+              idleClass="border-transparent bg-white/10 opacity-70"
+              onSelect={() => onIndex(photoIndex)}
+            />
           ))}
         </div>
       ) : null}
@@ -397,7 +595,6 @@ export function PhotoViewer({
   onClose: () => void;
 }) {
   const [current, setCurrent] = useState(index);
-  const startX = useRef<number | null>(null);
   const go = useCallback(
     (delta: number) => {
       if (!photos.length) return;
@@ -429,7 +626,6 @@ export function PhotoViewer({
       onClose={onClose}
       onIndex={setCurrent}
       onDelta={go}
-      startX={startX}
     />
   );
 }
@@ -443,7 +639,7 @@ export function LightboxPhotos({
   alt: string;
   size?: "default" | "map" | "price";
 }) {
-  const { open, index, setIndex, setOpen, go, openAt, startX } = usePhotoLightbox(
+  const { open, index, setIndex, setOpen, go, openAt } = usePhotoLightbox(
     photos.length,
   );
 
@@ -471,17 +667,18 @@ export function LightboxPhotos({
             type="button"
             onClick={() => openAt(photoIndex)}
             className={cn(
-              "overflow-hidden rounded-xl border border-border/70 bg-background shadow-[0_8px_30px_rgba(0,0,0,0.18)]",
-              size === "map" && "w-full",
+              "relative overflow-hidden rounded-xl border border-border/70 bg-muted shadow-[0_8px_30px_rgba(0,0,0,0.18)]",
+              size === "map" && "min-h-40 w-full",
+              size === "price" && "min-h-52 w-full max-w-md",
+              size === "default" && "min-h-40",
             )}
             aria-label={`Открыть фото ${photoIndex + 1}`}
           >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
+            <CatalogPhoto
+              url={url}
               alt={`${alt} ${photoIndex + 1}`}
-              loading="lazy"
-              decoding="async"
+              width={size === "price" ? 1080 : 1200}
+              loading={photoIndex === 0 ? "eager" : "lazy"}
               className={imageClass}
             />
           </button>
@@ -495,7 +692,6 @@ export function LightboxPhotos({
           onClose={() => setOpen(false)}
           onIndex={setIndex}
           onDelta={go}
-          startX={startX}
         />
       ) : null}
     </>
@@ -527,7 +723,6 @@ export function PhotoGallery({
 }) {
   const [open, setOpen] = useState(false);
   const [index, setIndex] = useState(0);
-  const startX = useRef<number | null>(null);
 
   const count = photos.length;
   const current = photos[index] ?? photos[0];
@@ -582,6 +777,7 @@ export function PhotoGallery({
               alt={alt}
               className="object-cover"
               priority
+              width={1080}
             />
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_hsl(var(--muted-foreground)/0.14),_transparent_50%)]" />
@@ -602,23 +798,18 @@ export function PhotoGallery({
         {count > 1 ? (
           <div className="flex gap-2 overflow-x-auto p-3">
             {photos.map((url, photoIndex) => (
-              <button
+              <ThumbButton
                 key={url}
-                type="button"
-                onClick={() => setIndex(photoIndex)}
-                className={cn(
-                  "relative h-16 w-24 shrink-0 overflow-hidden rounded-xl border bg-muted",
-                  photoIndex === index
-                    ? "border-primary"
-                    : "border-transparent hover:border-foreground/20",
-                )}
-                aria-label={`Показать фото ${photoIndex + 1}`}
-              >
-                <ThumbImage
-                  url={url}
-                  eager={photoIndex < 8 || Math.abs(photoIndex - index) <= 2}
-                />
-              </button>
+                url={url}
+                index={photoIndex}
+                current={index}
+                count={photos.length}
+                label={`Показать фото ${photoIndex + 1}`}
+                className="h-16 w-24 rounded-xl border"
+                activeClass="border-primary"
+                idleClass="border-transparent hover:border-foreground/20"
+                onSelect={() => setIndex(photoIndex)}
+              />
             ))}
           </div>
         ) : null}
@@ -632,7 +823,6 @@ export function PhotoGallery({
           onClose={() => setOpen(false)}
           onIndex={setIndex}
           onDelta={go}
-          startX={startX}
         />
       ) : null}
     </>

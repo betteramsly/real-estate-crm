@@ -6,10 +6,12 @@ export function RichText({
   text,
   className,
   clientLinks = false,
+  clientChess = true,
 }: {
   text: string;
   className?: string;
   clientLinks?: boolean;
+  clientChess?: boolean;
 }) {
   return (
     <span className={className}>
@@ -17,7 +19,10 @@ export function RichText({
         if (part.type !== "url" || !isHttpUrl(part.value)) {
           return <span key={`${part.type}-${index}`}>{part.value}</span>;
         }
-        if (clientLinks && !isClientExternalUrl(part.value)) {
+        if (
+          clientLinks &&
+          !isClientExternalUrl(part.value, "", { chess: clientChess })
+        ) {
           return null;
         }
         return (

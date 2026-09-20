@@ -257,25 +257,54 @@ describe("catalog helpers", () => {
             { title: "Шахматка", url: "https://docs.google.com/x", kind: "chess" },
             { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
             { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
+            { title: "Прайс", url: "https://docs.google.com/z", kind: "price" },
           ],
         },
-        { client: true },
+        { client: true, chess: true },
       ),
     ).toEqual([
       { title: "Шахматка", url: "https://docs.google.com/x", kind: "chess" },
       { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
       { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
+      { title: "Прайс", url: "https://docs.google.com/z", kind: "price" },
+    ]);
+    expect(
+      visibleDocuments(
+        {
+          documents: [
+            { title: "Шахматка", url: "https://docs.google.com/x", kind: "chess" },
+            { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
+            { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
+            { title: "Прайс", url: "https://docs.google.com/z", kind: "price" },
+          ],
+        },
+        { client: true },
+      ),
+    ).toEqual([
+      { title: "Планировки", url: "https://disk.yandex.ru/i/x", kind: "plan" },
+      { title: "Коммерция", url: "https://docs.google.com/y", kind: "commercial" },
+      { title: "Прайс", url: "https://docs.google.com/z", kind: "price" },
     ]);
   });
 
-  it("keeps plans, chess and commercial visible for a client presentation", () => {
+  it("keeps plans and commercial visible for a client presentation and hides chess on the share link", () => {
+    expect(
+      isPresentCatalogDocument(
+        {
+          title: "Шахматка",
+          url: "https://docs.google.com/x",
+          kind: "chess",
+        },
+        { chess: true },
+      ),
+    ).toBe(true);
     expect(
       isPresentCatalogDocument({
         title: "Шахматка",
         url: "https://docs.google.com/x",
         kind: "chess",
       }),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       isPresentCatalogDocument({
         title: "Коммерция",
@@ -290,11 +319,18 @@ describe("catalog helpers", () => {
         kind: "plan",
       }),
     ).toBe(true);
+    expect(
+      isPresentCatalogDocument({
+        title: "Прайс",
+        url: "https://docs.google.com/z",
+        kind: "price",
+      }),
+    ).toBe(true);
     expect(inferCatalogDocumentKind("планировки.pdf")).toBe("plan");
     expect(inferCatalogDocumentKind("шахматка.xlsx")).toBe("chess");
   });
 
-  it("allows location, plan, chess and commercial links for a client", () => {
+  it("allows location, plan, price and commercial links for a client, and chess only when showing in person", () => {
     expect(isClientExternalUrl("https://go.2gis.com/x")).toBe(true);
     expect(isClientExternalUrl("https://yandex.ru/maps/1")).toBe(true);
     expect(
@@ -304,8 +340,16 @@ describe("catalog helpers", () => {
       true,
     );
     expect(
+      isClientExternalUrl("https://docs.google.com/x", "Шахматка", {
+        chess: false,
+      }),
+    ).toBe(false);
+    expect(
       isClientExternalUrl("https://docs.google.com/y", "Коммерция 8 марта"),
     ).toBe(true);
+    expect(isClientExternalUrl("https://docs.google.com/z", "Прайс")).toBe(
+      true,
+    );
   });
 
   it("reports missing price, chess and map instead of hiding them", () => {
@@ -516,7 +560,10 @@ describe("catalog helpers", () => {
           },
         }),
       ),
-    ).toEqual(["https://cdn.example/location/01.webp"]);
+    ).toEqual([
+      "https://share.api.2gis.ru/getimage?city=grozny",
+      "https://cdn.example/location/01.webp",
+    ]);
     expect(formatAboutBlocks("Этажность 16\nфасад кирпич\n(не возвращаем)")).toEqual([
       { type: "list", items: ["Этажность: 16", "Фасад: кирпич (не возвращаем)"] },
     ]);

@@ -67,7 +67,7 @@ export default async function SharePropertyPage(props: {
           ]}
         />
         <ComplexHero property={property} hideRelevance />
-        <ComplexSections property={property} presentMode />
+        <ComplexSections property={property} presentMode guest />
       </main>
     </>
   );

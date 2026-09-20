@@ -26,6 +26,10 @@ const nextConfig = {
         protocol: "https",
         hostname: "share.api.2gis.ru",
       },
+      {
+        protocol: "https",
+        hostname: "beautyshare.2gis.ru",
+      },
     ],
   },
   async headers() {

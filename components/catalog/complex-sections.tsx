@@ -198,10 +198,12 @@ function AboutContent({
   aboutBlocks,
   facts,
   presentMode,
+  clientChess,
 }: {
   aboutBlocks: Array<{ type: "p" | "list"; items: string[] }>;
   facts: { label: string; value: string }[];
   presentMode: boolean;
+  clientChess: boolean;
 }) {
   const fromLists = aboutBlocks.flatMap((block) =>
     block.type === "list"
@@ -232,7 +234,11 @@ function AboutContent({
                 {fact.label}
               </dt>
               <dd className="mt-0.5 text-sm font-medium leading-snug">
-                <RichText text={fact.value} clientLinks={presentMode} />
+                <RichText
+                  text={fact.value}
+                  clientLinks={presentMode}
+                  clientChess={clientChess}
+                />
               </dd>
             </div>
           ))}
@@ -251,7 +257,11 @@ function AboutContent({
               key={item}
               className="relative max-w-3xl pl-4 text-sm leading-relaxed text-foreground/90 before:absolute before:left-0 before:top-[0.55em] before:h-1 before:w-1 before:rounded-full before:bg-gold/80"
             >
-              <RichText text={item} clientLinks={presentMode} />
+              <RichText
+                text={item}
+                clientLinks={presentMode}
+                clientChess={clientChess}
+              />
             </li>
           ))}
         </ul>
@@ -264,6 +274,7 @@ function TermTable({
   groups,
   heading,
   clientLinks = false,
+  clientChess = true,
 }: {
   groups: {
     title: string;
@@ -272,6 +283,7 @@ function TermTable({
   }[];
   heading: string;
   clientLinks?: boolean;
+  clientChess?: boolean;
 }) {
   return (
     <div className="flex h-full flex-col gap-3">
@@ -298,10 +310,18 @@ function TermTable({
                         scope="row"
                         className="max-w-[65%] px-3 py-2 text-left font-normal text-muted-foreground"
                       >
-                        <RichText text={item.label} clientLinks={clientLinks} />
+                        <RichText
+                          text={item.label}
+                          clientLinks={clientLinks}
+                          clientChess={clientChess}
+                        />
                       </th>
                       <td className="px-3 py-2 text-right font-medium tabular-nums">
-                        <RichText text={item.value} clientLinks={clientLinks} />
+                        <RichText
+                          text={item.value}
+                          clientLinks={clientLinks}
+                          clientChess={clientChess}
+                        />
                       </td>
                     </tr>
                   ))}
@@ -311,7 +331,11 @@ function TermTable({
           ) : null}
           {group.note ? (
             <p className="mt-auto pt-1 text-sm leading-relaxed text-muted-foreground">
-              <RichText text={group.note} clientLinks={clientLinks} />
+              <RichText
+                text={group.note}
+                clientLinks={clientLinks}
+                clientChess={clientChess}
+              />
             </p>
           ) : null}
         </div>
@@ -326,12 +350,14 @@ function LocationPanel({
   mapUrl,
   locationPhotos,
   presentMode,
+  clientChess,
 }: {
   property: Property;
   location: string;
   mapUrl: string | null;
   locationPhotos: string[];
   presentMode: boolean;
+  clientChess: boolean;
 }) {
   return (
     <div className="space-y-4 rounded-2xl border border-border/70 bg-card/60 p-4 md:p-5 lg:sticky lg:top-4">
@@ -344,7 +370,11 @@ function LocationPanel({
             <span className="mr-2 inline-flex align-middle text-muted-foreground">
               <MapPin className="h-4 w-4" aria-hidden />
             </span>
-            <RichText text={location} clientLinks={presentMode} />
+            <RichText
+              text={location}
+              clientLinks={presentMode}
+              clientChess={clientChess}
+            />
           </p>
         ) : (
           <p className="text-sm text-muted-foreground">Адрес не указан</p>
@@ -383,12 +413,15 @@ export function ComplexSections({
   property,
   presentMode,
   showMaterials = false,
+  guest = false,
 }: {
   property: Property;
   presentMode: boolean;
   showMaterials?: boolean;
+  guest?: boolean;
 }) {
   const catalog = getCatalog(property);
+  const clientChess = presentMode && !guest;
   const location = catalogLocationLabel(property);
   const completion = completionLabel(property);
   const installment = compactTermGroups(catalog.installment);
@@ -405,12 +438,13 @@ export function ComplexSections({
   const about = compactAbout(catalog.about || property.description, used);
   const facts = compactFacts(catalog.facts, [about, location, ...used]);
   const aboutBlocks = formatAboutBlocks(about);
-  const documents = visibleDocuments(catalog, { client: presentMode }).flatMap(
-    (doc) => {
-      const href = safeExternalHref(doc.url);
-      return href ? [{ ...doc, href }] : [];
-    },
-  );
+  const documents = visibleDocuments(catalog, {
+    client: presentMode,
+    chess: clientChess,
+  }).flatMap((doc) => {
+    const href = safeExternalHref(doc.url);
+    return href ? [{ title: doc.title, href }] : [];
+  });
   const pricePhotos = catalogPricePhotos(property);
   const locationPhotos = catalogLocationPhotos(property);
   const rawAddress = catalog.location?.address?.trim() ?? "";
@@ -457,6 +491,7 @@ export function ComplexSections({
                   aboutBlocks={aboutBlocks}
                   facts={facts}
                   presentMode={presentMode}
+                  clientChess={clientChess}
                 />
               </MobileCollapsible>
             </section>
@@ -469,6 +504,7 @@ export function ComplexSections({
               mapUrl={mapUrl}
               locationPhotos={locationPhotos}
               presentMode={presentMode}
+              clientChess={clientChess}
             />
           ) : null}
         </div>
@@ -493,6 +529,7 @@ export function ComplexSections({
                   groups={installment}
                   heading="Рассрочка"
                   clientLinks={presentMode}
+                  clientChess={clientChess}
                 />
               </section>
             ) : null}
@@ -506,6 +543,7 @@ export function ComplexSections({
                   groups={commercial}
                   heading="Коммерция"
                   clientLinks={presentMode}
+                  clientChess={clientChess}
                 />
               </section>
             ) : null}
@@ -535,17 +573,7 @@ export function ComplexSections({
       {presentMode ? null : (
         <>
           <Separator className="bg-border/60" />
-          <div className="space-y-3">
-            <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                Только для команды
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Комиссии и внутренние пометки скрыты от клиента в режиме показа
-              </p>
-            </div>
-            <InternalLock propertyId={property.id} presentMode={presentMode} />
-          </div>
+          <InternalLock propertyId={property.id} presentMode={presentMode} />
         </>
       )}
     </div>

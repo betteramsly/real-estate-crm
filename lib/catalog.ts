@@ -131,19 +131,33 @@ function documentTitle(title: string, kind: string, url: string) {
   return cleaned;
 }
 
-export function isPresentCatalogDocument(doc: {
+export function isChessCatalogDocument(doc: {
   title: string;
   url: string;
   kind?: string;
 }) {
   const blob = `${doc.title} ${doc.url}`.toLowerCase();
+  if (doc.kind === "commercial" || /коммерц/.test(blob)) return false;
+  return doc.kind === "chess" || /шахмат/.test(blob);
+}
+
+export function isPresentCatalogDocument(
+  doc: {
+    title: string;
+    url: string;
+    kind?: string;
+  },
+  options?: { chess?: boolean },
+) {
+  if (isChessCatalogDocument(doc)) return options?.chess === true;
+  const blob = `${doc.title} ${doc.url}`.toLowerCase();
   return (
     doc.kind === "plan" ||
-    doc.kind === "chess" ||
     doc.kind === "commercial" ||
+    doc.kind === "price" ||
     /планир/.test(blob) ||
-    /шахмат/.test(blob) ||
-    /коммерц/.test(blob)
+    /коммерц/.test(blob) ||
+    /прайс/.test(blob)
   );
 }
 
@@ -163,11 +177,15 @@ export function catalogDocumentLabel(
   return DOCUMENT_LABELS[kind] ?? fallback;
 }
 
-export function isClientExternalUrl(url: string, title = "") {
+export function isClientExternalUrl(
+  url: string,
+  title = "",
+  options?: { chess?: boolean },
+) {
   const blob = `${title} ${url}`.toLowerCase();
   if (/коммерц/.test(blob)) return true;
-  if (/шахмат|\.xlsx|\.xls/.test(blob)) return true;
-  if (/планир/.test(blob)) return true;
+  if (/шахмат|\.xlsx|\.xls/.test(blob)) return options?.chess !== false;
+  if (/планир/.test(blob) || /прайс/.test(blob)) return true;
   return /(?:^|[/.])2gis\.|go\.2gis\.com|maps\.yandex|yandex\.[^\s/]+\/maps|maps\.google|google\.[^\s/]+\/maps/i.test(
     url,
   );
@@ -175,7 +193,7 @@ export function isClientExternalUrl(url: string, title = "") {
 
 export function visibleDocuments(
   catalog: PropertyCatalog | null | undefined,
-  options?: { client?: boolean },
+  options?: { client?: boolean; chess?: boolean },
 ) {
   const mapUrl = catalog?.location?.map_url;
   const seen = new Set<string>();
@@ -193,7 +211,7 @@ export function visibleDocuments(
       return true;
     })
     .filter((doc) =>
-      options?.client ? isPresentCatalogDocument(doc) : true,
+      options?.client ? isPresentCatalogDocument(doc, options) : true,
     );
 }
 
@@ -436,12 +454,7 @@ export function catalogLocationPhotos(
   const seen = new Set<string>();
   const urls: string[] = [];
   for (const url of property.catalog?.location?.photos ?? []) {
-    if (
-      !url ||
-      seen.has(url) ||
-      /favicon/i.test(url) ||
-      /share\.api\.2gis\.ru\/getimage/i.test(url)
-    ) {
+    if (!url || seen.has(url) || /favicon/i.test(url)) {
       continue;
     }
     seen.add(url);
