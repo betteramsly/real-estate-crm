@@ -34,12 +34,15 @@ import {
   updatePropertyAction,
 } from "@/lib/actions/properties";
 import {
-  addFilterExtra,
+  addCatalogFilterOptionAction,
+  removeCatalogFilterOptionAction,
+} from "@/lib/actions/catalog-filter-options";
+import {
+  EMPTY_CATALOG_FILTER_EXTRAS,
   mergeFilterOptions,
-  removeFilterExtra,
-  useFilterExtras,
   type CatalogFilterExtraKey,
-} from "@/lib/catalog-filter-extras";
+  type CatalogFilterExtras,
+} from "@/lib/catalog-filter-options";
 import {
   catalogLocationPhotos,
   catalogPhotos,
@@ -198,7 +201,12 @@ export function PropertyForm({
     {},
   );
   const catalog = getCatalog(property);
-  const extras = useFilterExtras();
+  const [extras, setExtras] = React.useState<CatalogFilterExtras>(
+    () => suggestions?.extras ?? EMPTY_CATALOG_FILTER_EXTRAS,
+  );
+  React.useEffect(() => {
+    if (suggestions?.extras) setExtras(suggestions.extras);
+  }, [suggestions]);
   const developers = mergeFilterOptions(
     suggestions?.developers ?? [],
     extras.developer,
@@ -218,10 +226,24 @@ export function PropertyForm({
   );
 
   const remember = (key: CatalogFilterExtraKey) => (value: string) => {
-    addFilterExtra(key, value);
+    setExtras((current) => ({
+      ...current,
+      [key]: mergeFilterOptions(current[key], [value]),
+    }));
+    void addCatalogFilterOptionAction(key, value).then((result) => {
+      if (result.error) toast.error(result.error);
+    });
   };
   const forget = (key: CatalogFilterExtraKey) => (value: string) => {
-    removeFilterExtra(key, value);
+    setExtras((current) => ({
+      ...current,
+      [key]: current[key].filter(
+        (item) => item.toLowerCase() !== value.trim().toLowerCase(),
+      ),
+    }));
+    void removeCatalogFilterOptionAction(key, value).then((result) => {
+      if (result.error) toast.error(result.error);
+    });
   };
   const [facts, setFacts] = React.useState<CatalogFact[]>(catalog.facts ?? []);
   const [installmentItems, setInstallmentItems] = React.useState<

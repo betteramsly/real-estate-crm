@@ -13,6 +13,7 @@ import {
   slimCatalogCard,
   sortInstallmentTerms,
 } from "@/lib/catalog";
+import { loadCatalogFilterExtras } from "@/lib/catalog-filter-options";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import type { Property } from "@/lib/types";
 
@@ -71,7 +72,7 @@ export default async function PropertiesPage(props: PageProps) {
   if (searchParams.large === "1") query = query.eq("has_large_apartments", true);
   if (relevanceFilter.length) query = query.in("relevance", relevanceFilter);
 
-  const [{ data: rows }, { data: filterRows }] = await Promise.all([
+  const [{ data: rows }, { data: filterRows }, extras] = await Promise.all([
     query.returns<Property[]>(),
     supabase
       .from("properties")
@@ -82,6 +83,7 @@ export default async function PropertiesPage(props: PageProps) {
           "city" | "district" | "completion_year" | "developer" | "installment_max"
         >[]
       >(),
+    loadCatalogFilterExtras(supabase),
   ]);
 
   let properties = rows ?? [];
@@ -131,6 +133,7 @@ export default async function PropertiesPage(props: PageProps) {
         developers={developers}
         years={years}
         installments={installments}
+        extras={extras}
         canAddFilters={canEdit}
       >
         {properties.length > 0 ? (

@@ -1,4 +1,9 @@
 import { sortInstallmentTerms } from "@/lib/catalog";
+import {
+  loadCatalogFilterExtras,
+  mergeFilterOptions,
+  type CatalogFilterExtras,
+} from "@/lib/catalog-filter-options";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export type PropertyFormSuggestions = {
@@ -7,6 +12,7 @@ export type PropertyFormSuggestions = {
   developers: string[];
   years: string[];
   installments: string[];
+  extras: CatalogFilterExtras;
 };
 
 function uniqueSorted(values: Array<string | null | undefined>) {
@@ -18,9 +24,12 @@ function uniqueSorted(values: Array<string | null | undefined>) {
 export async function loadPropertyFormSuggestions(
   supabase: SupabaseClient,
 ): Promise<PropertyFormSuggestions> {
-  const { data } = await supabase
-    .from("properties")
-    .select("city, district, completion_year, developer, installment_max");
+  const [{ data }, extras] = await Promise.all([
+    supabase
+      .from("properties")
+      .select("city, district, completion_year, developer, installment_max"),
+    loadCatalogFilterExtras(supabase),
+  ]);
 
   const rows = (data ?? []) as Array<{
     city: string | null;
@@ -31,12 +40,28 @@ export async function loadPropertyFormSuggestions(
   }>;
 
   return {
-    cities: uniqueSorted(rows.map((row) => row.city)),
-    districts: uniqueSorted(rows.map((row) => row.district)),
-    developers: uniqueSorted(rows.map((row) => row.developer)),
-    years: uniqueSorted(rows.map((row) => row.completion_year)),
-    installments: sortInstallmentTerms(
-      uniqueSorted(rows.map((row) => row.installment_max)),
+    cities: mergeFilterOptions(
+      uniqueSorted(rows.map((row) => row.city)),
+      extras.city,
     ),
+    districts: mergeFilterOptions(
+      uniqueSorted(rows.map((row) => row.district)),
+      extras.district,
+    ),
+    developers: mergeFilterOptions(
+      uniqueSorted(rows.map((row) => row.developer)),
+      extras.developer,
+    ),
+    years: mergeFilterOptions(
+      uniqueSorted(rows.map((row) => row.completion_year)),
+      extras.completion_year,
+    ),
+    installments: sortInstallmentTerms(
+      mergeFilterOptions(
+        uniqueSorted(rows.map((row) => row.installment_max)),
+        extras.installment,
+      ),
+    ),
+    extras,
   };
 }

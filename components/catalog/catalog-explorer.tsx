@@ -3,6 +3,10 @@
 import { useState, useTransition } from "react";
 import { Loader2 } from "lucide-react";
 import { CatalogFilters } from "@/components/catalog/catalog-filters";
+import {
+  EMPTY_CATALOG_FILTER_EXTRAS,
+  type CatalogFilterExtras,
+} from "@/lib/catalog-filter-options";
 import { cn } from "@/lib/utils";
 
 export function CatalogExplorer({
@@ -11,6 +15,7 @@ export function CatalogExplorer({
   developers,
   years,
   installments,
+  extras = EMPTY_CATALOG_FILTER_EXTRAS,
   canAddFilters = false,
   children,
 }: {
@@ -19,6 +24,7 @@ export function CatalogExplorer({
   developers: string[];
   years: string[];
   installments: string[];
+  extras?: CatalogFilterExtras;
   canAddFilters?: boolean;
   children: React.ReactNode;
 }) {
@@ -33,6 +39,7 @@ export function CatalogExplorer({
       developers={developers}
       years={years}
       installments={installments}
+      extras={extras}
       canAddFilters={canAddFilters}
       pending={pending}
       startTransition={startTransition}

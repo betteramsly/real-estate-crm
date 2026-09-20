@@ -20,14 +20,18 @@ import {
 import { RelevanceStars } from "@/components/relevance-stars";
 import { installmentFilterLabel } from "@/lib/catalog";
 import {
-  addFilterExtra,
+  addCatalogFilterOptionAction,
+  removeCatalogFilterOptionAction,
+} from "@/lib/actions/catalog-filter-options";
+import {
+  EMPTY_CATALOG_FILTER_EXTRAS,
   isFilterExtra,
   mergeFilterOptions,
-  removeFilterExtra,
-  useFilterExtras,
   type CatalogFilterExtraKey,
-} from "@/lib/catalog-filter-extras";
+  type CatalogFilterExtras,
+} from "@/lib/catalog-filter-options";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { usePresence } from "@/hooks/use-presence";
 
 const FILTER_KEYS = [
@@ -667,6 +671,7 @@ export function CatalogFilters({
   developers,
   years,
   installments,
+  extras = EMPTY_CATALOG_FILTER_EXTRAS,
   canAddFilters = false,
   pending,
   startTransition,
@@ -678,6 +683,7 @@ export function CatalogFilters({
   developers: string[];
   years: string[];
   installments: string[];
+  extras?: CatalogFilterExtras;
   canAddFilters?: boolean;
   pending: boolean;
   startTransition: TransitionStartFunction;
@@ -695,15 +701,19 @@ export function CatalogFilters({
   const [query, setQuery] = useState(params.get("q") ?? "");
   const [draft, setDraft] = useState(() => draftFrom(params));
   const searchTimer = useRef<number>(0);
-  const extras = useFilterExtras();
-  const cityOptions = mergeFilterOptions(cities, extras.city);
-  const districtOptions = mergeFilterOptions(districts, extras.district);
-  const developerOptions = mergeFilterOptions(developers, extras.developer);
-  const yearOptions = mergeFilterOptions(years, extras.completion_year);
+  const [savedExtras, setSavedExtras] = useState(extras);
+  const cityOptions = mergeFilterOptions(cities, savedExtras.city);
+  const districtOptions = mergeFilterOptions(districts, savedExtras.district);
+  const developerOptions = mergeFilterOptions(developers, savedExtras.developer);
+  const yearOptions = mergeFilterOptions(years, savedExtras.completion_year);
   const installmentOptions = mergeFilterOptions(
     installments,
-    extras.installment,
+    savedExtras.installment,
   );
+
+  useEffect(() => {
+    setSavedExtras(extras);
+  }, [extras]);
 
   useEffect(() => {
     const onPop = () => {
@@ -793,25 +803,51 @@ export function CatalogFilters({
   };
 
   const addValue = (key: CatalogFilterExtraKey, value: string) => {
-    addFilterExtra(key, value);
-    if (!draft[key].includes(value)) {
-      const next = [...draft[key], value];
-      setDraft({ ...draft, [key]: next });
-      setParam(key, next.join(","));
-    }
+    const cleaned = value.trim();
+    if (!cleaned) return;
+    setSavedExtras((current) => ({
+      ...current,
+      [key]: mergeFilterOptions(current[key], [cleaned]),
+    }));
+    startTransition(async () => {
+      const result = await addCatalogFilterOptionAction(key, cleaned);
+      if (result.error) {
+        toast.error(result.error);
+        setSavedExtras(extras);
+        return;
+      }
+      if (!draft[key].includes(cleaned)) {
+        const next = [...draft[key], cleaned];
+        setDraft({ ...draft, [key]: next });
+        setParam(key, next.join(","));
+      }
+    });
   };
 
   const removeValue = (key: CatalogFilterExtraKey, value: string) => {
-    removeFilterExtra(key, value);
-    if (draft[key].includes(value)) {
-      const next = draft[key].filter((item) => item !== value);
-      setDraft({ ...draft, [key]: next });
-      setParam(key, next.length ? next.join(",") : null);
-    }
+    setSavedExtras((current) => ({
+      ...current,
+      [key]: current[key].filter(
+        (item) => item.toLowerCase() !== value.trim().toLowerCase(),
+      ),
+    }));
+    startTransition(async () => {
+      const result = await removeCatalogFilterOptionAction(key, value);
+      if (result.error) {
+        toast.error(result.error);
+        setSavedExtras(extras);
+        return;
+      }
+      if (draft[key].includes(value)) {
+        const next = draft[key].filter((item) => item !== value);
+        setDraft({ ...draft, [key]: next });
+        setParam(key, next.length ? next.join(",") : null);
+      }
+    });
   };
 
   const canRemoveValue = (key: CatalogFilterExtraKey, value: string) =>
-    isFilterExtra(extras, key, value);
+    isFilterExtra(savedExtras, key, value);
 
   const facetCount = FILTER_KEYS.filter((key) => {
     if (key === "q") return false;
