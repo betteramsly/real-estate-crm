@@ -37,6 +37,7 @@ export default async function NewDealPage(props: {
         properties={properties ?? []}
         profiles={profiles ?? []}
         currentRole={profile.role}
+        currentUserId={profile.id}
         defaultClientId={searchParams.client_id}
       />
     </>

@@ -33,7 +33,7 @@ import {
   createTaskAction,
   type TaskFormState,
 } from "@/lib/actions/tasks";
-import type { Client, Deal, Profile, Property } from "@/lib/types";
+import type { Client, Deal, Profile, Property, UserRole } from "@/lib/types";
 
 interface TaskFormDialogProps {
   trigger: React.ReactNode;
@@ -41,6 +41,8 @@ interface TaskFormDialogProps {
   deals: Pick<Deal, "id" | "title">[];
   properties: Pick<Property, "id" | "title">[];
   profiles: Profile[];
+  currentUserId: string;
+  currentRole: UserRole;
   defaultClientId?: string;
   defaultDealId?: string;
   defaultPropertyId?: string;
@@ -62,11 +64,14 @@ export function TaskFormDialog({
   deals,
   properties,
   profiles,
+  currentUserId,
+  currentRole,
   defaultClientId,
   defaultDealId,
   defaultPropertyId,
 }: TaskFormDialogProps) {
   const [open, setOpen] = React.useState(false);
+  const [timezoneOffset, setTimezoneOffset] = React.useState(0);
   const [state, formAction] = useActionState<TaskFormState, FormData>(
     createTaskAction,
     {},
@@ -75,6 +80,15 @@ export function TaskFormDialog({
   React.useEffect(() => {
     if (state.error) toast.error(state.error);
   }, [state]);
+
+  React.useEffect(() => {
+    setTimezoneOffset(new Date().getTimezoneOffset());
+  }, []);
+
+  const canAssignOthers = currentRole === "admin";
+  const assignableProfiles = canAssignOthers
+    ? profiles
+    : profiles.filter((profile) => profile.id === currentUserId);
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -86,6 +100,11 @@ export function TaskFormDialog({
           <DialogTitle>Новая задача</DialogTitle>
         </DialogHeader>
         <form action={formAction} className="space-y-4">
+          <input
+            type="hidden"
+            name="timezone_offset"
+            value={timezoneOffset}
+          />
           <div className="space-y-2">
             <Label htmlFor="title">
               Заголовок <RequiredMark />
@@ -183,12 +202,23 @@ export function TaskFormDialog({
             </div>
             <div className="space-y-2 md:col-span-2">
               <Label>Ответственный</Label>
-              <Select name="assigned_to" defaultValue="">
+              {!canAssignOthers ? (
+                <input
+                  type="hidden"
+                  name="assigned_to"
+                  value={currentUserId}
+                />
+              ) : null}
+              <Select
+                name={canAssignOthers ? "assigned_to" : undefined}
+                defaultValue={currentUserId}
+                disabled={!canAssignOthers}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Я" />
                 </SelectTrigger>
                 <SelectContent>
-                  {profiles.map((p) => (
+                  {assignableProfiles.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
                       {p.full_name ?? "—"}
                     </SelectItem>

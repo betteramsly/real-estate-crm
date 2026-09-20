@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientForm } from "../client-form";
 import { DeleteClientButton } from "./delete-client-button";
 import { TaskFormDialog } from "../../tasks/task-form-dialog";
-import { getActivities } from "@/lib/actions/activities";
+import { getActivities } from "@/lib/activities";
 import { requireProfile } from "@/lib/auth";
 import {
   CLIENT_SOURCE_LABELS,
@@ -181,6 +181,8 @@ export default async function ClientPage(props: {
                     title: p.title,
                   }))}
                   profiles={profiles ?? []}
+                  currentUserId={profile.id}
+                  currentRole={profile.role}
                   defaultClientId={client.id}
                   trigger={
                     <Button
@@ -229,6 +231,8 @@ export default async function ClientPage(props: {
             title: p.title,
           }))}
           profiles={profiles ?? []}
+          currentUserId={profile.id}
+          currentRole={profile.role}
           defaultClientId={client.id}
           trigger={
             <Button size="sm" variant="outline">
@@ -329,6 +333,7 @@ export default async function ClientPage(props: {
             client={client}
             profiles={profiles ?? []}
             currentRole={profile.role}
+            currentUserId={profile.id}
           />
         </TabsContent>
 
@@ -414,6 +419,8 @@ export default async function ClientPage(props: {
                       title: p.title,
                     }))}
                     profiles={profiles ?? []}
+                    currentUserId={profile.id}
+                    currentRole={profile.role}
                     defaultClientId={client.id}
                     trigger={
                       <Button size="sm" variant="outline">

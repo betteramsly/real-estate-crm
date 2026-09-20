@@ -1,11 +1,12 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { canManageProperties, requireProfile } from "@/lib/auth";
 import { createClient } from "@/lib/supabase/server";
-import { logActivity } from "@/lib/actions/activities";
+import { logActivity } from "@/lib/activities";
 import {
   catalogDocumentLabel,
   inferCatalogDocumentKind,
@@ -22,6 +23,13 @@ import type {
 } from "@/lib/types";
 
 const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
+const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const IMAGE_MIME_TYPES = new Set([
+  "image/gif",
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+]);
 const DOCUMENT_MIME_TYPES = new Set([
   "application/pdf",
   "application/vnd.ms-excel",
@@ -33,19 +41,36 @@ const DOCUMENT_MIME_TYPES = new Set([
 ]);
 
 const propertySchema = z.object({
-  title: z.string().min(2, "Минимум 2 символа"),
+  title: z.string().trim().min(2, "Минимум 2 символа").max(180),
   rooms: z.number().int().min(1).max(4).nullable().optional(),
-  address: z.string().nullable().optional(),
-  city: z.string().nullable().optional(),
-  district: z.string().nullable().optional(),
-  description: z.string().nullable().optional(),
-  developer: z.string().nullable().optional(),
-  completion_year: z.string().nullable().optional(),
-  installment_max: z.string().nullable().optional(),
+  address: z.string().max(500).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  district: z.string().max(100).nullable().optional(),
+  description: z.string().max(10_000).nullable().optional(),
+  developer: z.string().max(160).nullable().optional(),
+  completion_year: z.string().max(80).nullable().optional(),
+  installment_max: z.string().max(80).nullable().optional(),
   maternity_capital: z.boolean().nullable().optional(),
   cash_payment: z.boolean().nullable().optional(),
   relevance: z.union([z.literal(1), z.literal(2), z.literal(3), z.null()]).optional(),
 });
+
+const uuidSchema = z.string().uuid();
+const catalogPairSchema = z.object({
+  label: z.string().max(160),
+  value: z.string().max(1000),
+});
+const catalogPairsSchema = z.array(catalogPairSchema).max(100);
+const catalogDocumentSchema = z.object({
+  title: z.string().max(200),
+  url: z.string().max(2048),
+  kind: z
+    .enum(["plan", "price", "chess", "commercial", "map", "other"])
+    .optional()
+    .default("other"),
+});
+const catalogDocumentsSchema = z.array(catalogDocumentSchema).max(100);
+const photoOrderSchema = z.array(z.string().max(2048)).max(200);
 
 export type PropertyFormState = {
   error?: string;
@@ -60,10 +85,15 @@ function parseOptionalBoolean(value: FormDataEntryValue | null) {
   return null;
 }
 
-function parseJson<T>(raw: FormDataEntryValue | null, fallback: T): T {
+function parseJson<T>(
+  raw: FormDataEntryValue | null,
+  schema: z.ZodType<T>,
+  fallback: T,
+): T {
   if (typeof raw !== "string" || !raw.trim()) return fallback;
   try {
-    return JSON.parse(raw) as T;
+    const parsed = schema.safeParse(JSON.parse(raw));
+    return parsed.success ? parsed.data : fallback;
   } catch {
     return fallback;
   }
@@ -95,8 +125,20 @@ function validateDocumentFiles(files: File[]) {
     if (file.size > DOCUMENT_MAX_BYTES) {
       return `Файл «${file.name}» больше 10 МБ`;
     }
-    if (file.type && !DOCUMENT_MIME_TYPES.has(file.type)) {
+    if (!DOCUMENT_MIME_TYPES.has(file.type.toLowerCase())) {
       return `Формат «${file.name}» не поддерживается`;
+    }
+  }
+  return null;
+}
+
+function validateImageFiles(files: File[]) {
+  for (const file of files) {
+    if (file.size > IMAGE_MAX_BYTES) {
+      return `Изображение «${file.name}» больше 10 МБ`;
+    }
+    if (!IMAGE_MIME_TYPES.has(file.type.toLowerCase())) {
+      return `Формат изображения «${file.name}» не поддерживается`;
     }
   }
   return null;
@@ -118,15 +160,17 @@ function buildCatalog(formData: FormData, extras: {
   locationPhotos: string[];
   documents?: CatalogDocument[];
 }): PropertyCatalog {
-  const facts = cleanPairs(parseJson<CatalogFact[]>(formData.get("facts_json"), []));
+  const facts = cleanPairs(
+    parseJson(formData.get("facts_json"), catalogPairsSchema, []),
+  );
   const installmentItems = cleanPairs(
-    parseJson<CatalogTermItem[]>(formData.get("installment_json"), []),
+    parseJson(formData.get("installment_json"), catalogPairsSchema, []),
   );
   const commercialItems = cleanPairs(
-    parseJson<CatalogTermItem[]>(formData.get("commercial_json"), []),
+    parseJson(formData.get("commercial_json"), catalogPairsSchema, []),
   );
   const documents = [
-    ...parseJson<CatalogDocument[]>(formData.get("documents_json"), []),
+    ...parseJson(formData.get("documents_json"), catalogDocumentsSchema, []),
     ...(extras.documents ?? []),
   ]
     .filter((doc) => doc.url.trim())
@@ -178,7 +222,7 @@ function buildCatalog(formData: FormData, extras: {
 function parseCore(formData: FormData) {
   const get = (key: string) => formData.get(key);
   return {
-    title: (get("title") as string) ?? "",
+    title: parseStringFormValue(get("title")) ?? "",
     rooms: parseNumericFormValue(get("rooms")),
     address: parseStringFormValue(get("address")),
     city: parseStringFormValue(get("city")),
@@ -215,22 +259,32 @@ async function uploadFiles(
   files: File[],
 ) {
   const urls: string[] = [];
-  for (const [index, file] of files.entries()) {
+  const paths: string[] = [];
+  for (const file of files) {
     const ext = file.type.includes("png")
       ? "png"
       : file.type.includes("webp")
         ? "webp"
-        : "jpg";
-    const path = `${propertyId}/${folder}/${Date.now()}-${index}.${ext}`;
+        : file.type.includes("gif")
+          ? "gif"
+          : "jpg";
+    const path = `${propertyId}/${folder}/${randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error } = await supabase.storage
       .from("complexes")
-      .upload(path, buffer, { contentType: file.type || "image/jpeg", upsert: true });
-    if (error) continue;
+      .upload(path, buffer, { contentType: file.type, upsert: false });
+    if (error) {
+      return {
+        urls,
+        paths,
+        error: `Не удалось загрузить «${file.name}»`,
+      };
+    }
     const { data } = supabase.storage.from("complexes").getPublicUrl(path);
+    paths.push(path);
     urls.push(data.publicUrl);
   }
-  return urls;
+  return { urls, paths };
 }
 
 async function collectMedia(
@@ -238,55 +292,112 @@ async function collectMedia(
   propertyId: string,
   formData: FormData,
 ) {
+  const uploadedPaths: string[] = [];
+  const gallery = await uploadFiles(
+    supabase,
+    propertyId,
+    "gallery",
+    filesOf(formData, "photo_files"),
+  );
+  uploadedPaths.push(...gallery.paths);
+  if (gallery.error) return { error: gallery.error, uploadedPaths };
   const photos = mergePhotoOrder(
-    parseJson<string[]>(formData.get("photos_json"), []),
-    await uploadFiles(supabase, propertyId, "gallery", filesOf(formData, "photo_files")),
+    parseJson(formData.get("photos_json"), photoOrderSchema, []),
+    gallery.urls,
   );
+
+  const location = await uploadFiles(
+    supabase,
+    propertyId,
+    "location",
+    filesOf(formData, "location_files"),
+  );
+  uploadedPaths.push(...location.paths);
+  if (location.error) return { error: location.error, uploadedPaths };
   const locationPhotos = mergePhotoOrder(
-    parseJson<string[]>(formData.get("location_photos_json"), []),
-    await uploadFiles(
-      supabase,
-      propertyId,
-      "location",
-      filesOf(formData, "location_files"),
-    ),
+    parseJson(formData.get("location_photos_json"), photoOrderSchema, []),
+    location.urls,
   );
+
+  const prices = await uploadFiles(
+    supabase,
+    propertyId,
+    "price",
+    filesOf(formData, "price_files"),
+  );
+  uploadedPaths.push(...prices.paths);
+  if (prices.error) return { error: prices.error, uploadedPaths };
   const pricePhotos = mergePhotoOrder(
-    parseJson<string[]>(formData.get("price_photos_json"), []),
-    await uploadFiles(supabase, propertyId, "price", filesOf(formData, "price_files")),
+    parseJson(formData.get("price_photos_json"), photoOrderSchema, []),
+    prices.urls,
   );
-  return { photos, locationPhotos, pricePhotos };
+  return { photos, locationPhotos, pricePhotos, uploadedPaths };
 }
 
 async function uploadDocuments(
   supabase: Awaited<ReturnType<typeof createClient>>,
   propertyId: string,
   files: File[],
-): Promise<{ documents: CatalogDocument[]; error?: string }> {
+): Promise<{ documents: CatalogDocument[]; paths: string[]; error?: string }> {
   const documents: CatalogDocument[] = [];
-  for (const [index, file] of files.entries()) {
+  const paths: string[] = [];
+  for (const file of files) {
     const ext = fileExtension(file);
     const kind = inferCatalogDocumentKind(file.name);
-    const path = `${propertyId}/docs/${Date.now()}-${index}.${ext}`;
+    const path = `${propertyId}/docs/${randomUUID()}.${ext}`;
     const buffer = Buffer.from(await file.arrayBuffer());
     const { error } = await supabase.storage.from("complexes").upload(path, buffer, {
-      contentType: file.type || "application/octet-stream",
-      upsert: true,
+      contentType: file.type,
+      upsert: false,
     });
     if (error) {
       return {
         documents,
-        error: error.message || `Не удалось загрузить «${file.name}»`,
+        paths,
+        error: `Не удалось загрузить «${file.name}»`,
       };
     }
     const { data } = supabase.storage.from("complexes").getPublicUrl(path);
+    paths.push(path);
     documents.push({
       title: catalogDocumentLabel(kind, file.name.replace(/\.[^.]+$/, "")),
       url: data.publicUrl,
       kind,
     });
   }
-  return { documents };
+  return { documents, paths };
+}
+
+async function cleanupUploads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  paths: string[],
+) {
+  if (paths.length) await supabase.storage.from("complexes").remove(paths);
+}
+
+async function rollbackCreatedProperty(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  propertyId: string,
+  paths: string[],
+) {
+  await cleanupUploads(supabase, paths);
+  await supabase.from("properties").delete().eq("id", propertyId);
+}
+
+async function removePropertyUploads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  propertyId: string,
+) {
+  const paths: string[] = [];
+  for (const folder of ["gallery", "location", "price", "docs"]) {
+    const { data } = await supabase.storage
+      .from("complexes")
+      .list(`${propertyId}/${folder}`, { limit: 1000 });
+    for (const object of data ?? []) {
+      if (object.name) paths.push(`${propertyId}/${folder}/${object.name}`);
+    }
+  }
+  await cleanupUploads(supabase, paths);
 }
 
 async function requirePropertyManager() {
@@ -317,6 +428,12 @@ export async function createPropertyAction(
     const documentFiles = filesOf(formData, "document_files");
     const documentsError = validateDocumentFiles(documentFiles);
     if (documentsError) return { error: documentsError };
+    const imageError = validateImageFiles([
+      ...filesOf(formData, "photo_files"),
+      ...filesOf(formData, "location_files"),
+      ...filesOf(formData, "price_files"),
+    ]);
+    if (imageError) return { error: imageError };
 
     const { data: created, error } = await supabase
       .from("properties")
@@ -334,27 +451,40 @@ export async function createPropertyAction(
       .select("id")
       .single();
 
-    if (error || !created) return { error: error?.message ?? "Не удалось создать" };
+    if (error || !created) return { error: "Не удалось создать объект" };
 
     const media = await collectMedia(supabase, created.id, formData);
+    if ("error" in media) {
+      await rollbackCreatedProperty(supabase, created.id, media.uploadedPaths);
+      return { error: media.error };
+    }
     const uploaded = await uploadDocuments(
       supabase,
       created.id,
       documentFiles,
     );
-    if (uploaded.error) return { error: uploaded.error };
+    const uploadedPaths = [...media.uploadedPaths, ...uploaded.paths];
+    if (uploaded.error) {
+      await rollbackCreatedProperty(supabase, created.id, uploadedPaths);
+      return { error: uploaded.error };
+    }
     const catalog = buildCatalog(formData, {
       ...media,
       documents: uploaded.documents,
     });
-    const { error: catalogError } = await supabase
+    const { data: saved, error: catalogError } = await supabase
       .from("properties")
       .update({
         catalog,
         cover_url: media.photos[0] ?? null,
       })
-      .eq("id", created.id);
-    if (catalogError) return { error: catalogError.message };
+      .eq("id", created.id)
+      .select("id")
+      .maybeSingle();
+    if (catalogError || !saved) {
+      await rollbackCreatedProperty(supabase, created.id, uploadedPaths);
+      return { error: "Не удалось сохранить карточку объекта" };
+    }
 
     await logActivity({
       entityType: "property",
@@ -383,6 +513,9 @@ export async function updatePropertyAction(
   _prev: PropertyFormState,
   formData: FormData,
 ): Promise<PropertyFormState> {
+  if (!uuidSchema.safeParse(id).success) {
+    return { error: "Объект не найден" };
+  }
   const parsed = propertySchema.safeParse(parseCore(formData));
   if (!parsed.success) {
     return {
@@ -398,20 +531,41 @@ export async function updatePropertyAction(
   const documentFiles = filesOf(formData, "document_files");
   const documentsError = validateDocumentFiles(documentFiles);
   if (documentsError) return { error: documentsError };
+  const imageError = validateImageFiles([
+    ...filesOf(formData, "photo_files"),
+    ...filesOf(formData, "location_files"),
+    ...filesOf(formData, "price_files"),
+  ]);
+  if (imageError) return { error: imageError };
+
+  const { data: existing, error: existingError } = await supabase
+    .from("properties")
+    .select("id")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError || !existing) return { error: "Объект не найден" };
 
   const media = await collectMedia(supabase, id, formData);
+  if ("error" in media) {
+    await cleanupUploads(supabase, media.uploadedPaths);
+    return { error: media.error };
+  }
   const uploaded = await uploadDocuments(
     supabase,
     id,
     documentFiles,
   );
-  if (uploaded.error) return { error: uploaded.error };
+  const uploadedPaths = [...media.uploadedPaths, ...uploaded.paths];
+  if (uploaded.error) {
+    await cleanupUploads(supabase, uploadedPaths);
+    return { error: uploaded.error };
+  }
   const catalog = buildCatalog(formData, {
     ...media,
     documents: uploaded.documents,
   });
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("properties")
     .update({
       ...parsed.data,
@@ -419,9 +573,14 @@ export async function updatePropertyAction(
       cover_url: media.photos[0] ?? null,
       internal: parseInternal(formData),
     })
-    .eq("id", id);
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error || !updated) {
+    await cleanupUploads(supabase, uploadedPaths);
+    return { error: "Не удалось сохранить объект" };
+  }
 
   await logActivity({
     entityType: "property",
@@ -437,10 +596,19 @@ export async function updatePropertyAction(
 }
 
 export async function deletePropertyAction(id: string) {
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Объект не найден");
+  }
   const { supabase, allowed } = await requirePropertyManager();
   if (!allowed) redirect("/properties");
-  const { error } = await supabase.from("properties").delete().eq("id", id);
-  if (error) throw new Error(error.message);
+  const { data: deleted, error } = await supabase
+    .from("properties")
+    .delete()
+    .eq("id", id)
+    .select("id")
+    .maybeSingle();
+  if (error || !deleted) throw new Error("Объект не найден или недоступен");
+  await removePropertyUploads(supabase, id);
   await logActivity({
     entityType: "property",
     entityId: id,

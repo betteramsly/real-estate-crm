@@ -3,29 +3,54 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { logActivity } from "@/lib/actions/activities";
+import { requireProfile } from "@/lib/auth";
+import { logActivity } from "@/lib/activities";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import { diffRecords } from "@/lib/diff";
 
-const clientSchema = z.object({
-  full_name: z.string().min(2, "Минимум 2 символа"),
-  phone: z.string().nullable().optional(),
-  email: z
-    .string()
-    .email("Некорректный email")
-    .nullable()
-    .or(z.literal(""))
-    .optional(),
-  source: z.enum(["referral", "cian", "avito", "instagram", "other"]),
-  status: z.enum(["new", "in_progress", "won", "lost"]),
-  deal_type: z.enum(["buy", "sell", "rent_in", "rent_out"]),
-  budget_min: z.number().nullable().optional(),
-  budget_max: z.number().nullable().optional(),
-  notes: z.string().nullable().optional(),
-  assigned_to: z.string().uuid().nullable().optional(),
-});
+const uuidSchema = z.string().uuid();
+
+const clientSchema = z
+  .object({
+    full_name: z.string().trim().min(2, "Минимум 2 символа").max(160),
+    phone: z.string().max(40).nullable().optional(),
+    email: z
+      .string()
+      .trim()
+      .max(254)
+      .email("Некорректный email")
+      .nullable()
+      .or(z.literal(""))
+      .optional(),
+    source: z.enum(["referral", "cian", "avito", "instagram", "other"]),
+    status: z.enum(["new", "in_progress", "won", "lost"]),
+    deal_type: z.enum(["buy", "sell", "rent_in", "rent_out"]),
+    budget_min: z
+      .number()
+      .nonnegative("Бюджет не может быть отрицательным")
+      .nullable()
+      .optional(),
+    budget_max: z
+      .number()
+      .nonnegative("Бюджет не может быть отрицательным")
+      .nullable()
+      .optional(),
+    notes: z.string().max(5000).nullable().optional(),
+    assigned_to: z.string().uuid().nullable().optional(),
+  })
+  .superRefine((data, ctx) => {
+    if (
+      data.budget_min != null &&
+      data.budget_max != null &&
+      data.budget_min > data.budget_max
+    ) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["budget_max"],
+        message: "Максимальный бюджет должен быть не меньше минимального",
+      });
+    }
+  });
 
 export type ClientFormState = {
   error?: string;
@@ -44,7 +69,7 @@ function parseFormData(formData: FormData) {
   };
 
   return {
-    full_name: (get("full_name") as string) ?? "",
+    full_name: str("full_name") ?? "",
     phone: phone(),
     email: str("email"),
     source: (get("source") as string) ?? "other",
@@ -72,24 +97,22 @@ export async function createClientAction(
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
+  const { supabase, user, profile } = await requireProfile();
+  const assignedTo =
+    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
 
   const { data: created, error } = await supabase
     .from("clients")
     .insert({
       ...parsed.data,
       email: parsed.data.email || null,
-      assigned_to: parsed.data.assigned_to ?? user.id,
+      assigned_to: assignedTo,
       created_by: user.id,
     })
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error || !created) return { error: "Не удалось создать клиента" };
 
   await logActivity({
     entityType: "client",
@@ -108,6 +131,9 @@ export async function updateClientAction(
   _prev: ClientFormState,
   formData: FormData,
 ): Promise<ClientFormState> {
+  if (!uuidSchema.safeParse(id).success) {
+    return { error: "Клиент не найден" };
+  }
   const data = parseFormData(formData);
   const parsed = clientSchema.safeParse(data);
   if (!parsed.success) {
@@ -119,7 +145,7 @@ export async function updateClientAction(
     };
   }
 
-  const { supabase } = await requireUser();
+  const { supabase, profile } = await requireProfile();
 
   const { data: existing, error: existingError } = await supabase
     .from("clients")
@@ -135,6 +161,10 @@ export async function updateClientAction(
     .update({
       ...parsed.data,
       email: parsed.data.email || null,
+      assigned_to:
+        profile.role === "admin"
+          ? (parsed.data.assigned_to ?? null)
+          : existing.assigned_to,
     })
     .eq("id", id)
     .select("id")
@@ -170,7 +200,10 @@ export async function updateClientAction(
 }
 
 export async function deleteClientAction(id: string) {
-  const { supabase } = await requireUser();
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Клиент не найден");
+  }
+  const { supabase } = await requireProfile();
   const { data: deleted, error } = await supabase
     .from("clients")
     .delete()

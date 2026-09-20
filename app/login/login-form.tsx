@@ -84,7 +84,7 @@ export function LoginForm({ redirectTo, error }: LoginFormProps) {
   }, [setValue]);
 
   React.useEffect(() => {
-    if (error) toast.error(decodeURIComponent(error));
+    if (error) toast.error(error);
   }, [error]);
 
   const onSubmit = async (values: FormValues) => {

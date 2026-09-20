@@ -24,6 +24,7 @@ export default async function PropertyPage(props: {
     (await cookies()).get(PRESENT_COOKIE)?.value,
   );
   const canEdit = canManageProperties(profile.role) && !presentMode;
+  const showInternal = !presentMode;
   const showFeedback = canShowPropertyFeedback({ presentMode });
   const showMaterials = profile.role === "admin" && !presentMode;
 
@@ -31,7 +32,7 @@ export default async function PropertyPage(props: {
     supabase
       .from("properties")
       .select(
-        canEdit
+        showInternal
           ? `${PROPERTY_PUBLIC_COLUMNS}, internal`
           : PROPERTY_PUBLIC_COLUMNS,
       )

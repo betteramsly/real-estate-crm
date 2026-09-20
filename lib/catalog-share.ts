@@ -1,4 +1,11 @@
-import type { CatalogShare, Property } from "@/lib/types";
+import { isChessCatalogDocument } from "@/lib/catalog";
+import type {
+  CatalogDocument,
+  CatalogDocumentKind,
+  CatalogShare,
+  Property,
+  PropertyCatalog,
+} from "@/lib/types";
 
 export const SHARE_TTL_DAYS = [1, 3, 7] as const;
 export type ShareTtlDays = (typeof SHARE_TTL_DAYS)[number];
@@ -229,6 +236,62 @@ export type OpenCatalogShareErr = {
 
 export type OpenCatalogShareResult = OpenCatalogShareOk | OpenCatalogShareErr;
 
+const CATALOG_DOCUMENT_KINDS = new Set<CatalogDocumentKind>([
+  "plan",
+  "price",
+  "chess",
+  "commercial",
+  "map",
+  "other",
+]);
+
+function sanitizeSharedCatalog(value: unknown): PropertyCatalog | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const catalog = value as Record<string, unknown>;
+  const documents: CatalogDocument[] = Array.isArray(catalog.documents)
+    ? catalog.documents.flatMap((value) => {
+        if (!value || typeof value !== "object" || Array.isArray(value)) return [];
+        const document = value as Record<string, unknown>;
+        if (typeof document.title !== "string" || typeof document.url !== "string") {
+          return [];
+        }
+        const kind = CATALOG_DOCUMENT_KINDS.has(
+          document.kind as CatalogDocumentKind,
+        )
+          ? (document.kind as CatalogDocumentKind)
+          : "other";
+        const normalized = {
+          title: document.title,
+          url: document.url,
+          kind,
+        };
+        return isChessCatalogDocument(normalized) ? [] : [normalized];
+      })
+    : [];
+
+  return {
+    ...(catalog as PropertyCatalog),
+    documents: documents.length ? documents : undefined,
+  };
+}
+
+function sanitizeSharedProperty(value: unknown): Property | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const row = value as Record<string, unknown>;
+  if (typeof row.id !== "string" || typeof row.title !== "string") return null;
+
+  // Never let an RPC change accidentally expose employee-only fields.
+  const { internal: _internal, assigned_to: _assignedTo, created_by: _createdBy, ...safe } = row;
+  void _internal;
+  void _assignedTo;
+  void _createdBy;
+  return {
+    ...safe,
+    relevance: null,
+    catalog: sanitizeSharedCatalog(row.catalog),
+  } as unknown as Property;
+}
+
 export function parseOpenCatalogShare(data: unknown): OpenCatalogShareResult {
   if (!data || typeof data !== "object") {
     return { ok: false, reason: "invalid" };
@@ -254,6 +317,9 @@ export function parseOpenCatalogShare(data: unknown): OpenCatalogShareResult {
     title: typeof row.title === "string" ? row.title : null,
     expires_at: typeof row.expires_at === "string" ? row.expires_at : "",
     agent: parseShareAgent(row.agent),
-    properties: row.properties as Property[],
+    properties: row.properties.flatMap((property) => {
+      const safe = sanitizeSharedProperty(property);
+      return safe ? [safe] : [];
+    }),
   };
 }

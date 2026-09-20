@@ -44,7 +44,14 @@ create table if not exists public.clients (
   assigned_to uuid references public.profiles(id) on delete set null,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint clients_budget_nonnegative check (
+    (budget_min is null or budget_min >= 0)
+    and (budget_max is null or budget_max >= 0)
+  ),
+  constraint clients_budget_order check (
+    budget_min is null or budget_max is null or budget_min <= budget_max
+  )
 );
 
 create index if not exists clients_assigned_to_idx on public.clients(assigned_to);
@@ -91,7 +98,10 @@ create table if not exists public.properties (
   assigned_to uuid references public.profiles(id) on delete set null,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint properties_price_nonnegative check (price >= 0),
+  constraint properties_area_positive check (area is null or area > 0),
+  constraint properties_rooms_range check (rooms is null or rooms between 1 and 4)
 );
 
 create index if not exists properties_status_idx on public.properties(status);
@@ -136,7 +146,11 @@ create table if not exists public.deals (
   assigned_to uuid references public.profiles(id) on delete set null,
   created_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint deals_amount_nonnegative check (amount is null or amount >= 0),
+  constraint deals_commission_nonnegative check (
+    commission is null or commission >= 0
+  )
 );
 
 create index if not exists deals_stage_idx on public.deals(stage);
@@ -334,23 +348,24 @@ security definer
 set search_path = public
 as $$
 begin
-  if lower(coalesce(old.email, '')) = 'admin@demo.local' then
-    if new.role is distinct from old.role then
-      raise exception 'Нельзя менять роль главного администратора';
-    end if;
-    if new.email is distinct from old.email then
-      raise exception 'Нельзя менять email главного администратора';
-    end if;
-  end if;
-
   if new.role is not distinct from old.role then
     return new;
   end if;
   if (select auth.uid()) is null then
     return new;
   end if;
+  perform pg_advisory_xact_lock(hashtext('profiles-admin-role'));
+  if (select auth.uid()) = old.id then
+    raise exception 'Нельзя менять свою роль';
+  end if;
   if not public.is_admin() then
     raise exception 'Нельзя менять роль';
+  end if;
+  if old.role = 'admin' and new.role <> 'admin' and not exists (
+    select 1 from public.profiles p
+    where p.role = 'admin' and p.id <> old.id
+  ) then
+    raise exception 'Нельзя убрать последнего администратора';
   end if;
   return new;
 end;
@@ -860,6 +875,43 @@ $$;
 revoke all on function public.record_catalog_share_event(text, text, uuid, text) from public;
 grant execute on function public.record_catalog_share_event(text, text, uuid, text) to anon, authenticated;
 
+create or replace function public.sanitize_catalog_for_share(source jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+  select case
+    when jsonb_typeof(coalesce(source, '{}'::jsonb)) <> 'object' then '{}'::jsonb
+    when jsonb_typeof(source -> 'documents') <> 'array' then source - 'documents'
+    else jsonb_set(
+      source,
+      '{documents}',
+      coalesce(
+        (
+          select jsonb_agg(document)
+          from jsonb_array_elements(source -> 'documents') document
+          where not (
+            (
+              lower(coalesce(document ->> 'kind', '')) = 'chess'
+              or lower(coalesce(document ->> 'title', '') || ' ' || coalesce(document ->> 'url', ''))
+                ~ '(шахмат|\.xlsx?([?#]|$))'
+            )
+            and lower(coalesce(document ->> 'kind', '')) <> 'commercial'
+            and lower(coalesce(document ->> 'title', '') || ' ' || coalesce(document ->> 'url', ''))
+              !~ 'коммерц'
+          )
+        ),
+        '[]'::jsonb
+      ),
+      true
+    )
+  end;
+$$;
+
+revoke all on function public.sanitize_catalog_for_share(jsonb)
+  from public, anon, authenticated;
+
 create or replace function public.open_catalog_share(share_token text)
 returns jsonb
 language plpgsql
@@ -926,7 +978,7 @@ begin
       p.cash_payment,
       p.has_large_apartments,
       null::smallint as relevance,
-      p.catalog,
+      public.sanitize_catalog_for_share(p.catalog) as catalog,
       p.created_at,
       p.updated_at
     from public.properties p

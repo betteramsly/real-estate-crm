@@ -34,14 +34,17 @@ import {
   initials,
 } from "@/lib/formatters";
 import { computeInsights } from "@/lib/insights";
+import {
+  computeMonthlyDealValues,
+  pipelineAmount,
+  wonAmountSince,
+} from "@/lib/dashboard";
 import { cn } from "@/lib/utils";
 import type { Client, Deal, Task } from "@/lib/types";
 
 export default async function DashboardPage() {
   const { supabase } = await requireProfile();
 
-  const sixMonthsAgo = new Date();
-  sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
   const thirtyDaysAgo = new Date();
   thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
 
@@ -61,7 +64,6 @@ export default async function DashboardPage() {
       .select(
         "id, title, client_id, property_id, stage, amount, commission, expected_close_date, closed_at, notes, assigned_to, created_by, created_at, updated_at",
       )
-      .gte("created_at", sixMonthsAgo.toISOString())
       .returns<Deal[]>(),
     supabase
       .from("tasks")
@@ -105,15 +107,8 @@ export default async function DashboardPage() {
   ]);
 
   const allDeals = deals ?? [];
-  const totalPipeline = allDeals
-    .filter(
-      (d) => d.stage !== "closed_won" && d.stage !== "closed_lost",
-    )
-    .reduce((sum, d) => sum + (d.amount ?? 0), 0);
-
-  const wonAmount = allDeals
-    .filter((d) => d.stage === "closed_won")
-    .reduce((sum, d) => sum + (d.amount ?? 0), 0);
+  const totalPipeline = pipelineAmount(allDeals);
+  const wonAmount = wonAmountSince(allDeals, thirtyDaysAgo);
 
   const stageData = (
     Object.keys(DEAL_STAGE_LABELS) as (keyof typeof DEAL_STAGE_LABELS)[]
@@ -127,7 +122,7 @@ export default async function DashboardPage() {
       .reduce((sum, d) => sum + (d.amount ?? 0), 0),
   }));
 
-  const monthly = computeMonthlyRevenue(allDeals, 6);
+  const monthly = computeMonthlyDealValues(allDeals, 6);
 
   const insights = computeInsights({
     clients: insightsClients ?? [],
@@ -350,30 +345,4 @@ function KpiCard({
       </CardContent>
     </Card>
   );
-}
-
-function computeMonthlyRevenue(deals: Deal[], months: number) {
-  const result: { month: string; amount: number; won: number }[] = [];
-  const now = new Date();
-  const formatter = new Intl.DateTimeFormat("ru-RU", { month: "short" });
-
-  for (let i = months - 1; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const year = d.getFullYear();
-    const month = d.getMonth();
-    const monthDeals = deals.filter((deal) => {
-      const created = new Date(deal.created_at);
-      return (
-        created.getFullYear() === year && created.getMonth() === month
-      );
-    });
-    const wonDeals = monthDeals.filter((d) => d.stage === "closed_won");
-    result.push({
-      month: formatter.format(d),
-      amount: monthDeals.reduce((s, d) => s + (d.amount ?? 0), 0),
-      won: wonDeals.reduce((s, d) => s + (d.amount ?? 0), 0),
-    });
-  }
-
-  return result;
 }

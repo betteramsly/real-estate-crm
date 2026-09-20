@@ -14,7 +14,6 @@ import { AddAgentForm } from "./add-agent-form";
 import { TeamFeedbackInbox } from "./feedback-inbox";
 import { RoleSelect } from "./role-select";
 import { requireProfile } from "@/lib/auth";
-import { isPrimaryAdminEmail } from "@/lib/primary-admin";
 import { formatDate, initials } from "@/lib/formatters";
 import {
   PROPERTY_FEEDBACK_INBOX_ALL,
@@ -134,13 +133,11 @@ export default async function TeamPage() {
                       >
                         {p.role === "admin" ? "Админ" : "Агент"}
                       </Badge>
-                      {isPrimaryAdminEmail(p.email) ? null : (
-                        <RoleSelect
-                          userId={p.id}
-                          role={p.role}
-                          disabled={p.id === profile.id}
-                        />
-                      )}
+                      <RoleSelect
+                        userId={p.id}
+                        role={p.role}
+                        disabled={p.id === profile.id}
+                      />
                     </div>
                   </div>
                 );

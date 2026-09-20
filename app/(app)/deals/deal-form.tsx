@@ -43,6 +43,7 @@ interface DealFormProps {
   properties: Pick<Property, "id" | "title">[];
   profiles: Profile[];
   currentRole: UserRole;
+  currentUserId: string;
   defaultClientId?: string;
 }
 
@@ -69,6 +70,7 @@ export function DealForm({
   properties,
   profiles,
   currentRole,
+  currentUserId,
   defaultClientId,
 }: DealFormProps) {
   const router = useRouter();
@@ -84,6 +86,8 @@ export function DealForm({
   }, [state]);
 
   const fe = state.fieldErrors ?? {};
+  const canAssignOthers = currentRole === "admin";
+  const assignedTo = deal ? (deal.assigned_to ?? "") : currentUserId;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -157,10 +161,13 @@ export function DealForm({
 
           <div className="space-y-2">
             <Label>Ответственный</Label>
+            {!canAssignOthers ? (
+              <input type="hidden" name="assigned_to" value={assignedTo} />
+            ) : null}
             <Select
-              name="assigned_to"
-              defaultValue={deal?.assigned_to ?? ""}
-              disabled={currentRole !== "admin" && Boolean(deal?.assigned_to)}
+              name={canAssignOthers ? "assigned_to" : undefined}
+              defaultValue={assignedTo}
+              disabled={!canAssignOthers}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Выберите агента" />

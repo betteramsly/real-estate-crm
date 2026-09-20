@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { logActivity } from "@/lib/actions/activities";
+import { requireProfile } from "@/lib/auth";
+import { logActivity } from "@/lib/activities";
 import { diffRecords } from "@/lib/diff";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import type { DealStage } from "@/lib/types";
@@ -19,15 +18,32 @@ const dealStageSchema = z.enum([
   "closed_lost",
 ]);
 
+const uuidSchema = z.string().uuid();
+const dateOnlySchema = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Некорректная дата")
+  .refine((value) => {
+    const date = new Date(`${value}T00:00:00Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().startsWith(value);
+  }, "Некорректная дата");
+
 const dealSchema = z.object({
-  title: z.string().min(2, "Минимум 2 символа"),
+  title: z.string().trim().min(2, "Минимум 2 символа").max(180),
   client_id: z.string().uuid().nullable().optional(),
   property_id: z.string().uuid().nullable().optional(),
   stage: dealStageSchema,
-  amount: z.number().nullable().optional(),
-  commission: z.number().nullable().optional(),
-  expected_close_date: z.string().nullable().optional(),
-  notes: z.string().nullable().optional(),
+  amount: z
+    .number()
+    .nonnegative("Сумма не может быть отрицательной")
+    .nullable()
+    .optional(),
+  commission: z
+    .number()
+    .nonnegative("Комиссия не может быть отрицательной")
+    .nullable()
+    .optional(),
+  expected_close_date: dateOnlySchema.nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
   assigned_to: z.string().uuid().nullable().optional(),
 });
 
@@ -43,7 +59,7 @@ function parseFormData(formData: FormData) {
   const str = (k: string) => parseStringFormValue(get(k));
 
   return {
-    title: (get("title") as string) ?? "",
+    title: str("title") ?? "",
     client_id: str("client_id"),
     property_id: str("property_id"),
     stage: (get("stage") as string) ?? "new",
@@ -69,11 +85,9 @@ export async function createDealAction(
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
+  const { supabase, user, profile } = await requireProfile();
+  const assignedTo =
+    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
 
   const closed_at =
     parsed.data.stage === "closed_won" || parsed.data.stage === "closed_lost"
@@ -86,14 +100,14 @@ export async function createDealAction(
       ...parsed.data,
       client_id: parsed.data.client_id ?? null,
       property_id: parsed.data.property_id ?? null,
-      assigned_to: parsed.data.assigned_to ?? user.id,
+      assigned_to: assignedTo,
       created_by: user.id,
       closed_at,
     })
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error || !created) return { error: "Не удалось создать сделку" };
 
   await logActivity({
     entityType: "deal",
@@ -119,6 +133,9 @@ export async function updateDealAction(
   _prev: DealFormState,
   formData: FormData,
 ): Promise<DealFormState> {
+  if (!uuidSchema.safeParse(id).success) {
+    return { error: "Сделка не найдена" };
+  }
   const parsed = dealSchema.safeParse(parseFormData(formData));
   if (!parsed.success) {
     return {
@@ -129,7 +146,7 @@ export async function updateDealAction(
     };
   }
 
-  const { supabase } = await requireUser();
+  const { supabase, profile } = await requireProfile();
 
   const { data: existing, error: existingError } = await supabase
     .from("deals")
@@ -155,6 +172,10 @@ export async function updateDealAction(
       ...parsed.data,
       client_id: parsed.data.client_id ?? null,
       property_id: parsed.data.property_id ?? null,
+      assigned_to:
+        profile.role === "admin"
+          ? (parsed.data.assigned_to ?? null)
+          : existing.assigned_to,
       closed_at,
     })
     .eq("id", id)
@@ -202,14 +223,17 @@ export async function updateDealAction(
 }
 
 export async function moveDealStage(id: string, stage: DealStage) {
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Сделка не найдена");
+  }
   if (!dealStageSchema.safeParse(stage).success) {
     throw new Error("Некорректный этап сделки");
   }
-  const { supabase } = await requireUser();
+  const { supabase } = await requireProfile();
 
   const { data: existing, error: existingError } = await supabase
     .from("deals")
-    .select("stage, client_id, property_id")
+    .select("stage, closed_at, client_id, property_id")
     .eq("id", id)
     .maybeSingle();
   if (existingError || !existing) {
@@ -218,7 +242,7 @@ export async function moveDealStage(id: string, stage: DealStage) {
 
   const closed_at =
     stage === "closed_won" || stage === "closed_lost"
-      ? new Date().toISOString()
+      ? (existing.closed_at ?? new Date().toISOString())
       : null;
   const { data: updated, error } = await supabase
     .from("deals")
@@ -247,7 +271,15 @@ export async function moveDealStage(id: string, stage: DealStage) {
 }
 
 export async function deleteDealAction(id: string) {
-  const { supabase } = await requireUser();
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Сделка не найдена");
+  }
+  const { supabase } = await requireProfile();
+  const { data: existing } = await supabase
+    .from("deals")
+    .select("title, client_id, property_id")
+    .eq("id", id)
+    .maybeSingle();
   const { data: deleted, error } = await supabase
     .from("deals")
     .delete()
@@ -261,6 +293,9 @@ export async function deleteDealAction(id: string) {
     entityType: "deal",
     entityId: id,
     type: "deleted",
+    payload: existing ? { title: existing.title } : {},
+    clientId: existing?.client_id ?? null,
+    propertyId: existing?.property_id ?? null,
   });
   revalidatePath("/deals");
   revalidatePath("/dashboard");

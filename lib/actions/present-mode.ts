@@ -11,14 +11,7 @@ export async function setPresentModeAction(on: boolean) {
     maxAge: on ? 60 * 60 * 12 : 0,
     sameSite: "lax",
     httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
   });
-  if (on) {
-    store.set("catalog_internal_ok", "0", {
-      path: "/",
-      maxAge: 0,
-      sameSite: "lax",
-      httpOnly: true,
-    });
-  }
   revalidatePath("/", "layout");
 }

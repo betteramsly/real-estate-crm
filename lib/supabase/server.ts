@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 import { AUTH_COOKIE_OPTIONS } from "@/lib/supabase/auth-cookies";

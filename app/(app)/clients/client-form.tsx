@@ -37,6 +37,7 @@ interface ClientFormProps {
   client?: Client;
   profiles: Profile[];
   currentRole: UserRole;
+  currentUserId: string;
 }
 
 function SubmitButton({ label }: { label: string }) {
@@ -49,7 +50,12 @@ function SubmitButton({ label }: { label: string }) {
   );
 }
 
-export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
+export function ClientForm({
+  client,
+  profiles,
+  currentRole,
+  currentUserId,
+}: ClientFormProps) {
   const router = useRouter();
   const action = client
     ? updateClientAction.bind(null, client.id)
@@ -62,6 +68,8 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
   }, [state]);
 
   const fe = state.fieldErrors ?? {};
+  const canAssignOthers = currentRole === "admin";
+  const assignedTo = client ? (client.assigned_to ?? "") : currentUserId;
 
   return (
     <form action={formAction} className="space-y-4">
@@ -154,10 +162,13 @@ export function ClientForm({ client, profiles, currentRole }: ClientFormProps) {
 
           <div className="space-y-2">
             <Label>Ответственный</Label>
+            {!canAssignOthers ? (
+              <input type="hidden" name="assigned_to" value={assignedTo} />
+            ) : null}
             <Select
-              name="assigned_to"
-              defaultValue={client?.assigned_to ?? ""}
-              disabled={currentRole !== "admin" && Boolean(client?.assigned_to)}
+              name={canAssignOthers ? "assigned_to" : undefined}
+              defaultValue={assignedTo}
+              disabled={!canAssignOthers}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Выберите агента" />

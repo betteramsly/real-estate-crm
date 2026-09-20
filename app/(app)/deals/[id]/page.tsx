@@ -11,7 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DealForm } from "../deal-form";
 import { DeleteDealButton } from "./delete-deal-button";
 import { TaskFormDialog } from "../../tasks/task-form-dialog";
-import { getActivities } from "@/lib/actions/activities";
+import { getActivities } from "@/lib/activities";
 import { requireProfile } from "@/lib/auth";
 import { DEAL_STAGE_COLORS, DEAL_STAGE_LABELS } from "@/lib/constants";
 import { formatCurrency, formatDate, initials } from "@/lib/formatters";
@@ -165,6 +165,8 @@ export default async function DealPage(props: {
           deals={[{ id: deal.id, title: deal.title }]}
           properties={properties ?? []}
           profiles={profiles ?? []}
+          currentUserId={profile.id}
+          currentRole={profile.role}
           defaultClientId={deal.client_id ?? undefined}
           defaultDealId={deal.id}
           defaultPropertyId={deal.property_id ?? undefined}
@@ -226,6 +228,7 @@ export default async function DealPage(props: {
             properties={properties ?? []}
             profiles={profiles ?? []}
             currentRole={profile.role}
+            currentUserId={profile.id}
           />
         </TabsContent>
       </Tabs>

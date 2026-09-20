@@ -3,19 +3,20 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
-import { requireUser } from "@/lib/auth";
-import { createClient } from "@/lib/supabase/server";
-import { logActivity } from "@/lib/actions/activities";
+import { requireProfile } from "@/lib/auth";
+import { logActivity } from "@/lib/activities";
+import { parseDateTimeFormValue, parseStringFormValue } from "@/lib/parse";
 import type { TaskStatus } from "@/lib/types";
 
 const taskStatusSchema = z.enum(["todo", "in_progress", "done", "cancelled"]);
+const uuidSchema = z.string().uuid();
 
 const taskSchema = z.object({
-  title: z.string().min(2, "Минимум 2 символа"),
-  description: z.string().nullable().optional(),
+  title: z.string().trim().min(2, "Минимум 2 символа").max(180),
+  description: z.string().max(5000).nullable().optional(),
   status: taskStatusSchema,
   priority: z.enum(["low", "medium", "high"]),
-  due_at: z.string().nullable().optional(),
+  due_at: z.string().datetime({ offset: true }).nullable().optional(),
   client_id: z.string().uuid().nullable().optional(),
   deal_id: z.string().uuid().nullable().optional(),
   property_id: z.string().uuid().nullable().optional(),
@@ -29,19 +30,19 @@ export type TaskFormState = {
 
 function parseFormData(formData: FormData) {
   const get = (k: string) => formData.get(k);
-  const str = (k: string) => {
-    const v = get(k);
-    return typeof v === "string" && v.length > 0 ? v : null;
-  };
-
-  const due = str("due_at");
+  const str = (k: string) => parseStringFormValue(get(k));
+  const rawOffset = Number(str("timezone_offset") ?? 0);
+  const timezoneOffset =
+    Number.isInteger(rawOffset) && rawOffset >= -840 && rawOffset <= 840
+      ? rawOffset
+      : 0;
 
   return {
-    title: (get("title") as string) ?? "",
+    title: str("title") ?? "",
     description: str("description"),
     status: (get("status") as string) ?? "todo",
     priority: (get("priority") as string) ?? "medium",
-    due_at: due ? new Date(due).toISOString() : null,
+    due_at: parseDateTimeFormValue(get("due_at"), timezoneOffset),
     client_id: str("client_id"),
     deal_id: str("deal_id"),
     property_id: str("property_id"),
@@ -63,11 +64,9 @@ export async function createTaskAction(
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
+  const { supabase, user, profile } = await requireProfile();
+  const assignedTo =
+    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
 
   const { data: created, error } = await supabase
     .from("tasks")
@@ -76,29 +75,27 @@ export async function createTaskAction(
       client_id: parsed.data.client_id ?? null,
       deal_id: parsed.data.deal_id ?? null,
       property_id: parsed.data.property_id ?? null,
-      assigned_to: parsed.data.assigned_to ?? user.id,
+      assigned_to: assignedTo,
       created_by: user.id,
     })
     .select("id")
     .single();
 
-  if (error) return { error: error.message };
+  if (error || !created) return { error: "Не удалось создать задачу" };
 
-  if (created) {
-    await logActivity({
-      entityType: "task",
-      entityId: created.id,
-      type: "created",
-      payload: {
-        title: parsed.data.title,
-        priority: parsed.data.priority,
-        due_at: parsed.data.due_at,
-      },
-      clientId: parsed.data.client_id ?? null,
-      dealId: parsed.data.deal_id ?? null,
-      propertyId: parsed.data.property_id ?? null,
-    });
-  }
+  await logActivity({
+    entityType: "task",
+    entityId: created.id,
+    type: "created",
+    payload: {
+      title: parsed.data.title,
+      priority: parsed.data.priority,
+      due_at: parsed.data.due_at,
+    },
+    clientId: parsed.data.client_id ?? null,
+    dealId: parsed.data.deal_id ?? null,
+    propertyId: parsed.data.property_id ?? null,
+  });
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
@@ -110,6 +107,9 @@ export async function updateTaskAction(
   _prev: TaskFormState,
   formData: FormData,
 ): Promise<TaskFormState> {
+  if (!uuidSchema.safeParse(id).success) {
+    return { error: "Задача не найдена" };
+  }
   const parsed = taskSchema.safeParse(parseFormData(formData));
   if (!parsed.success) {
     return {
@@ -120,7 +120,15 @@ export async function updateTaskAction(
     };
   }
 
-  const { supabase } = await requireUser();
+  const { supabase, profile } = await requireProfile();
+  const { data: existing, error: existingError } = await supabase
+    .from("tasks")
+    .select("assigned_to")
+    .eq("id", id)
+    .maybeSingle();
+  if (existingError || !existing) {
+    return { error: "Задача не найдена или недоступна" };
+  }
   const { data: updated, error } = await supabase
     .from("tasks")
     .update({
@@ -128,6 +136,10 @@ export async function updateTaskAction(
       client_id: parsed.data.client_id ?? null,
       deal_id: parsed.data.deal_id ?? null,
       property_id: parsed.data.property_id ?? null,
+      assigned_to:
+        profile.role === "admin"
+          ? (parsed.data.assigned_to ?? null)
+          : existing.assigned_to,
     })
     .eq("id", id)
     .select("id")
@@ -143,10 +155,13 @@ export async function updateTaskAction(
 }
 
 export async function setTaskStatus(id: string, status: TaskStatus) {
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Задача не найдена");
+  }
   if (!taskStatusSchema.safeParse(status).success) {
     throw new Error("Некорректный статус задачи");
   }
-  const { supabase } = await requireUser();
+  const { supabase } = await requireProfile();
 
   const { data: existing, error: existingError } = await supabase
     .from("tasks")
@@ -184,7 +199,10 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
 }
 
 export async function deleteTaskAction(id: string) {
-  const { supabase } = await requireUser();
+  if (!uuidSchema.safeParse(id).success) {
+    throw new Error("Задача не найдена");
+  }
+  const { supabase } = await requireProfile();
 
   const { data: existing, error: existingError } = await supabase
     .from("tasks")

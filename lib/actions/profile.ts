@@ -1,15 +1,15 @@
 "use server";
 
+import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
-import { canChangeUserRole, isPrimaryAdminEmail } from "@/lib/primary-admin";
-import { createClient } from "@/lib/supabase/server";
+import { canChangeUserRole } from "@/lib/role-management";
 import type { UserRole } from "@/lib/types";
 
 const profileSchema = z.object({
-  full_name: z.string().min(2, "Минимум 2 символа"),
-  phone: z.string().nullable().optional(),
+  full_name: z.string().trim().min(2, "Минимум 2 символа").max(160),
+  phone: z.string().max(40).nullable().optional(),
 });
 
 const AVATAR_MIME_BY_EXT: Record<string, string> = {
@@ -27,6 +27,7 @@ const AVATAR_MIME_ALIASES: Record<string, string> = {
 };
 
 const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+const uuidSchema = z.string().uuid();
 
 export type ProfileFormState = {
   error?: string;
@@ -63,6 +64,20 @@ function isAvatarFile(value: FormDataEntryValue | null): value is File {
   return typeof File !== "undefined" && value instanceof File && value.size > 0;
 }
 
+function avatarStoragePath(url: string | null, userId: string) {
+  if (!url) return null;
+  try {
+    const marker = "/storage/v1/object/public/avatars/";
+    const pathname = new URL(url).pathname;
+    const markerIndex = pathname.indexOf(marker);
+    if (markerIndex < 0) return null;
+    const path = decodeURIComponent(pathname.slice(markerIndex + marker.length));
+    return path.startsWith(`${userId}/`) ? path : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function updateProfileAction(
   _prev: ProfileFormState,
   formData: FormData,
@@ -82,11 +97,7 @@ export async function updateProfileAction(
     };
   }
 
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Не авторизован" };
+  const { supabase, user, profile } = await requireProfile();
 
   const avatarFile = formData.get("avatar");
   let avatarUrl: string | null = null;
@@ -105,14 +116,14 @@ export async function updateProfileAction(
     }
 
     const extension = avatarExtension(avatarFile);
-    const filePath = `${user.id}/avatar-${Date.now()}.${extension}`;
+    const filePath = `${user.id}/avatar-${randomUUID()}.${extension}`;
     const buffer = Buffer.from(await avatarFile.arrayBuffer());
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
       .upload(filePath, buffer, {
         contentType: mime,
-        upsert: true,
+        upsert: false,
         cacheControl: "3600",
       });
 
@@ -129,16 +140,30 @@ export async function updateProfileAction(
     avatarUrl = publicUrl;
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("profiles")
     .update({
       full_name: parsed.data.full_name,
       phone: parsed.data.phone || null,
       ...(avatarUrl ? { avatar_url: avatarUrl } : {}),
     })
-    .eq("id", user.id);
+    .eq("id", user.id)
+    .select("id")
+    .maybeSingle();
 
-  if (error) return { error: error.message };
+  if (error || !updated) {
+    const uploadedPath = avatarStoragePath(avatarUrl, user.id);
+    if (uploadedPath) await supabase.storage.from("avatars").remove([uploadedPath]);
+    return { error: "Не удалось сохранить профиль" };
+  }
+
+  if (avatarUrl) {
+    const previousPath = avatarStoragePath(profile.avatar_url, user.id);
+    const currentPath = avatarStoragePath(avatarUrl, user.id);
+    if (previousPath && previousPath !== currentPath) {
+      await supabase.storage.from("avatars").remove([previousPath]);
+    }
+  }
 
   revalidatePath("/settings");
   revalidatePath("/", "layout");
@@ -147,15 +172,18 @@ export async function updateProfileAction(
 
 export async function setUserRoleAction(userId: string, role: UserRole) {
   const { supabase, profile, user } = await requireProfile();
+  if (!uuidSchema.safeParse(userId).success) {
+    throw new Error("Пользователь не найден");
+  }
   if (role !== "admin" && role !== "agent") {
     throw new Error("Неизвестная роль");
   }
 
   const { data: target, error: targetError } = await supabase
     .from("profiles")
-    .select("id, email")
+    .select("id")
     .eq("id", userId)
-    .maybeSingle<{ id: string; email: string | null }>();
+    .maybeSingle<{ id: string }>();
 
   if (targetError || !target) {
     throw new Error("Пользователь не найден");
@@ -166,32 +194,35 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
       actorId: user.id,
       actorRole: profile.role,
       targetId: target.id,
-      targetEmail: target.email,
     })
   ) {
     if (userId === user.id) {
       throw new Error("Нельзя сменить свою роль");
     }
-    if (isPrimaryAdminEmail(target.email)) {
-      throw new Error("Нельзя менять роль главного администратора");
-    }
     throw new Error("Только администратор может менять роли");
   }
 
-  const { error } = await supabase
+  const { data: updated, error } = await supabase
     .from("profiles")
     .update({ role })
-    .eq("id", userId);
+    .eq("id", userId)
+    .select("id")
+    .maybeSingle();
 
-  if (error) throw new Error(error.message);
+  if (error || !updated) {
+    throw new Error(error?.message ?? "Не удалось изменить роль");
+  }
 
   revalidatePath("/team");
 }
 
 const agentSchema = z.object({
-  full_name: z.string().min(2, "Минимум 2 символа"),
-  email: z.string().email("Введите корректный email"),
-  password: z.string().min(8, "Минимум 8 символов"),
+  full_name: z.string().trim().min(2, "Минимум 2 символа").max(160),
+  email: z.string().trim().toLowerCase().max(254).email("Введите корректный email"),
+  password: z
+    .string()
+    .min(8, "Минимум 8 символов")
+    .max(72, "Максимум 72 символа"),
 });
 
 export type CreateAgentState = {

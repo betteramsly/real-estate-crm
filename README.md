@@ -4,7 +4,7 @@ CRM для риелторов и небольших агентств недви�
 
 ## Стек
 
-- [Next.js 14](https://nextjs.org/) (App Router) + React 18 + TypeScript
+- [Next.js 16.3](https://nextjs.org/) (App Router) + React 19 + TypeScript
 - [Supabase](https://supabase.com/) — Auth, PostgreSQL, Row Level Security, SSR
 - [Tailwind CSS](https://tailwindcss.com/) + [shadcn/ui](https://ui.shadcn.com/)
 - [TanStack Query](https://tanstack.com/query) для клиентских интерактивных списков
@@ -36,6 +36,9 @@ CRM для риелторов и небольших агентств недви�
 - **Таймлайн активности (audit log).** Отдельная таблица `activities` со ссылками на клиента/сделку/объект. Каждое действие в server actions (create/update/stage_changed/task_completed/deleted) пишет туда событие. На карточках клиента и сделки появляется вкладка «Активность» с цветным таймлайном: что, кто и когда сделал.
 - **Follow-up подсказки.** На дашборде виджет «Требует внимания»: клиенты без открытой задачи, сделки без движения 7+ дней, контракты без даты закрытия, просроченные задачи, «холодные» новые клиенты.
 - **«Живые» карточки.** Топ-блок на карточке клиента/сделки показывает ответственного, ближайшую задачу («Следующее действие»), счётчики; быстрые действия — «Создать сделку» и «Создать задачу» через диалог с предзаполненным `client_id`.
+- **Служебные данные объектов.** Комиссии, инвесторские условия и внутренние
+  пометки видны агентам и администраторам в рабочем кабинете, но исключены из
+  режима показа клиенту и публичных подборок.
 - **Toast после успеха.** На update — прямо в форме, на create — через query-параметр на детальной странице.
 
 ### Качество
@@ -69,7 +72,11 @@ components/
   providers/             — ThemeProvider, QueryProvider
 lib/
   supabase/              — обёртки для browser/server/middleware
-  actions/               — server actions для CRUD + activities (audit log)
+  actions/               — server actions для CRUD и публичных подборок
+  activities.ts          — внутренний server-only audit log
+  dashboard.ts           — расчёт KPI и месячных показателей
+  search.ts              — безопасная нормализация поисковых запросов
+  role-management.ts     — правила изменения ролей сотрудников
   formatters.ts          — даты, валюта, инициалы
   constants.ts           — словари статусов и цветов
   types.ts               — типы доменных моделей (включая Activity)
@@ -83,8 +90,7 @@ supabase/
   storage.sql            — настройка bucket avatars для уже созданной БД
   seed.sql               — демо-данные (5 клиентов, 5 объектов, 4 сделки, 6 задач)
   migrations/
-    0001_activities.sql  — таблица activities + RLS (для существующих БД)
-    0002_rls_hardening.sql — усиление RLS-политик admin/agent
+    *.sql                — последовательные обновления для существующей БД
 tests/                   — Vitest-тесты для чистых функций
 .github/workflows/ci.yml — lint + typecheck + tests + build на каждом PR
 docs/
@@ -110,10 +116,10 @@ npm install
 
 1. Открыть `Supabase Dashboard → SQL Editor`.
 2. Выполнить весь файл `supabase/schema.sql` (создаст таблицы, RLS, триггеры).
-3. Если `schema.sql` уже был выполнен раньше — для существующих БД дополнительно выполнить:
-   - `supabase/migrations/0001_activities.sql` — добавит таблицу журнала событий.
-   - `supabase/migrations/0002_rls_hardening.sql` — усилит RLS под admin/agent.
-   - `supabase/storage.sql` — настроит bucket для аватаров.
+3. Если `schema.sql` уже был выполнен раньше — применить ещё не выполненные файлы
+   из `supabase/migrations/` по имени, затем `supabase/storage.sql`. В миграциях
+   находятся не только журнал и RLS, но и каталог, публичные подборки, командные
+   роли и исправления безопасности.
 4. В разделе `Authentication → Users → Add user` создать двух пользователей:
   - `admin@demo.local` / `demo1234`
   - `agent@demo.local` / `demo1234`
@@ -150,10 +156,6 @@ npm run dev
 | Admin | [admin@demo.local](mailto:admin@demo.local) | demo1234 |
 | Agent | [agent@demo.local](mailto:agent@demo.local) | demo1234 |
 
-
-> На странице логина есть кнопки «Admin» / «Agent», которые автоматически подставляют логин и пароль.
-
-
 ## Скрипты
 
 ```bash
@@ -168,21 +170,24 @@ npm run test:watch  # Vitest watch-режим
 
 ## Тесты
 
-Чистые функции покрыты Vitest:
+Чистые функции покрыты Vitest, в том числе:
 
-- `tests/parse.test.ts` — парсинг чисел из FormData с пробелами.
+- `tests/parse.test.ts` — числа, строки и локальные даты из FormData.
 - `tests/diff.test.ts` — сравнение «до/после» для journal-записей.
 - `tests/matching.test.ts` — подбор объектов под клиента.
 - `tests/insights.test.ts` — генерация follow-up подсказок.
+- `tests/dashboard.test.ts` — воронка и выручка по дате закрытия.
+- `tests/catalog.test.ts` — очистка публичных подборок.
+- `tests/search.test.ts` — безопасные значения для PostgREST-фильтров.
 
-Server actions покрываются ручным/интеграционным тестированием — для них нужен mocking Supabase, что для портфолио-проекта избыточно.
+Server actions и RLS дополнительно требуют интеграционных проверок на тестовом
+Supabase-проекте перед production-деплоем.
 
 ## CI
 
 GitHub Actions пайплайн (`.github/workflows/ci.yml`) на каждом PR и push в main/master:
 
-1. Lint (`next lint`)
+1. Lint (`eslint .`)
 2. Typecheck (`tsc --noEmit`)
 3. Tests (`vitest run`)
 4. Build (`next build` с заглушками для Supabase env)
-

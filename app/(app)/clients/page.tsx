@@ -6,6 +6,7 @@ import { ClientsTable } from "./clients-table";
 import { ClientsFilters } from "./clients-filters";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireProfile } from "@/lib/auth";
+import { normalizeSearchTerm } from "@/lib/search";
 import type { Client, Profile } from "@/lib/types";
 
 interface PageProps {
@@ -28,13 +29,30 @@ export default async function ClientsPage(props: PageProps) {
     )
     .order("created_at", { ascending: false });
 
-  if (searchParams.status) query = query.eq("status", searchParams.status);
-  if (searchParams.source) query = query.eq("source", searchParams.source);
-  if (searchParams.deal_type)
+  if (
+    ["new", "in_progress", "won", "lost"].includes(
+      searchParams.status ?? "",
+    )
+  ) {
+    query = query.eq("status", searchParams.status!);
+  }
+  if (
+    ["referral", "cian", "avito", "instagram", "other"].includes(
+      searchParams.source ?? "",
+    )
+  ) {
+    query = query.eq("source", searchParams.source!);
+  }
+  if (
+    ["buy", "sell", "rent_in", "rent_out"].includes(
+      searchParams.deal_type ?? "",
+    )
+  )
     query = query.eq("deal_type", searchParams.deal_type);
 
-  if (searchParams.q) {
-    const q = `%${searchParams.q}%`;
+  const search = normalizeSearchTerm(searchParams.q);
+  if (search) {
+    const q = `%${search}%`;
     query = query.or(
       `full_name.ilike.${q},phone.ilike.${q},email.ilike.${q},notes.ilike.${q}`,
     );

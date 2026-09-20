@@ -18,7 +18,7 @@ interface PageProps {
 
 export default async function TasksPage(props: PageProps) {
   const searchParams = await props.searchParams;
-  const { supabase, user } = await requireProfile();
+  const { supabase, user, profile } = await requireProfile();
 
   let query = supabase
     .from("tasks")
@@ -27,8 +27,14 @@ export default async function TasksPage(props: PageProps) {
     )
     .order("due_at", { ascending: true, nullsFirst: false });
 
-  if (searchParams.status) query = query.eq("status", searchParams.status);
-  if (searchParams.priority)
+  if (
+    ["todo", "in_progress", "done", "cancelled"].includes(
+      searchParams.status ?? "",
+    )
+  ) {
+    query = query.eq("status", searchParams.status!);
+  }
+  if (["low", "medium", "high"].includes(searchParams.priority ?? ""))
     query = query.eq("priority", searchParams.priority);
   if (searchParams.scope === "mine")
     query = query.eq("assigned_to", user.id);
@@ -65,6 +71,8 @@ export default async function TasksPage(props: PageProps) {
             deals={deals ?? []}
             properties={properties ?? []}
             profiles={profiles ?? []}
+            currentUserId={profile.id}
+            currentRole={profile.role}
             trigger={<Button>Новая задача</Button>}
           />
         }
@@ -91,6 +99,8 @@ export default async function TasksPage(props: PageProps) {
               deals={deals ?? []}
               properties={properties ?? []}
               profiles={profiles ?? []}
+              currentUserId={profile.id}
+              currentRole={profile.role}
               trigger={<Button>Новая задача</Button>}
             />
           }

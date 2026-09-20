@@ -16,9 +16,14 @@ function allowedPhotoUrl(raw: string) {
   if (url.username || url.password || url.port) return null;
 
   const host = url.hostname;
-  const supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
-    ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
-    : null;
+  let supabaseHost: string | null = null;
+  try {
+    supabaseHost = process.env.NEXT_PUBLIC_SUPABASE_URL
+      ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+      : null;
+  } catch {
+    supabaseHost = null;
+  }
   const allowedHost =
     host === supabaseHost ||
     host === "images.unsplash.com";
@@ -27,6 +32,35 @@ function allowedPhotoUrl(raw: string) {
     return null;
   }
   return url;
+}
+
+async function readLimitedImage(body: ReadableStream<Uint8Array>) {
+  const reader = body.getReader();
+  const chunks: Uint8Array[] = [];
+  let total = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      total += value.byteLength;
+      if (total > MAX_PHOTO_BYTES) {
+        await reader.cancel();
+        return null;
+      }
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+
+  const image = new Uint8Array(total);
+  let offset = 0;
+  for (const chunk of chunks) {
+    image.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return image;
 }
 
 function safeFileName(value: string | null, fallback: string) {
@@ -79,11 +113,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Фото слишком большое" }, { status: 413 });
   }
 
+  let image: Uint8Array | null;
+  try {
+    image = await readLimitedImage(upstream.body);
+  } catch {
+    return NextResponse.json({ error: "Не удалось скачать" }, { status: 502 });
+  }
+  if (!image) {
+    return NextResponse.json({ error: "Фото слишком большое" }, { status: 413 });
+  }
+
   const name = safeFileName(
     request.nextUrl.searchParams.get("name"),
     "foto.jpg",
   );
-  return new NextResponse(upstream.body, {
+  const body = image.buffer.slice(
+    image.byteOffset,
+    image.byteOffset + image.byteLength,
+  ) as ArrayBuffer;
+  return new NextResponse(body, {
     headers: {
       "Content-Type": type,
       "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,

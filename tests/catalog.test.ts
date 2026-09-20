@@ -614,6 +614,37 @@ describe("catalog share helpers", () => {
       ok: true,
       agent: { name: "Бетербеков Амин", whatsapp: "79679566200" },
     });
+
+    const sanitized = parseOpenCatalogShare({
+      ok: true,
+      title: "Подборка",
+      properties: [
+        {
+          ...property({
+            id: "35ab9d42-9bfc-4e86-9da4-814e29f257dd",
+            catalog: {
+              documents: [
+                { title: "План", url: "https://example.com/plan.pdf", kind: "plan" },
+                { title: "Шахматка", url: "https://example.com/units.xlsx", kind: "chess" },
+              ],
+            },
+          }),
+          internal: { commission: "секрет" },
+          assigned_to: "agent-id",
+          created_by: "creator-id",
+          relevance: 3,
+        },
+      ],
+    });
+    expect(sanitized.ok).toBe(true);
+    if (sanitized.ok) {
+      expect(sanitized.properties[0]?.catalog?.documents).toEqual([
+        { title: "План", url: "https://example.com/plan.pdf", kind: "plan" },
+      ]);
+      expect(sanitized.properties[0]?.internal).toBeUndefined();
+      expect(sanitized.properties[0]?.assigned_to).toBeUndefined();
+      expect(sanitized.properties[0]?.relevance).toBeNull();
+    }
   });
 
   it("normalizes phones and summarizes guest events", () => {

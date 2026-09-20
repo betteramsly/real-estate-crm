@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  parseDateTimeFormValue,
   parseNumericFormValue,
   parseStringFormValue,
 } from "@/lib/parse";
@@ -23,16 +24,34 @@ describe("parseNumericFormValue", () => {
   it("возвращает null для нечисловых значений", () => {
     expect(parseNumericFormValue("abc")).toBeNull();
     expect(parseNumericFormValue("12abc")).toBeNull();
+    expect(parseNumericFormValue("1e999")).toBeNull();
   });
 });
 
 describe("parseStringFormValue", () => {
   it("возвращает строку для непустых значений", () => {
     expect(parseStringFormValue("hello")).toBe("hello");
+    expect(parseStringFormValue("  hello  ")).toBe("hello");
   });
 
   it("возвращает null для пустых и nullish значений", () => {
     expect(parseStringFormValue("")).toBeNull();
     expect(parseStringFormValue(null)).toBeNull();
+  });
+});
+
+describe("parseDateTimeFormValue", () => {
+  it("converts a browser datetime-local value to ISO", () => {
+    expect(parseDateTimeFormValue("2026-09-21T12:30", -180)).toBe(
+      "2026-09-21T09:30:00.000Z",
+    );
+  });
+
+  it("does not throw for invalid input", () => {
+    expect(parseDateTimeFormValue("not-a-date")).toBe("not-a-date");
+    expect(parseDateTimeFormValue("2026-02-30T10:00")).toBe(
+      "2026-02-30T10:00",
+    );
+    expect(parseDateTimeFormValue(" ")).toBeNull();
   });
 });

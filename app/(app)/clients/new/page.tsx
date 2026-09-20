@@ -23,7 +23,11 @@ export default async function NewClientPage() {
         title="Новый клиент"
         description="Заполните основные данные клиента"
       />
-      <ClientForm profiles={profiles ?? []} currentRole={profile.role} />
+      <ClientForm
+        profiles={profiles ?? []}
+        currentRole={profile.role}
+        currentUserId={profile.id}
+      />
     </>
   );
 }

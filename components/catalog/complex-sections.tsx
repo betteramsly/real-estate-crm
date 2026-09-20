@@ -13,7 +13,7 @@ import {
   LightboxPhotos,
   PricePhotos,
 } from "@/components/catalog/photo-gallery";
-import { InternalLock } from "@/components/catalog/internal-lock";
+import { InternalDetails } from "@/components/catalog/internal-details";
 import { RichText } from "@/components/catalog/rich-text";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -570,10 +570,10 @@ export function ComplexSections({
         </>
       ) : null}
 
-      {presentMode ? null : (
+      {presentMode || guest ? null : (
         <>
           <Separator className="bg-border/60" />
-          <InternalLock propertyId={property.id} presentMode={presentMode} />
+          <InternalDetails data={property.internal} />
         </>
       )}
     </div>
