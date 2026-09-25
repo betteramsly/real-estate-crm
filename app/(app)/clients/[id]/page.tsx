@@ -9,7 +9,6 @@ import {
 } from "lucide-react";
 import { ActivityTimeline } from "@/components/activity-timeline";
 import { Breadcrumbs } from "@/components/breadcrumbs";
-import { MatchedProperties } from "@/components/matched-properties";
 import { PrefetchLink } from "@/components/prefetch-link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
@@ -35,7 +34,6 @@ import {
   formatRelative,
   initials,
 } from "@/lib/formatters";
-import { matchPropertiesForClient } from "@/lib/matching";
 import { cn } from "@/lib/utils";
 import type { Client, Deal, Profile, Property, Task } from "@/lib/types";
 
@@ -88,7 +86,6 @@ export default async function ClientPage(props: {
     (t) => t.status === "todo" || t.status === "in_progress",
   );
   const nextTask = openTasks.find((t) => t.due_at) ?? openTasks[0] ?? null;
-  const matches = matchPropertiesForClient(client, allProperties ?? []);
 
   return (
     <>
@@ -246,9 +243,6 @@ export default async function ClientPage(props: {
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
-          <TabsTrigger value="matching">
-            Подбор ({matches.length})
-          </TabsTrigger>
           <TabsTrigger value="activity">Активность</TabsTrigger>
           <TabsTrigger value="deals">Сделки ({deals?.length ?? 0})</TabsTrigger>
           <TabsTrigger value="tasks">Задачи ({tasks?.length ?? 0})</TabsTrigger>
@@ -308,13 +302,6 @@ export default async function ClientPage(props: {
               </Card>
             ) : null}
           </div>
-        </TabsContent>
-
-        <TabsContent value="matching">
-          <MatchedProperties
-            matches={matches}
-            emptyText="Нет объектов, подходящих под бюджет и тип сделки"
-          />
         </TabsContent>
 
         <TabsContent value="activity">

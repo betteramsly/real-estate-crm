@@ -10,6 +10,7 @@ import { toast } from "sonner";
 import { CalendarIcon, Loader2 } from "lucide-react";
 import { AmountInput } from "@/components/amount-input";
 import { RequiredMark } from "@/components/required-mark";
+import { SearchableSelect } from "@/components/searchable-select";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
@@ -109,38 +110,37 @@ export function DealForm({
           </div>
 
           <div className="space-y-2">
-            <Label>Клиент</Label>
-            <Select
+            <Label htmlFor="client_id">Клиент</Label>
+            <SearchableSelect
+              id="client_id"
               name="client_id"
               defaultValue={deal?.client_id ?? defaultClientId ?? ""}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Не указан" />
-              </SelectTrigger>
-              <SelectContent>
-                {clients.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.full_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              options={clients.map((client) => ({
+                value: client.id,
+                label: client.full_name,
+              }))}
+              placeholder="Не указан"
+              clearLabel="Без клиента"
+              searchPlaceholder="Найти клиента..."
+              emptyText="Клиент не найден"
+            />
           </div>
 
           <div className="space-y-2">
-            <Label>Объект</Label>
-            <Select name="property_id" defaultValue={deal?.property_id ?? ""}>
-              <SelectTrigger>
-                <SelectValue placeholder="Не указан" />
-              </SelectTrigger>
-              <SelectContent>
-                {properties.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="property_id">Объект</Label>
+            <SearchableSelect
+              id="property_id"
+              name="property_id"
+              defaultValue={deal?.property_id ?? ""}
+              options={properties.map((property) => ({
+                value: property.id,
+                label: property.title,
+              }))}
+              placeholder="Не указан"
+              clearLabel="Без объекта"
+              searchPlaceholder="Найти объект..."
+              emptyText="Объект не найден"
+            />
           </div>
 
           <div className="space-y-2">
