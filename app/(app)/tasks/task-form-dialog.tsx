@@ -61,7 +61,9 @@ interface TaskFormDialogProps {
 const DEADLINE_HOURS = Array.from({ length: 24 }, (_, hour) =>
   String(hour).padStart(2, "0"),
 );
-const DEADLINE_MINUTES = ["00", "15", "30", "45"];
+const DEADLINE_MINUTES = Array.from({ length: 12 }, (_, index) =>
+  String(index * 5).padStart(2, "0"),
+);
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -91,6 +93,7 @@ export function TaskFormDialog({
   const [dueDate, setDueDate] = React.useState<Date | undefined>();
   const [dueTime, setDueTime] = React.useState("12:00");
   const hoursListRef = React.useRef<HTMLDivElement>(null);
+  const minutesListRef = React.useRef<HTMLDivElement>(null);
   const [timezoneOffset, setTimezoneOffset] = React.useState(0);
   const [state, formAction] = useActionState<TaskFormState, FormData>(
     createTaskAction,
@@ -106,9 +109,25 @@ export function TaskFormDialog({
   }, []);
 
   React.useEffect(() => {
-    if (!timeOpen || !hoursListRef.current) return;
-    const selectedHour = Number(dueTime.split(":")[0]);
-    hoursListRef.current.scrollTop = Math.max(0, selectedHour * 36 - 64);
+    if (!timeOpen) return;
+    const frame = window.requestAnimationFrame(() => {
+      const selectedHour = Number(dueTime.split(":")[0]);
+      const selectedMinute = Number(dueTime.split(":")[1]) / 5;
+      if (hoursListRef.current) {
+        hoursListRef.current.scrollTop = Math.max(
+          0,
+          selectedHour * 36 - 64,
+        );
+      }
+      if (minutesListRef.current) {
+        minutesListRef.current.scrollTop = Math.max(
+          0,
+          selectedMinute * 36 - 64,
+        );
+      }
+    });
+
+    return () => window.cancelAnimationFrame(frame);
   }, [dueTime, timeOpen]);
 
   const canAssignOthers = currentRole === "admin";
@@ -123,6 +142,12 @@ export function TaskFormDialog({
   const selectDueDate = (date: Date | undefined) => {
     setDueDate(date);
     if (date) setCalendarOpen(false);
+  };
+
+  const scrollTimeColumn = (event: React.WheelEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.scrollTop += event.deltaY;
   };
 
   return (
@@ -273,7 +298,8 @@ export function TaskFormDialog({
                           ref={hoursListRef}
                           role="listbox"
                           aria-label="Часы"
-                          className="scrollbar-thin h-36 space-y-1 overflow-y-auto pr-1"
+                          onWheel={scrollTimeColumn}
+                          className="scrollbar-thin h-36 touch-pan-y space-y-1 overflow-y-auto overscroll-contain pr-1"
                         >
                           {DEADLINE_HOURS.map((hour) => (
                             <button
@@ -301,9 +327,11 @@ export function TaskFormDialog({
                           Минуты
                         </p>
                         <div
+                          ref={minutesListRef}
                           role="listbox"
                           aria-label="Минуты"
-                          className="space-y-1"
+                          onWheel={scrollTimeColumn}
+                          className="scrollbar-thin h-36 touch-pan-y space-y-1 overflow-y-auto overscroll-contain pr-1"
                         >
                           {DEADLINE_MINUTES.map((minute) => (
                             <button
