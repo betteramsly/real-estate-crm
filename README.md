@@ -120,16 +120,22 @@ npm install
    из `supabase/migrations/` по имени, затем `supabase/storage.sql`. В миграциях
    находятся не только журнал и RLS, но и каталог, публичные подборки, командные
    роли и исправления безопасности.
-4. В разделе `Authentication → Users → Add user` создать двух пользователей:
-  - `admin@demo.local` / `demo1234`
-  - `agent@demo.local` / `demo1234`
-   (отметить `Auto Confirm User`, чтобы не подтверждать email).
-5. Сделать первого пользователя админом: в SQL Editor выполнить
+4. В разделе `Authentication → Users → Add user` создать владельца компании с
+   его рабочим email и уникальным паролем длиной не менее 16 символов. Отметить
+   `Auto Confirm User`, если подтверждение почты на этом проекте не настроено.
+5. Сделать этого пользователя владельцем: в SQL Editor выполнить, заменив email
+   в одном месте:
    ```sql
-   update public.profiles set role = 'admin'
-     where id = (select id from auth.users where email = 'admin@demo.local');
+   update public.profiles
+   set role = 'admin', is_owner = true
+   where id = (
+     select id from auth.users where email = 'owner@company.ru'
+   );
    ```
-6. Выполнить `supabase/seed.sql` — он наполнит CRM реалистичными примерами (клиенты, объекты, сделки, задачи). Скрипт идемпотентен: если в `clients` уже что-то есть, он не перезапишет ваши данные.
+6. Остальных сотрудников создавать из раздела «Команда» внутри CRM. Пароли и
+   реальные логины нельзя публиковать в репозитории или документации.
+7. Для тестовой базы при необходимости выполнить `supabase/seed.sql`. На рабочей
+   базе агентства seed запускать не нужно.
 
 ### 4. Настроить переменные окружения
 
@@ -146,15 +152,8 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 npm run dev
 ```
 
-Открыть [http://localhost:3000](http://localhost:3000) и войти под demo-аккаунтом.
-
-## Демо-аккаунты
-
-
-| Роль  | Email                                       | Пароль   |
-| ----- | ------------------------------------------- | -------- |
-| Admin | [admin@demo.local](mailto:admin@demo.local) | demo1234 |
-| Agent | [agent@demo.local](mailto:agent@demo.local) | demo1234 |
+Открыть [http://localhost:3000](http://localhost:3000) и войти под созданным
+аккаунтом владельца.
 
 ## Скрипты
 

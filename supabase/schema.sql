@@ -16,11 +16,33 @@ create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
   role text not null default 'agent' check (role in ('admin', 'agent')),
+  is_owner boolean not null default false,
   phone text,
   email text,
   avatar_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists is_owner boolean not null default false;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conname = 'profiles_owner_must_be_admin'
+      and conrelid = 'public.profiles'::regclass
+  ) then
+    alter table public.profiles
+      add constraint profiles_owner_must_be_admin
+      check (not is_owner or role = 'admin');
+  end if;
+end
+$$;
+
+create unique index if not exists profiles_single_owner_idx
+  on public.profiles (is_owner)
+  where is_owner;
 
 create unique index if not exists profiles_email_lower_idx
   on public.profiles (lower(email))
@@ -347,15 +369,31 @@ language plpgsql
 security definer
 set search_path = public
 as $$
+declare
+  current_user_id uuid := (select auth.uid());
 begin
+  if current_user_id is null then
+    return new;
+  end if;
+
+  if new.is_owner is distinct from old.is_owner then
+    raise exception 'Статус владельца меняется только через защищённую миграцию';
+  end if;
+
+  if old.is_owner and current_user_id <> old.id then
+    raise exception 'Профиль владельца может менять только владелец';
+  end if;
+
+  if old.is_owner and new.role <> 'admin' then
+    raise exception 'Владелец всегда должен оставаться администратором';
+  end if;
+
   if new.role is not distinct from old.role then
     return new;
   end if;
-  if (select auth.uid()) is null then
-    return new;
-  end if;
+
   perform pg_advisory_xact_lock(hashtext('profiles-admin-role'));
-  if (select auth.uid()) = old.id then
+  if current_user_id = old.id then
     raise exception 'Нельзя менять свою роль';
   end if;
   if not public.is_admin() then

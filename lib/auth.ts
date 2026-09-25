@@ -26,7 +26,7 @@ export async function requireProfile() {
 
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("id, full_name, role, phone, email, avatar_url, created_at")
+    .select("id, full_name, role, is_owner, phone, email, avatar_url, created_at")
     .eq("id", user.id)
     .single<Profile>();
 

@@ -156,7 +156,11 @@ export function AppHeader({
                   {profile.full_name ?? "Без имени"}
                 </p>
                 <p className="text-xs text-muted-foreground">
-                  {role === "admin" ? "Администратор" : "Агент"}
+                  {profile.is_owner
+                    ? "Владелец"
+                    : role === "admin"
+                      ? "Администратор"
+                      : "Агент"}
                 </p>
               </div>
             </DropdownMenuTrigger>

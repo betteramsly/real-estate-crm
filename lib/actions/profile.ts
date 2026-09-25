@@ -181,9 +181,9 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
 
   const { data: target, error: targetError } = await supabase
     .from("profiles")
-    .select("id")
+    .select("id, is_owner")
     .eq("id", userId)
-    .maybeSingle<{ id: string }>();
+    .maybeSingle<{ id: string; is_owner: boolean }>();
 
   if (targetError || !target) {
     throw new Error("Пользователь не найден");
@@ -194,10 +194,14 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
       actorId: user.id,
       actorRole: profile.role,
       targetId: target.id,
+      targetIsOwner: target.is_owner,
     })
   ) {
     if (userId === user.id) {
       throw new Error("Нельзя сменить свою роль");
+    }
+    if (target.is_owner) {
+      throw new Error("Роль владельца компании изменить нельзя");
     }
     throw new Error("Только администратор может менять роли");
   }

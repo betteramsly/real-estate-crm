@@ -131,12 +131,16 @@ export default async function TeamPage() {
                       <Badge
                         variant={p.role === "admin" ? "default" : "secondary"}
                       >
-                        {p.role === "admin" ? "Админ" : "Агент"}
+                        {p.is_owner
+                          ? "Владелец"
+                          : p.role === "admin"
+                            ? "Админ"
+                            : "Агент"}
                       </Badge>
                       <RoleSelect
                         userId={p.id}
                         role={p.role}
-                        disabled={p.id === profile.id}
+                        disabled={p.id === profile.id || p.is_owner}
                       />
                     </div>
                   </div>

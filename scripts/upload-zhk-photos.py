@@ -7,6 +7,7 @@ import argparse
 import html
 import io
 import json
+import os
 import re
 from pathlib import Path
 from urllib.parse import unquote
@@ -187,7 +188,15 @@ def main() -> None:
     env = load_env(Path(__file__).resolve().parents[1] / ".env.local")
     base = env["NEXT_PUBLIC_SUPABASE_URL"].rstrip("/")
     anon = env["NEXT_PUBLIC_SUPABASE_ANON_KEY"]
-    token = sign_in(base, anon, "admin@demo.local", "demo1234")
+    admin_email = os.environ.get("SUPABASE_ADMIN_EMAIL") or env.get("SUPABASE_ADMIN_EMAIL")
+    admin_password = os.environ.get("SUPABASE_ADMIN_PASSWORD") or env.get(
+        "SUPABASE_ADMIN_PASSWORD"
+    )
+    if not admin_email or not admin_password:
+        raise RuntimeError(
+            "Set SUPABASE_ADMIN_EMAIL and SUPABASE_ADMIN_PASSWORD outside the repository"
+        )
+    token = sign_in(base, anon, admin_email, admin_password)
     headers = {
         "apikey": anon,
         "Authorization": f"Bearer {token}",

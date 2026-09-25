@@ -121,7 +121,16 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
       </div>
       <div className="space-y-2">
         <Label>Роль</Label>
-        <Input value={profile.role === "admin" ? "Админ" : "Агент"} disabled />
+        <Input
+          value={
+            profile.is_owner
+              ? "Владелец"
+              : profile.role === "admin"
+                ? "Админ"
+                : "Агент"
+          }
+          disabled
+        />
       </div>
       <SubmitButton />
     </form>

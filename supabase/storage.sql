@@ -74,26 +74,29 @@ create policy "complexes_select_public" on storage.objects
   for select using (bucket_id = 'complexes');
 
 drop policy if exists "complexes_insert_authenticated" on storage.objects;
-create policy "complexes_insert_authenticated" on storage.objects
+drop policy if exists "complexes_insert_admin" on storage.objects;
+create policy "complexes_insert_admin" on storage.objects
   for insert with check (
     bucket_id = 'complexes'
-    and auth.role() = 'authenticated'
+    and public.is_admin()
   );
 
 drop policy if exists "complexes_update_authenticated" on storage.objects;
-create policy "complexes_update_authenticated" on storage.objects
+drop policy if exists "complexes_update_admin" on storage.objects;
+create policy "complexes_update_admin" on storage.objects
   for update using (
     bucket_id = 'complexes'
-    and auth.role() = 'authenticated'
+    and public.is_admin()
   )
   with check (
     bucket_id = 'complexes'
-    and auth.role() = 'authenticated'
+    and public.is_admin()
   );
 
 drop policy if exists "complexes_delete_authenticated" on storage.objects;
-create policy "complexes_delete_authenticated" on storage.objects
+drop policy if exists "complexes_delete_admin" on storage.objects;
+create policy "complexes_delete_admin" on storage.objects
   for delete using (
     bucket_id = 'complexes'
-    and auth.role() = 'authenticated'
+    and public.is_admin()
   );

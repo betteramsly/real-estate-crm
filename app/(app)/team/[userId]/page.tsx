@@ -22,7 +22,7 @@ export default async function TeamMemberPage(props: {
 
   const { data: member } = await supabase
     .from("profiles")
-    .select("id, full_name, role, phone, email, avatar_url, created_at")
+    .select("id, full_name, role, is_owner, phone, email, avatar_url, created_at")
     .eq("id", userId)
     .maybeSingle<Profile>();
 
@@ -65,7 +65,11 @@ export default async function TeamMemberPage(props: {
           <AvatarFallback>{initials(member.full_name)}</AvatarFallback>
         </Avatar>
         <Badge variant={member.role === "admin" ? "default" : "secondary"}>
-          {member.role === "admin" ? "Админ" : "Агент"}
+          {member.is_owner
+            ? "Владелец"
+            : member.role === "admin"
+              ? "Админ"
+              : "Агент"}
         </Badge>
       </div>
 
