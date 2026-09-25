@@ -58,6 +58,13 @@ interface TaskFormDialogProps {
   defaultPropertyId?: string;
 }
 
+const DEADLINE_TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => {
+  const totalMinutes = index * 15;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+});
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -226,17 +233,25 @@ export function TaskFormDialog({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <div className="relative">
-                  <Clock3 className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                  <Input
+                <Select value={dueTime} onValueChange={setDueTime}>
+                  <SelectTrigger
                     id="due_at_time"
-                    type="time"
-                    value={dueTime}
-                    onChange={(event) => setDueTime(event.target.value)}
                     aria-label="Время дедлайна"
-                    className="pl-9"
-                  />
-                </div>
+                    className="w-full"
+                  >
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Clock3 className="h-4 w-4 text-muted-foreground" />
+                      <SelectValue />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    {DEADLINE_TIME_OPTIONS.map((time) => (
+                      <SelectItem key={time} value={time}>
+                        {time}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
             </div>
             <div className="space-y-2">
