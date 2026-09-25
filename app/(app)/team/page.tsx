@@ -132,7 +132,7 @@ export default async function TeamPage() {
                         variant={p.role === "admin" ? "default" : "secondary"}
                       >
                         {p.is_owner
-                          ? "Владелец"
+                          ? "Разработчик"
                           : p.role === "admin"
                             ? "Админ"
                             : "Агент"}

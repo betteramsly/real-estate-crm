@@ -157,7 +157,7 @@ export function AppHeader({
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {profile.is_owner
-                    ? "Владелец"
+                    ? "Разработчик"
                     : role === "admin"
                       ? "Администратор"
                       : "Агент"}

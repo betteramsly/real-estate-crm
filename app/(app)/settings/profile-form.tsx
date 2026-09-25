@@ -124,7 +124,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
         <Input
           value={
             profile.is_owner
-              ? "Владелец"
+              ? "Разработчик"
               : profile.role === "admin"
                 ? "Админ"
                 : "Агент"

@@ -66,7 +66,7 @@ export default async function TeamMemberPage(props: {
         </Avatar>
         <Badge variant={member.role === "admin" ? "default" : "secondary"}>
           {member.is_owner
-            ? "Владелец"
+            ? "Разработчик"
             : member.role === "admin"
               ? "Админ"
               : "Агент"}
