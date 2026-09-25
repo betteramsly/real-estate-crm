@@ -22,10 +22,9 @@ export function Calendar({ className, classNames, ...props }: CalendarProps) {
     <DayPicker
       showOutsideDays
       captionLayout="label"
-      fixedWeeks
       startMonth={new Date(currentYear - 20, 0)}
       endMonth={new Date(currentYear + 10, 11)}
-      className={cn("w-[304px] p-3", className)}
+      className={cn("w-[276px] p-3", className)}
       classNames={{
         ...defaultClassNames,
         [UI.Months]: "relative flex flex-col gap-2 sm:flex-row",
@@ -53,12 +52,12 @@ export function Calendar({ className, classNames, ...props }: CalendarProps) {
         [UI.MonthGrid]: "w-full border-collapse space-y-1",
         [UI.Weekdays]: "flex",
         [UI.Weekday]:
-          "w-10 rounded-md text-[0.72rem] font-medium uppercase text-muted-foreground",
+          "w-9 rounded-md text-[0.72rem] font-medium uppercase text-muted-foreground",
         [UI.Week]: "mt-2 flex w-full",
-        [UI.Day]: "h-10 w-10 p-0 text-center text-sm",
+        [UI.Day]: "h-9 w-9 p-0 text-center text-sm",
         [UI.DayButton]: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 rounded-lg p-0 font-normal shadow-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
+          "h-8 w-8 rounded-lg p-0 font-normal shadow-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-0",
         ),
         [SelectionState.selected]:
           "[&_button]:bg-primary [&_button]:font-semibold [&_button]:text-primary-foreground [&_button]:shadow-sm [&_button]:hover:bg-primary [&_button]:hover:text-primary-foreground [&_button]:focus:bg-primary [&_button]:focus:text-primary-foreground",

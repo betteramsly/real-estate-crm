@@ -6,7 +6,7 @@ import { useFormStatus } from "react-dom";
 import { format } from "date-fns";
 import { ru } from "date-fns/locale";
 import { toast } from "sonner";
-import { CalendarIcon, Clock3, Loader2 } from "lucide-react";
+import { CalendarIcon, Check, ChevronDown, Clock3, Loader2 } from "lucide-react";
 import { SearchableSelect } from "@/components/searchable-select";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -58,12 +58,10 @@ interface TaskFormDialogProps {
   defaultPropertyId?: string;
 }
 
-const DEADLINE_TIME_OPTIONS = Array.from({ length: 96 }, (_, index) => {
-  const totalMinutes = index * 15;
-  const hours = Math.floor(totalMinutes / 60);
-  const minutes = totalMinutes % 60;
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
-});
+const DEADLINE_HOURS = Array.from({ length: 24 }, (_, hour) =>
+  String(hour).padStart(2, "0"),
+);
+const DEADLINE_MINUTES = ["00", "15", "30", "45"];
 
 function SubmitButton() {
   const { pending } = useFormStatus();
@@ -89,8 +87,10 @@ export function TaskFormDialog({
 }: TaskFormDialogProps) {
   const [open, setOpen] = React.useState(false);
   const [calendarOpen, setCalendarOpen] = React.useState(false);
+  const [timeOpen, setTimeOpen] = React.useState(false);
   const [dueDate, setDueDate] = React.useState<Date | undefined>();
   const [dueTime, setDueTime] = React.useState("12:00");
+  const hoursListRef = React.useRef<HTMLDivElement>(null);
   const [timezoneOffset, setTimezoneOffset] = React.useState(0);
   const [state, formAction] = useActionState<TaskFormState, FormData>(
     createTaskAction,
@@ -105,6 +105,12 @@ export function TaskFormDialog({
     setTimezoneOffset(new Date().getTimezoneOffset());
   }, []);
 
+  React.useEffect(() => {
+    if (!timeOpen || !hoursListRef.current) return;
+    const selectedHour = Number(dueTime.split(":")[0]);
+    hoursListRef.current.scrollTop = Math.max(0, selectedHour * 36 - 64);
+  }, [dueTime, timeOpen]);
+
   const canAssignOthers = currentRole === "admin";
   const assignableProfiles = canAssignOthers
     ? profiles
@@ -112,6 +118,7 @@ export function TaskFormDialog({
   const dueAtValue = dueDate
     ? `${format(dueDate, "yyyy-MM-dd")}T${dueTime || "12:00"}`
     : "";
+  const [dueHour, dueMinute] = dueTime.split(":");
 
   const selectDueDate = (date: Date | undefined) => {
     setDueDate(date);
@@ -199,20 +206,16 @@ export function TaskFormDialog({
                   <PopoverContent
                     className="w-auto overflow-hidden rounded-xl p-0 shadow-xl"
                     align="start"
+                    sideOffset={8}
+                    collisionPadding={12}
                   >
-                    <div className="border-b bg-muted/40 px-4 py-3">
-                      <p className="text-sm font-medium">Дата дедлайна</p>
-                      <p className="text-xs text-muted-foreground">
-                        Выберите день в календаре
-                      </p>
-                    </div>
                     <Calendar
                       mode="single"
                       selected={dueDate}
                       onSelect={selectDueDate}
                       locale={ru}
                     />
-                    <div className="flex items-center justify-between gap-2 border-t p-2">
+                    <div className="flex items-center justify-between gap-2 border-t p-1.5">
                       <Button
                         type="button"
                         variant="ghost"
@@ -233,25 +236,109 @@ export function TaskFormDialog({
                     </div>
                   </PopoverContent>
                 </Popover>
-                <Select value={dueTime} onValueChange={setDueTime}>
-                  <SelectTrigger
-                    id="due_at_time"
-                    aria-label="Время дедлайна"
-                    className="w-full"
+                <Popover open={timeOpen} onOpenChange={setTimeOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      id="due_at_time"
+                      type="button"
+                      variant="outline"
+                      role="combobox"
+                      aria-label="Время дедлайна"
+                      aria-expanded={timeOpen}
+                      className="w-full justify-between rounded-md px-3 font-normal"
+                    >
+                      <span className="flex items-center gap-2">
+                        <Clock3 className="h-4 w-4 text-muted-foreground" />
+                        {dueTime}
+                      </span>
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent
+                    align="end"
+                    sideOffset={8}
+                    collisionPadding={12}
+                    onOpenAutoFocus={(event) => event.preventDefault()}
+                    className="w-64 overflow-hidden rounded-xl p-0 shadow-xl"
                   >
-                    <div className="flex min-w-0 items-center gap-2">
-                      <Clock3 className="h-4 w-4 text-muted-foreground" />
-                      <SelectValue />
+                    <div className="border-b bg-muted/40 px-3 py-2.5">
+                      <p className="text-sm font-medium">Время дедлайна</p>
                     </div>
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    {DEADLINE_TIME_OPTIONS.map((time) => (
-                      <SelectItem key={time} value={time}>
-                        {time}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                    <div className="grid grid-cols-2 gap-2 p-2">
+                      <div className="space-y-1.5">
+                        <p className="px-1 text-xs font-medium text-muted-foreground">
+                          Часы
+                        </p>
+                        <div
+                          ref={hoursListRef}
+                          role="listbox"
+                          aria-label="Часы"
+                          className="scrollbar-thin h-36 space-y-1 overflow-y-auto pr-1"
+                        >
+                          {DEADLINE_HOURS.map((hour) => (
+                            <button
+                              key={hour}
+                              type="button"
+                              role="option"
+                              aria-selected={dueHour === hour}
+                              onClick={() => setDueTime(`${hour}:${dueMinute}`)}
+                              className={cn(
+                                "flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-sm transition-colors hover:bg-accent",
+                                dueHour === hour &&
+                                  "bg-primary text-primary-foreground hover:bg-primary",
+                              )}
+                            >
+                              {hour}
+                              {dueHour === hour ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <p className="px-1 text-xs font-medium text-muted-foreground">
+                          Минуты
+                        </p>
+                        <div
+                          role="listbox"
+                          aria-label="Минуты"
+                          className="space-y-1"
+                        >
+                          {DEADLINE_MINUTES.map((minute) => (
+                            <button
+                              key={minute}
+                              type="button"
+                              role="option"
+                              aria-selected={dueMinute === minute}
+                              onClick={() => setDueTime(`${dueHour}:${minute}`)}
+                              className={cn(
+                                "flex h-8 w-full items-center justify-between rounded-lg px-2.5 text-sm transition-colors hover:bg-accent",
+                                dueMinute === minute &&
+                                  "bg-primary text-primary-foreground hover:bg-primary",
+                              )}
+                            >
+                              {minute}
+                              {dueMinute === minute ? (
+                                <Check className="h-3.5 w-3.5" />
+                              ) : null}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="border-t p-1.5">
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="w-full"
+                        onClick={() => setTimeOpen(false)}
+                      >
+                        Готово
+                      </Button>
+                    </div>
+                  </PopoverContent>
+                </Popover>
               </div>
             </div>
             <div className="space-y-2">
