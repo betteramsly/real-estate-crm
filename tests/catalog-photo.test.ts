@@ -15,6 +15,9 @@ describe("catalog photo loading", () => {
     expect(catalogPhotoSrc(supabase, 256)).toBe(
       `/_next/image?url=${encodeURIComponent(supabase)}&w=256&q=70`,
     );
+    expect(catalogPhotoSrc(supabase, 1080)).toBe(
+      `/_next/image?url=${encodeURIComponent(supabase)}&w=1080&q=85`,
+    );
     expect(
       canOptimizeCatalogPhoto("https://share.api.2gis.ru/getimage?city=grozny"),
     ).toBe(false);

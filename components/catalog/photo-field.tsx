@@ -161,7 +161,8 @@ export function PhotoField({
         <Upload className="h-6 w-6 text-muted-foreground" />
         <span className="text-sm font-medium">Загрузить фото с компьютера</span>
         <span className="text-xs text-muted-foreground">
-          JPG, PNG или WEBP. Можно выбрать сразу несколько файлов.
+          JPG, PNG, WebP или GIF. Новые файлы — до 3,5 МБ суммарно за одно
+          сохранение; фото сохранятся в WebP без обрезки.
         </span>
         <input
           ref={inputRef}

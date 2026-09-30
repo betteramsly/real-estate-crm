@@ -13,6 +13,11 @@ import {
 } from "@/lib/catalog";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import { mergePhotoOrder } from "@/lib/photo-order";
+import {
+  convertImageToWebp,
+  STORAGE_IMAGE_MAX_BYTES,
+  WEBP_CONTENT_TYPE,
+} from "@/lib/image-processing";
 import type {
   CatalogDocument,
   CatalogDocumentKind,
@@ -22,8 +27,9 @@ import type {
   PropertyInternal,
 } from "@/lib/types";
 
-const DOCUMENT_MAX_BYTES = 10 * 1024 * 1024;
-const IMAGE_MAX_BYTES = 10 * 1024 * 1024;
+const FORM_UPLOAD_MAX_BYTES = 3_500_000;
+const DOCUMENT_MAX_BYTES = FORM_UPLOAD_MAX_BYTES;
+const IMAGE_MAX_BYTES = FORM_UPLOAD_MAX_BYTES;
 const IMAGE_MIME_TYPES = new Set([
   "image/gif",
   "image/jpeg",
@@ -123,7 +129,7 @@ function fileExtension(file: File) {
 function validateDocumentFiles(files: File[]) {
   for (const file of files) {
     if (file.size > DOCUMENT_MAX_BYTES) {
-      return `Файл «${file.name}» больше 10 МБ`;
+      return `Файл «${file.name}» больше 3,5 МБ`;
     }
     if (!DOCUMENT_MIME_TYPES.has(file.type.toLowerCase())) {
       return `Формат «${file.name}» не поддерживается`;
@@ -135,13 +141,20 @@ function validateDocumentFiles(files: File[]) {
 function validateImageFiles(files: File[]) {
   for (const file of files) {
     if (file.size > IMAGE_MAX_BYTES) {
-      return `Изображение «${file.name}» больше 10 МБ`;
+      return `Изображение «${file.name}» больше 3,5 МБ`;
     }
     if (!IMAGE_MIME_TYPES.has(file.type.toLowerCase())) {
       return `Формат изображения «${file.name}» не поддерживается`;
     }
   }
   return null;
+}
+
+function validateUploadBatch(files: File[]) {
+  const total = files.reduce((sum, file) => sum + file.size, 0);
+  return total > FORM_UPLOAD_MAX_BYTES
+    ? "Общий размер новых файлов за одно сохранение должен быть меньше 3,5 МБ"
+    : null;
 }
 
 function isNextRedirect(error: unknown) {
@@ -261,18 +274,28 @@ async function uploadFiles(
   const urls: string[] = [];
   const paths: string[] = [];
   for (const file of files) {
-    const ext = file.type.includes("png")
-      ? "png"
-      : file.type.includes("webp")
-        ? "webp"
-        : file.type.includes("gif")
-          ? "gif"
-          : "jpg";
-    const path = `${propertyId}/${folder}/${randomUUID()}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer;
+    try {
+      const converted = await convertImageToWebp(
+        Buffer.from(await file.arrayBuffer()),
+        { maxBytes: STORAGE_IMAGE_MAX_BYTES },
+      );
+      buffer = converted.buffer;
+    } catch {
+      return {
+        urls,
+        paths,
+        error: `Не удалось обработать изображение «${file.name}»`,
+      };
+    }
+    const path = `${propertyId}/${folder}/${randomUUID()}.webp`;
     const { error } = await supabase.storage
       .from("complexes")
-      .upload(path, buffer, { contentType: file.type, upsert: false });
+      .upload(path, buffer, {
+        cacheControl: "31536000",
+        contentType: WEBP_CONTENT_TYPE,
+        upsert: false,
+      });
     if (error) {
       return {
         urls,
@@ -342,12 +365,29 @@ async function uploadDocuments(
   const documents: CatalogDocument[] = [];
   const paths: string[] = [];
   for (const file of files) {
-    const ext = fileExtension(file);
+    const image = IMAGE_MIME_TYPES.has(file.type.toLowerCase());
+    const ext = image ? "webp" : fileExtension(file);
     const kind = inferCatalogDocumentKind(file.name);
     const path = `${propertyId}/docs/${randomUUID()}.${ext}`;
-    const buffer = Buffer.from(await file.arrayBuffer());
+    let buffer: Buffer = Buffer.from(await file.arrayBuffer());
+    if (image) {
+      try {
+        buffer = (
+          await convertImageToWebp(buffer, {
+            maxBytes: STORAGE_IMAGE_MAX_BYTES,
+          })
+        ).buffer;
+      } catch {
+        return {
+          documents,
+          paths,
+          error: `Не удалось обработать изображение «${file.name}»`,
+        };
+      }
+    }
     const { error } = await supabase.storage.from("complexes").upload(path, buffer, {
-      contentType: file.type,
+      cacheControl: "31536000",
+      contentType: image ? WEBP_CONTENT_TYPE : file.type,
       upsert: false,
     });
     if (error) {
@@ -426,13 +466,19 @@ export async function createPropertyAction(
     const { supabase, user, allowed } = await requirePropertyManager();
     if (!allowed) return { error: "Недостаточно прав" };
     const documentFiles = filesOf(formData, "document_files");
-    const documentsError = validateDocumentFiles(documentFiles);
-    if (documentsError) return { error: documentsError };
-    const imageError = validateImageFiles([
+    const imageFiles = [
       ...filesOf(formData, "photo_files"),
       ...filesOf(formData, "location_files"),
       ...filesOf(formData, "price_files"),
+    ];
+    const uploadBatchError = validateUploadBatch([
+      ...documentFiles,
+      ...imageFiles,
     ]);
+    if (uploadBatchError) return { error: uploadBatchError };
+    const documentsError = validateDocumentFiles(documentFiles);
+    if (documentsError) return { error: documentsError };
+    const imageError = validateImageFiles(imageFiles);
     if (imageError) return { error: imageError };
 
     const { data: created, error } = await supabase
@@ -529,13 +575,19 @@ export async function updatePropertyAction(
   const { supabase, allowed } = await requirePropertyManager();
   if (!allowed) return { error: "Недостаточно прав" };
   const documentFiles = filesOf(formData, "document_files");
-  const documentsError = validateDocumentFiles(documentFiles);
-  if (documentsError) return { error: documentsError };
-  const imageError = validateImageFiles([
+  const imageFiles = [
     ...filesOf(formData, "photo_files"),
     ...filesOf(formData, "location_files"),
     ...filesOf(formData, "price_files"),
+  ];
+  const uploadBatchError = validateUploadBatch([
+    ...documentFiles,
+    ...imageFiles,
   ]);
+  if (uploadBatchError) return { error: uploadBatchError };
+  const documentsError = validateDocumentFiles(documentFiles);
+  if (documentsError) return { error: documentsError };
+  const imageError = validateImageFiles(imageFiles);
   if (imageError) return { error: imageError };
 
   const { data: existing, error: existingError } = await supabase

@@ -5,6 +5,10 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
 import { canChangeUserRole } from "@/lib/role-management";
+import {
+  convertImageToWebp,
+  WEBP_CONTENT_TYPE,
+} from "@/lib/image-processing";
 import type { UserRole } from "@/lib/types";
 
 const profileSchema = z.object({
@@ -26,7 +30,8 @@ const AVATAR_MIME_ALIASES: Record<string, string> = {
   "image/x-png": "image/png",
 };
 
-const AVATAR_MAX_BYTES = 3 * 1024 * 1024;
+const AVATAR_SOURCE_MAX_BYTES = 3_500_000;
+const AVATAR_STORED_MAX_BYTES = 3 * 1024 * 1024;
 const uuidSchema = z.string().uuid();
 
 export type ProfileFormState = {
@@ -34,16 +39,6 @@ export type ProfileFormState = {
   success?: boolean;
   avatarUrl?: string | null;
 };
-
-function avatarExtension(file: File) {
-  const fromName = file.name.split(".").pop()?.toLowerCase() ?? "";
-  if (fromName in AVATAR_MIME_BY_EXT) return fromName;
-  const mime = normalizeAvatarMime(file.type);
-  if (mime === "image/png") return "png";
-  if (mime === "image/webp") return "webp";
-  if (mime === "image/gif") return "gif";
-  return "jpg";
-}
 
 function normalizeAvatarMime(raw: string) {
   const type = raw.trim().toLowerCase();
@@ -111,20 +106,29 @@ export async function updateProfileAction(
       };
     }
 
-    if (avatarFile.size > AVATAR_MAX_BYTES) {
-      return { error: "Размер изображения должен быть меньше 3 МБ" };
+    if (avatarFile.size > AVATAR_SOURCE_MAX_BYTES) {
+      return { error: "Исходное изображение должно быть меньше 3,5 МБ" };
     }
 
-    const extension = avatarExtension(avatarFile);
-    const filePath = `${user.id}/avatar-${randomUUID()}.${extension}`;
-    const buffer = Buffer.from(await avatarFile.arrayBuffer());
+    const filePath = `${user.id}/avatar-${randomUUID()}.webp`;
+    let buffer: Buffer;
+    try {
+      buffer = (
+        await convertImageToWebp(
+          Buffer.from(await avatarFile.arrayBuffer()),
+          { maxBytes: AVATAR_STORED_MAX_BYTES, maxEdge: 1600 },
+        )
+      ).buffer;
+    } catch {
+      return { error: "Не удалось обработать изображение" };
+    }
 
     const { error: uploadError } = await supabase.storage
       .from("avatars")
       .upload(filePath, buffer, {
-        contentType: mime,
+        contentType: WEBP_CONTENT_TYPE,
         upsert: false,
-        cacheControl: "3600",
+        cacheControl: "31536000",
       });
 
     if (uploadError) {

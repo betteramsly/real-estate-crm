@@ -775,9 +775,9 @@ export function PhotoGallery({
               photos={photos}
               index={index}
               alt={alt}
-              className="object-cover"
+              className="object-contain"
               priority
-              width={1080}
+              width={1920}
             />
           ) : (
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_30%_20%,_hsl(var(--muted-foreground)/0.14),_transparent_50%)]" />

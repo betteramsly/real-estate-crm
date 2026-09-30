@@ -60,6 +60,16 @@ import type {
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
+const FORM_UPLOAD_MAX_BYTES = 3_500_000;
+
+function selectedFileBytes(form: HTMLFormElement) {
+  return Array.from(new FormData(form).values()).reduce(
+    (total, value) =>
+      value instanceof File && value.size > 0 ? total + value.size : total,
+    0,
+  );
+}
+
 export type { PropertyFormSuggestions };
 
 function formStreetAddress(
@@ -270,6 +280,15 @@ export function PropertyForm({
   return (
     <form
       action={formAction}
+      onSubmit={(event) => {
+        if (selectedFileBytes(event.currentTarget) <= FORM_UPLOAD_MAX_BYTES) {
+          return;
+        }
+        event.preventDefault();
+        toast.error(
+          "Общий размер новых файлов за одно сохранение должен быть меньше 3,5 МБ",
+        );
+      }}
       className="mx-auto max-w-3xl space-y-5 max-md:[&_input]:text-base max-md:[&_select]:text-base max-md:[&_textarea]:text-base"
     >
       <FormSection title="Фотографии">

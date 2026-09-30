@@ -57,7 +57,7 @@
 
 - Файлы в `public/brand/`. В интерфейсе только через `BrandMark` и `BrandLockup`.
 - На тёмном фоне — light-файлы, на светлом — dark.
-- Знак: `mark-light.png` / `mark-dark.png`. Вкладка: `app/icon.png` (Black Russian + золотой знак).
+- Знак: `mark-light.webp` / `mark-dark.webp`. Вкладка: `app/icon.png` (Black Russian + золотой знак).
 - Локап: `lockup-stack-*` в сайдбаре и на входе, `lockup-line-*` в режиме показа.
 - Не сажать логотип в цветной квадрат в интерфейсе. Не рисовать подпись шрифтом вместо файла.
 

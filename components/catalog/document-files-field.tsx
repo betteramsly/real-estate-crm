@@ -16,8 +16,8 @@ export function DocumentFilesField() {
     <div className="space-y-2 md:col-span-2">
       <Label htmlFor="document_files">Файлы планировок и шахматок</Label>
       <p className="text-sm text-muted-foreground">
-        PDF, JPG, PNG, WEBP, GIF или Excel до 10 МБ. Можно выбрать несколько
-        файлов.
+        PDF, JPG, PNG, WebP, GIF или Excel. Новые файлы — до 3,5 МБ суммарно за
+        одно сохранение; изображения сохранятся в WebP.
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="button" onClick={() => inputRef.current?.click()}>

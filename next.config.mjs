@@ -9,7 +9,8 @@ const nextConfig = {
   reactStrictMode: true,
   experimental: {
     serverActions: {
-      bodySizeLimit: "20mb",
+      // Keep Server Actions below Vercel Functions' 4.5 MB request limit.
+      bodySizeLimit: "4mb",
     },
   },
   turbopack: {
@@ -17,7 +18,7 @@ const nextConfig = {
   },
   images: {
     formats: ["image/webp"],
-    qualities: [70, 75],
+    qualities: [70, 75, 85],
     minimumCacheTTL: 60 * 60 * 24 * 30,
     deviceSizes: [640, 750, 828, 1080, 1200, 1920],
     imageSizes: [80, 96, 128, 256, 384],

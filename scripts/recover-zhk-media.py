@@ -96,9 +96,9 @@ def compress_image(data: bytes) -> bytes:
         image = background
     else:
         image = image.convert("RGB")
-    image.thumbnail((1600, 1600))
+    image.thumbnail((3200, 3200))
     out = io.BytesIO()
-    image.save(out, format="WEBP", quality=76, method=4)
+    image.save(out, format="WEBP", quality=88, method=6)
     return out.getvalue()
 
 

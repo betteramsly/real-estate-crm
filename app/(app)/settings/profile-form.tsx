@@ -22,6 +22,8 @@ interface ProfileFormProps {
   email: string;
 }
 
+const AVATAR_SOURCE_MAX_BYTES = 3_500_000;
+
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
@@ -62,7 +64,18 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
   }, [state]);
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      className="space-y-4"
+      onSubmit={(event) => {
+        const avatar = new FormData(event.currentTarget).get("avatar");
+        if (!(avatar instanceof File) || avatar.size <= AVATAR_SOURCE_MAX_BYTES) {
+          return;
+        }
+        event.preventDefault();
+        toast.error("Исходное изображение должно быть меньше 3,5 МБ");
+      }}
+    >
       <div className="flex flex-col gap-4 rounded-xl border bg-muted/30 p-4 sm:flex-row sm:items-center">
         <Avatar className="h-20 w-20 border">
           {previewUrl ? (
@@ -77,8 +90,8 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
             Фото профиля
           </Label>
           <p className="text-sm text-muted-foreground">
-            Загрузите квадратное изображение до 3 МБ (JPG, PNG, WebP или GIF).
-            Оно будет видно в шапке и списке команды.
+            Загрузите изображение до 3,5 МБ (JPG, PNG, WebP или GIF). Оно
+            автоматически сохранится в WebP без обрезки.
           </p>
           <label className="relative inline-flex h-9 cursor-pointer items-center justify-center gap-2 overflow-hidden rounded-md border border-input bg-background px-4 py-2 text-sm font-medium shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground">
             <Camera className="h-4 w-4" />

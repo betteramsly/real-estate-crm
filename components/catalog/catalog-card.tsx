@@ -51,7 +51,7 @@ export function CatalogCard({
               alt={property.title}
               fill
               sizes="(min-width: 1024px) 33vw, (min-width: 768px) 50vw, 100vw"
-              quality={70}
+              quality={85}
               priority={priority}
               className="z-0 object-cover transition-transform duration-500 ease-luxury motion-reduce:transition-none group-hover:scale-[1.04] motion-reduce:group-hover:scale-100"
             />

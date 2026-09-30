@@ -37,8 +37,8 @@ function ThemedLogo({
 export function BrandMark({ className }: { className?: string }) {
   return (
     <ThemedLogo
-      lightSrc="/brand/mark-light.png"
-      darkSrc="/brand/mark-dark.png"
+      lightSrc="/brand/mark-light.webp"
+      darkSrc="/brand/mark-dark.webp"
       alt=""
       className={cn("h-7", className)}
     />
@@ -57,15 +57,15 @@ export function BrandLockup({
   vertical?: boolean;
 }) {
   const lightSrc = vertical
-    ? "/brand/lockup-vertical-light.png"
+    ? "/brand/lockup-vertical-light.webp"
     : line
-      ? "/brand/lockup-line-light.png"
-      : "/brand/lockup-stack-light.png";
+      ? "/brand/lockup-line-light.webp"
+      : "/brand/lockup-stack-light.webp";
   const darkSrc = vertical
-    ? "/brand/lockup-vertical-dark.png"
+    ? "/brand/lockup-vertical-dark.webp"
     : line
-      ? "/brand/lockup-line-dark.png"
-      : "/brand/lockup-stack-dark.png";
+      ? "/brand/lockup-line-dark.webp"
+      : "/brand/lockup-stack-dark.webp";
 
   return (
     <ThemedLogo

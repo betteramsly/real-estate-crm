@@ -20,10 +20,11 @@ export function canOptimizeCatalogPhoto(url: string) {
 
 export function catalogPhotoSrc(url: string, width: CatalogPhotoWidth) {
   if (!url || !canOptimizeCatalogPhoto(url)) return url;
+  const quality = width >= 1080 ? 85 : width >= 640 ? 75 : 70;
   const params = new URLSearchParams({
     url,
     w: String(width),
-    q: "70",
+    q: String(quality),
   });
   return `/_next/image?${params.toString()}`;
 }

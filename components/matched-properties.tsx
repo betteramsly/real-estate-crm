@@ -49,6 +49,7 @@ export function MatchedProperties({
                     alt={property.title}
                     fill
                     sizes="(min-width: 768px) 50vw, 100vw"
+                    quality={85}
                     className="object-cover"
                   />
                 ) : (
