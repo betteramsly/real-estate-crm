@@ -15,9 +15,11 @@ import { formatCurrency } from "@/lib/formatters";
 export function FinancialChart({
   data,
 }: {
-  data: Array<{ label: string; gross: number; revenue: number }>;
+  data: Array<{ label: string; gross: number; realtorEarnings: number }>;
 }) {
-  const hasValues = data.some((row) => row.gross > 0 || row.revenue > 0);
+  const hasValues = data.some(
+    (row) => row.gross > 0 || row.realtorEarnings > 0,
+  );
 
   if (!hasValues) {
     return (
@@ -79,13 +81,13 @@ export function FinancialChart({
             }}
             formatter={(value: number, name: string) => [
               formatCurrency(value),
-              name === "gross" ? "Валовый объём" : "Комиссия компании",
+              name === "gross" ? "Валовый объём" : "Заработок риелторов",
             ]}
             labelStyle={{ color: "hsl(var(--foreground))" }}
           />
           <Legend
             formatter={(value) =>
-              value === "gross" ? "Валовый объём" : "Комиссия компании"
+              value === "gross" ? "Валовый объём" : "Заработок риелторов"
             }
           />
           <Area
@@ -97,7 +99,7 @@ export function FinancialChart({
           />
           <Area
             type="monotone"
-            dataKey="revenue"
+            dataKey="realtorEarnings"
             stroke="hsl(var(--chart-2))"
             strokeWidth={2}
             fill="url(#analyticsRevenueFill)"

@@ -17,7 +17,7 @@ import {
 import { BrandLockup } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { canViewCompanyAnalytics } from "@/lib/role-management";
+import { canViewCompanyAnalytics, canViewTeam } from "@/lib/role-management";
 import type { UserRole } from "@/lib/types";
 
 interface NavItem {
@@ -26,6 +26,7 @@ interface NavItem {
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
   leadershipOnly?: boolean;
+  teamOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -39,7 +40,7 @@ const NAV_ITEMS: NavItem[] = [
   { href: "/clients", label: "Клиенты", icon: Users },
   { href: "/deals", label: "Сделки", icon: Handshake },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
-  { href: "/team", label: "Команда", icon: UserCog, adminOnly: true },
+  { href: "/team", label: "Команда", icon: UserCog, teamOnly: true },
 ];
 
 export function AppSidebar({
@@ -71,7 +72,8 @@ export function AppSidebar({
   const items = NAV_ITEMS.filter(
     (item) =>
       (!item.adminOnly || role === "admin") &&
-      (!item.leadershipOnly || canViewCompanyAnalytics(role, isOwner)),
+      (!item.leadershipOnly || canViewCompanyAnalytics(role, isOwner)) &&
+      (!item.teamOnly || canViewTeam(role, isOwner)),
   );
   const catalogActive =
     pathname === "/properties" || pathname.startsWith("/properties/");

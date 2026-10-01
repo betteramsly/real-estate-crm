@@ -4,7 +4,11 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
-import { canChangeUserRole, isUserRole } from "@/lib/role-management";
+import {
+  canChangeUserRole,
+  canSetRealtorCommission,
+  isUserRole,
+} from "@/lib/role-management";
 import {
   convertImageToWebp,
   WEBP_CONTENT_TYPE,
@@ -33,6 +37,11 @@ const AVATAR_MIME_ALIASES: Record<string, string> = {
 const AVATAR_SOURCE_MAX_BYTES = 3_500_000;
 const AVATAR_STORED_MAX_BYTES = 3 * 1024 * 1024;
 const uuidSchema = z.string().uuid();
+const companyCommissionPercentSchema = z
+  .number()
+  .finite()
+  .min(0, "Процент компании не может быть меньше 0")
+  .max(100, "Процент компании не может быть больше 100");
 
 export type ProfileFormState = {
   error?: string;
@@ -224,6 +233,66 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
   revalidatePath("/team");
   revalidatePath("/analytics");
   revalidatePath("/", "layout");
+}
+
+export async function setRealtorCompanyCommissionPercentAction(
+  userId: string,
+  percent: number,
+) {
+  const { supabase, profile } = await requireProfile();
+  if (!uuidSchema.safeParse(userId).success) {
+    throw new Error("Сотрудник не найден");
+  }
+
+  const parsedPercent = companyCommissionPercentSchema.safeParse(percent);
+  if (!parsedPercent.success) {
+    throw new Error(
+      parsedPercent.error.issues[0]?.message ?? "Укажите процент от 0 до 100",
+    );
+  }
+
+  const { data: target, error: targetError } = await supabase
+    .from("profiles")
+    .select("id, role, is_owner")
+    .eq("id", userId)
+    .maybeSingle<{ id: string; role: UserRole; is_owner: boolean }>();
+
+  if (targetError || !target) {
+    throw new Error("Сотрудник не найден");
+  }
+
+  if (
+    !canSetRealtorCommission({
+      actorRole: profile.role,
+      actorIsOwner: profile.is_owner,
+      targetRole: target.role,
+      targetIsOwner: target.is_owner,
+    })
+  ) {
+    if (target.is_owner) {
+      throw new Error("Процент разработчика изменить нельзя");
+    }
+    if (target.role === "rop" || target.role === "manager") {
+      throw new Error("Процент компании можно установить только риелтору");
+    }
+    throw new Error("Только руководитель или РОП может менять процент компании");
+  }
+
+  const roundedPercent = Math.round(parsedPercent.data * 100) / 100;
+  const { error } = await supabase.rpc(
+    "set_realtor_company_commission_percent",
+    {
+      target_user_id: userId,
+      new_percent: roundedPercent,
+    },
+  );
+
+  if (error) {
+    throw new Error(error.message || "Не удалось сохранить процент компании");
+  }
+
+  revalidatePath("/team");
+  revalidatePath("/analytics");
 }
 
 const agentSchema = z.object({

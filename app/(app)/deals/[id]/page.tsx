@@ -115,7 +115,7 @@ export default async function DealPage(props: {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Комиссия компании
+              Комиссия по сделке
             </CardTitle>
           </CardHeader>
           <CardContent>

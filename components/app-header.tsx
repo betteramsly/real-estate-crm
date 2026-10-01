@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { initials } from "@/lib/formatters";
 import {
   canViewCompanyAnalytics,
+  canViewTeam,
   USER_ROLE_LABELS,
 } from "@/lib/role-management";
 import type { Profile, UserRole } from "@/lib/types";
@@ -34,6 +35,7 @@ const NAV_ITEMS: {
   label: string;
   adminOnly?: boolean;
   leadershipOnly?: boolean;
+  teamOnly?: boolean;
   accent?: boolean;
 }[] = [
   { href: "/dashboard", label: "Дашборд" },
@@ -41,7 +43,7 @@ const NAV_ITEMS: {
   { href: "/clients", label: "Клиенты" },
   { href: "/deals", label: "Сделки" },
   { href: "/tasks", label: "Задачи" },
-  { href: "/team", label: "Команда", adminOnly: true },
+  { href: "/team", label: "Команда", teamOnly: true },
   { href: "/properties", label: "База ЖК", accent: true },
 ];
 
@@ -82,7 +84,8 @@ export function AppHeader({
     (item) =>
       (!item.adminOnly || role === "admin") &&
       (!item.leadershipOnly ||
-        canViewCompanyAnalytics(role, profile.is_owner)),
+        canViewCompanyAnalytics(role, profile.is_owner)) &&
+      (!item.teamOnly || canViewTeam(role, profile.is_owner)),
   );
 
   return (

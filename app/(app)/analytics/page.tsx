@@ -32,11 +32,11 @@ import {
 } from "@/components/ui/table";
 import { DealsStageChart } from "../dashboard/deals-stage-chart";
 import { FinancialChart } from "./financial-chart";
+import { PeriodFilter } from "./period-filter";
 import {
   ANALYTICS_PERIOD_LABELS,
   computeCompanyAnalytics,
-  resolveAnalyticsPeriod,
-  type AnalyticsPeriod,
+  resolveAnalyticsDateRange,
 } from "@/lib/analytics";
 import { requireProfile } from "@/lib/auth";
 import {
@@ -88,7 +88,10 @@ type AnalyticsTask = Pick<
   | "assigned_to"
   | "created_at"
 >;
-type AnalyticsProfile = Pick<Profile, "id" | "full_name" | "role">;
+type AnalyticsProfile = Pick<
+  Profile,
+  "id" | "full_name" | "role" | "company_commission_percent"
+>;
 
 const CLIENT_STATUS_BAR = {
   new: "bg-primary",
@@ -100,10 +103,12 @@ const CLIENT_STATUS_BAR = {
 export default async function AnalyticsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ period?: string }>;
+  searchParams: Promise<{ period?: string; from?: string; to?: string }>;
 }) {
-  const { period: rawPeriod } = await searchParams;
-  const period = resolveAnalyticsPeriod(rawPeriod);
+  const params = await searchParams;
+  const now = new Date();
+  const range = resolveAnalyticsDateRange(params, now);
+  const period = range.selection === "custom" ? "30d" : range.selection;
   const { supabase, profile } = await requireProfile();
 
   if (!canViewCompanyAnalytics(profile.role, profile.is_owner)) {
@@ -128,7 +133,7 @@ export default async function AnalyticsPage({
         .returns<AnalyticsTask[]>(),
       supabase
         .from("profiles")
-        .select("id, full_name, role")
+        .select("id, full_name, role, company_commission_percent")
         .order("full_name", { ascending: true })
         .returns<AnalyticsProfile[]>(),
     ]);
@@ -146,27 +151,32 @@ export default async function AnalyticsPage({
   const deals = dealsResult.data ?? [];
   const tasks = tasksResult.data ?? [];
   const profiles = profilesResult.data ?? [];
-  const now = new Date();
   const analytics = computeCompanyAnalytics({
     clients,
     deals,
     tasks,
     profiles,
     period,
+    periodStart: range.start,
+    periodEnd: range.end,
     now,
   });
   const maxClientStatus = Math.max(
     1,
     ...analytics.clientStatuses.map((row) => row.count),
   );
-  const dateRange = `${formatDate(analytics.periodStart)} — ${formatDate(now)}`;
+  const dateRange = `${formatDate(analytics.periodStart)} — ${formatDate(analytics.periodEnd)}`;
+  const periodLabel =
+    range.selection === "custom"
+      ? "выбранный период"
+      : ANALYTICS_PERIOD_LABELS[range.selection].toLowerCase();
 
   return (
     <>
       <PageHeader
         title="Аналитика"
-        description={`Результаты всей команды за ${ANALYTICS_PERIOD_LABELS[period].toLowerCase()} · ${dateRange}`}
-        actions={<PeriodFilter period={period} />}
+        description={`Результаты всей команды за ${periodLabel} · ${dateRange}`}
+        actions={<PeriodFilter range={range} />}
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -178,9 +188,9 @@ export default async function AnalyticsPage({
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <KpiCard
           icon={<CircleDollarSign className="h-4 w-4" />}
-          label="Заработок компании"
-          value={formatCurrency(analytics.companyRevenue)}
-          hint={`${analytics.wonDeals} успешно закрытых сделок`}
+          label="Заработок риелторов"
+          value={formatCurrency(analytics.realtorEarnings)}
+          hint={`${analytics.wonDeals} сделок · после удержания компании`}
         />
         <KpiCard
           icon={<WalletCards className="h-4 w-4" />}
@@ -224,7 +234,7 @@ export default async function AnalyticsPage({
           <CardHeader>
             <CardTitle>Динамика финансов</CardTitle>
             <CardDescription>
-              Валовый объём и комиссия по успешно закрытым сделкам
+              Валовый объём и заработок риелторов после удержания компании
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -297,7 +307,8 @@ export default async function AnalyticsPage({
                 <TableHead>Новые сделки</TableHead>
                 <TableHead>Успешные</TableHead>
                 <TableHead>Валовый объём</TableHead>
-                <TableHead>Комиссия</TableHead>
+                <TableHead>Процент компании</TableHead>
+                <TableHead>Заработок риелтора</TableHead>
                 <TableHead>Открытые задачи</TableHead>
                 <TableHead className="pr-6">Просрочено</TableHead>
               </TableRow>
@@ -325,8 +336,13 @@ export default async function AnalyticsPage({
                   <TableCell className="whitespace-nowrap">
                     {formatCurrency(row.grossVolume)}
                   </TableCell>
+                  <TableCell className="whitespace-nowrap">
+                    {row.companyCommissionPercent === null
+                      ? "—"
+                      : `${row.companyCommissionPercent}%`}
+                  </TableCell>
                   <TableCell className="whitespace-nowrap font-medium">
-                    {formatCurrency(row.companyRevenue)}
+                    {formatCurrency(row.realtorEarnings)}
                   </TableCell>
                   <TableCell>{row.openTasks}</TableCell>
                   <TableCell className="pr-6">
@@ -477,30 +493,11 @@ export default async function AnalyticsPage({
       </div>
 
       <p className="text-xs text-muted-foreground">
-        Заработок компании считается как сумма поля «Комиссия» по успешно
-        закрытым сделкам. Валовый объём — сумма самих успешно закрытых сделок.
+        Заработок риелторов — комиссия по успешно закрытым сделкам за вычетом
+        установленного для каждого риелтора процента компании. Валовый объём —
+        сумма самих успешно закрытых сделок.
       </p>
     </>
-  );
-}
-
-function PeriodFilter({ period }: { period: AnalyticsPeriod }) {
-  return (
-    <div className="flex flex-wrap gap-2" aria-label="Период аналитики">
-      {(Object.keys(ANALYTICS_PERIOD_LABELS) as AnalyticsPeriod[]).map((item) => (
-        <PrefetchLink
-          key={item}
-          href={`/analytics?period=${item}`}
-          className={buttonVariants({
-            variant: item === period ? "default" : "outline",
-            size: "sm",
-          })}
-          aria-current={item === period ? "page" : undefined}
-        >
-          {ANALYTICS_PERIOD_LABELS[item]}
-        </PrefetchLink>
-      ))}
-    </div>
   );
 }
 

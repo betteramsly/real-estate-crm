@@ -195,7 +195,7 @@ export function DealForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="commission">Комиссия компании, ₽</Label>
+            <Label htmlFor="commission">Комиссия по сделке, ₽</Label>
             <AmountInput
               id="commission"
               name="commission"

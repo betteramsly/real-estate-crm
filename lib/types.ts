@@ -29,6 +29,7 @@ export interface Profile {
   full_name: string | null;
   role: UserRole;
   is_owner: boolean;
+  company_commission_percent: number;
   phone: string | null;
   email?: string | null;
   avatar_url: string | null;

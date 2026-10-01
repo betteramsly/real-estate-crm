@@ -7,6 +7,7 @@ import type {
   Task,
   UserRole,
 } from "@/lib/types";
+import { isRealtorRole } from "@/lib/role-management";
 
 export const ANALYTICS_PERIOD_LABELS = {
   "30d": "30 дней",
@@ -15,6 +16,15 @@ export const ANALYTICS_PERIOD_LABELS = {
 } as const;
 
 export type AnalyticsPeriod = keyof typeof ANALYTICS_PERIOD_LABELS;
+export type AnalyticsPeriodSelection = AnalyticsPeriod | "custom";
+
+export interface AnalyticsDateRange {
+  start: Date;
+  end: Date;
+  selection: AnalyticsPeriodSelection;
+  from: string;
+  to: string;
+}
 
 type AnalyticsClient = Pick<
   Client,
@@ -45,7 +55,10 @@ type AnalyticsTask = Pick<
   | "created_at"
 >;
 
-type AnalyticsProfile = Pick<Profile, "id" | "full_name" | "role">;
+type AnalyticsProfile = Pick<
+  Profile,
+  "id" | "full_name" | "role" | "company_commission_percent"
+>;
 
 export interface AnalyticsTeamRow {
   id: string;
@@ -56,19 +69,21 @@ export interface AnalyticsTeamRow {
   dealsCreated: number;
   wonDeals: number;
   grossVolume: number;
-  companyRevenue: number;
+  companyCommissionPercent: number | null;
+  realtorEarnings: number;
   openTasks: number;
   overdueTasks: number;
 }
 
 export interface AnalyticsResult {
   periodStart: Date;
+  periodEnd: Date;
   clientsCreated: number;
   dealsCreated: number;
   tasksCreated: number;
   wonDeals: number;
   grossVolume: number;
-  companyRevenue: number;
+  realtorEarnings: number;
   conversionRate: number | null;
   currentPipelineAmount: number;
   currentPipelineCount: number;
@@ -86,7 +101,7 @@ export interface AnalyticsResult {
   financialTrend: Array<{
     label: string;
     gross: number;
-    revenue: number;
+    realtorEarnings: number;
   }>;
   team: AnalyticsTeamRow[];
   recentClients: AnalyticsClient[];
@@ -113,6 +128,66 @@ export function analyticsPeriodStart(period: AnalyticsPeriod, now = new Date()) 
   return start;
 }
 
+function parseDateInput(value: string | undefined, endOfDay = false) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
+  const [year, month, day] = value.split("-").map(Number);
+  if (year < 2000 || year > 2100) return null;
+
+  const date = new Date(
+    year,
+    month - 1,
+    day,
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0,
+  );
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null;
+  }
+  return date;
+}
+
+export function formatAnalyticsDateInput(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+export function resolveAnalyticsDateRange(
+  input: { period?: string; from?: string; to?: string },
+  now = new Date(),
+): AnalyticsDateRange {
+  if (input.period === "custom") {
+    const customStart = parseDateInput(input.from);
+    const customEnd = parseDateInput(input.to, true);
+    if (customStart && customEnd && customStart <= customEnd) {
+      return {
+        start: customStart,
+        end: customEnd,
+        selection: "custom",
+        from: formatAnalyticsDateInput(customStart),
+        to: formatAnalyticsDateInput(customEnd),
+      };
+    }
+  }
+
+  const period = resolveAnalyticsPeriod(input.period);
+  const start = analyticsPeriodStart(period, now);
+  return {
+    start,
+    end: now,
+    selection: period,
+    from: formatAnalyticsDateInput(start),
+    to: formatAnalyticsDateInput(now),
+  };
+}
+
 function timestamp(value: string | null | undefined) {
   if (!value) return null;
   const result = new Date(value).getTime();
@@ -132,6 +207,27 @@ function total<T>(rows: T[], getValue: (row: T) => number | null) {
   return rows.reduce((sum, row) => sum + (getValue(row) ?? 0), 0);
 }
 
+export function calculateRealtorEarnings(
+  commission: number | null,
+  companyCommissionPercent: number,
+) {
+  const normalizedPercent = Number(companyCommissionPercent);
+  if (
+    !Number.isFinite(normalizedPercent) ||
+    normalizedPercent < 0 ||
+    normalizedPercent > 100
+  ) {
+    throw new Error("Процент компании должен быть от 0 до 100");
+  }
+
+  const commissionAmount = commission ?? 0;
+  return (
+    Math.round(
+      commissionAmount * (1 - normalizedPercent / 100) * 100,
+    ) / 100
+  );
+}
+
 function isOpenDeal(deal: Pick<Deal, "stage">) {
   return deal.stage !== "closed_won" && deal.stage !== "closed_lost";
 }
@@ -140,25 +236,27 @@ function isOpenTask(task: Pick<Task, "status">) {
   return task.status === "todo" || task.status === "in_progress";
 }
 
-function createTrendBuckets(
-  period: AnalyticsPeriod,
-  start: Date,
-  now: Date,
-) {
+function createTrendBuckets(start: Date, end: Date) {
+  const spanDays = Math.max(
+    1,
+    Math.ceil((end.getTime() - start.getTime()) / 86_400_000),
+  );
+  const useMonthlyBuckets = spanDays > 120;
   const formatter = new Intl.DateTimeFormat("ru-RU", {
-    day: period === "year" ? undefined : "numeric",
+    day: useMonthlyBuckets ? undefined : "numeric",
     month: "short",
   });
   const buckets: Array<{ start: Date; end: Date; label: string }> = [];
 
-  if (period === "year") {
+  if (useMonthlyBuckets) {
     const cursor = new Date(start.getFullYear(), start.getMonth(), 1);
-    while (cursor.getTime() <= now.getTime()) {
+    while (cursor.getTime() <= end.getTime()) {
       const bucketStart = new Date(cursor);
       const bucketEnd = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0, 23, 59, 59, 999);
       buckets.push({
-        start: bucketStart,
-        end: bucketEnd.getTime() > now.getTime() ? now : bucketEnd,
+        start:
+          bucketStart.getTime() < start.getTime() ? new Date(start) : bucketStart,
+        end: bucketEnd.getTime() > end.getTime() ? new Date(end) : bucketEnd,
         label: formatter.format(bucketStart),
       });
       cursor.setMonth(cursor.getMonth() + 1);
@@ -166,16 +264,16 @@ function createTrendBuckets(
     return buckets;
   }
 
-  const bucketDays = period === "90d" ? 14 : 5;
+  const bucketDays = spanDays > 31 ? 14 : 5;
   const cursor = new Date(start);
-  while (cursor.getTime() <= now.getTime()) {
+  while (cursor.getTime() <= end.getTime()) {
     const bucketStart = new Date(cursor);
     const bucketEnd = new Date(cursor);
     bucketEnd.setDate(bucketEnd.getDate() + bucketDays - 1);
     bucketEnd.setHours(23, 59, 59, 999);
     buckets.push({
       start: bucketStart,
-      end: bucketEnd.getTime() > now.getTime() ? now : bucketEnd,
+      end: bucketEnd.getTime() > end.getTime() ? new Date(end) : bucketEnd,
       label: formatter.format(bucketStart),
     });
     cursor.setDate(cursor.getDate() + bucketDays);
@@ -189,23 +287,39 @@ export function computeCompanyAnalytics(input: {
   tasks: AnalyticsTask[];
   profiles: AnalyticsProfile[];
   period: AnalyticsPeriod;
+  periodStart?: Date;
+  periodEnd?: Date;
   now?: Date;
 }): AnalyticsResult {
   const now = input.now ?? new Date();
-  const periodStart = analyticsPeriodStart(input.period, now);
+  const periodStart = input.periodStart ?? analyticsPeriodStart(input.period, now);
+  const periodEnd = input.periodEnd ?? now;
+  const companyPercentByProfile = new Map(
+    input.profiles.map((profile) => [
+      profile.id,
+      Number(profile.company_commission_percent),
+    ]),
+  );
+  const realtorEarningsForDeal = (deal: AnalyticsDeal) =>
+    calculateRealtorEarnings(
+      deal.commission,
+      deal.assigned_to
+        ? (companyPercentByProfile.get(deal.assigned_to) ?? 0)
+        : 0,
+    );
   const periodClients = input.clients.filter((client) =>
-    inRange(client.created_at, periodStart, now),
+    inRange(client.created_at, periodStart, periodEnd),
   );
   const periodDeals = input.deals.filter((deal) =>
-    inRange(deal.created_at, periodStart, now),
+    inRange(deal.created_at, periodStart, periodEnd),
   );
   const periodTasks = input.tasks.filter((task) =>
-    inRange(task.created_at, periodStart, now),
+    inRange(task.created_at, periodStart, periodEnd),
   );
   const closedDeals = input.deals.filter(
     (deal) =>
       (deal.stage === "closed_won" || deal.stage === "closed_lost") &&
-      inRange(deal.closed_at, periodStart, now),
+      inRange(deal.closed_at, periodStart, periodEnd),
   );
   const wonDeals = closedDeals.filter((deal) => deal.stage === "closed_won");
   const currentPipeline = input.deals.filter(isOpenDeal);
@@ -242,7 +356,7 @@ export function computeCompanyAnalytics(input: {
     };
   });
 
-  const financialTrend = createTrendBuckets(input.period, periodStart, now).map(
+  const financialTrend = createTrendBuckets(periodStart, periodEnd).map(
     (bucket) => {
       const rows = wonDeals.filter((deal) =>
         inRange(deal.closed_at, bucket.start, bucket.end),
@@ -250,7 +364,7 @@ export function computeCompanyAnalytics(input: {
       return {
         label: bucket.label,
         gross: total(rows, (deal) => deal.amount),
-        revenue: total(rows, (deal) => deal.commission),
+        realtorEarnings: total(rows, realtorEarningsForDeal),
       };
     },
   );
@@ -259,6 +373,7 @@ export function computeCompanyAnalytics(input: {
     id: string,
     name: string,
     role: UserRole | null,
+    companyCommissionPercent: number | null,
   ): AnalyticsTeamRow => {
     const assignedPeriodClients = periodClients.filter(
       (client) => client.assigned_to === id,
@@ -281,7 +396,8 @@ export function computeCompanyAnalytics(input: {
       dealsCreated: assignedPeriodDeals.length,
       wonDeals: assignedWonDeals.length,
       grossVolume: total(assignedWonDeals, (deal) => deal.amount),
-      companyRevenue: total(assignedWonDeals, (deal) => deal.commission),
+      companyCommissionPercent,
+      realtorEarnings: total(assignedWonDeals, realtorEarningsForDeal),
       openTasks: assignedOpenTasks.length,
       overdueTasks: urgentTasks.filter((task) => task.assigned_to === id).length,
     };
@@ -292,6 +408,9 @@ export function computeCompanyAnalytics(input: {
       profile.id,
       profile.full_name?.trim() || "Без имени",
       profile.role,
+      isRealtorRole(profile.role)
+        ? Number(profile.company_commission_percent)
+        : null,
     ),
   );
   const hasUnassigned =
@@ -299,11 +418,11 @@ export function computeCompanyAnalytics(input: {
     input.deals.some((row) => !row.assigned_to) ||
     input.tasks.some((row) => !row.assigned_to);
   if (hasUnassigned) {
-    team.push(buildTeamRow("", "Без ответственного", null));
+    team.push(buildTeamRow("", "Без ответственного", null, null));
   }
   team.sort(
     (a, b) =>
-      b.companyRevenue - a.companyRevenue ||
+      b.realtorEarnings - a.realtorEarnings ||
       b.grossVolume - a.grossVolume ||
       a.name.localeCompare(b.name, "ru"),
   );
@@ -318,12 +437,13 @@ export function computeCompanyAnalytics(input: {
 
   return {
     periodStart,
+    periodEnd,
     clientsCreated: periodClients.length,
     dealsCreated: periodDeals.length,
     tasksCreated: periodTasks.length,
     wonDeals: wonDeals.length,
     grossVolume: total(wonDeals, (deal) => deal.amount),
-    companyRevenue: total(wonDeals, (deal) => deal.commission),
+    realtorEarnings: total(wonDeals, realtorEarningsForDeal),
     conversionRate:
       closedDeals.length > 0 ? (wonDeals.length / closedDeals.length) * 100 : null,
     currentPipelineAmount: total(currentPipeline, (deal) => deal.amount),

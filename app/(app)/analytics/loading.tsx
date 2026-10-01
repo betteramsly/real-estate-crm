@@ -8,7 +8,7 @@ export default function AnalyticsLoading() {
       <PageHeader
         title="Аналитика"
         description="Результаты всей команды"
-        actions={<Skeleton className="h-9 w-64" />}
+        actions={<Skeleton className="h-[106px] w-full sm:w-[430px]" />}
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

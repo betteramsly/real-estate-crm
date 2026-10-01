@@ -11,11 +11,18 @@ import {
 } from "@/components/ui/card";
 import { PageHeader } from "@/components/page-header";
 import { AddAgentForm } from "./add-agent-form";
+import { CommissionPercentField } from "./commission-percent-field";
 import { TeamFeedbackInbox } from "./feedback-inbox";
 import { RoleSelect } from "./role-select";
 import { requireProfile } from "@/lib/auth";
 import { formatDate, initials } from "@/lib/formatters";
-import { canViewCompanyAnalytics, USER_ROLE_LABELS } from "@/lib/role-management";
+import {
+  canManageRealtorCommission,
+  canViewCompanyAnalytics,
+  canViewTeam,
+  isRealtorRole,
+  USER_ROLE_LABELS,
+} from "@/lib/role-management";
 import {
   PROPERTY_FEEDBACK_INBOX_ALL,
   PROPERTY_FEEDBACK_TEAM_COLUMNS,
@@ -26,15 +33,26 @@ import type { Profile, PropertyFeedbackWithRelations } from "@/lib/types";
 
 export default async function TeamPage() {
   const { supabase, profile } = await requireProfile();
-  if (profile.role !== "admin") redirect("/dashboard");
+  if (!canViewTeam(profile.role, profile.is_owner)) redirect("/dashboard");
 
-  const [{ data: profiles }, { data: undoneRows }, { data: doneRows }, { data: openRows }] =
-    await Promise.all([
-      supabase
-        .from("profiles")
-        .select("*")
-        .order("created_at", { ascending: true })
-        .returns<Profile[]>(),
+  const canAdministerTeam = profile.role === "admin";
+  const canManageCommission = canManageRealtorCommission(
+    profile.role,
+    profile.is_owner,
+  );
+
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("*")
+    .order("created_at", { ascending: true })
+    .returns<Profile[]>();
+
+  let undoneRows: PropertyFeedbackWithRelations[] = [];
+  let doneRows: PropertyFeedbackWithRelations[] = [];
+  let openRows: Array<{ author_id: string }> = [];
+
+  if (canAdministerTeam) {
+    const [undoneResult, doneResult, openResult] = await Promise.all([
       supabase
         .from("property_feedback")
         .select(PROPERTY_FEEDBACK_TEAM_COLUMNS)
@@ -52,15 +70,18 @@ export default async function TeamPage() {
       supabase
         .from("property_feedback")
         .select("author_id")
-        .in("status", [...TEAM_FEEDBACK_UNDONE_STATUSES]),
+        .in("status", [...TEAM_FEEDBACK_UNDONE_STATUSES])
+        .returns<Array<{ author_id: string }>>(),
     ]);
 
+    undoneRows = undoneResult.data ?? [];
+    doneRows = doneResult.data ?? [];
+    openRows = openResult.data ?? [];
+  }
+
   const openByAuthor = new Map<string, number>();
-  for (const row of openRows ?? []) {
-    const authorId =
-      row && typeof row === "object" && "author_id" in row
-        ? String((row as { author_id: string }).author_id)
-        : "";
+  for (const row of openRows) {
+    const authorId = row.author_id;
     if (!authorId) continue;
     openByAuthor.set(authorId, (openByAuthor.get(authorId) ?? 0) + 1);
   }
@@ -69,84 +90,125 @@ export default async function TeamPage() {
     <>
       <PageHeader
         title="Команда"
-        description="Создайте агента и отдайте ему email с паролем для входа"
+        description={
+          canAdministerTeam
+            ? "Управляйте сотрудниками, ролями и обращениями команды"
+            : "Установите долю компании с комиссии каждого риелтора"
+        }
       />
       <div className="space-y-4">
-        <Card>
-          <CardHeader>
-            <CardTitle>Новый агент</CardTitle>
-            <CardDescription>
-              Аккаунт сразу активен. Агент не сможет менять базу ЖК — только
-              смотреть, показывать и делиться подборкой.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <AddAgentForm />
-          </CardContent>
-        </Card>
+        {canAdministerTeam ? (
+          <Card>
+            <CardHeader>
+              <CardTitle>Новый агент</CardTitle>
+              <CardDescription>
+                Аккаунт сразу активен. Агент не сможет менять базу ЖК — только
+                смотреть, показывать и делиться подборкой.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <AddAgentForm />
+            </CardContent>
+          </Card>
+        ) : null}
         <Card>
           <CardHeader>
             <CardTitle>Сотрудники</CardTitle>
+            {canManageCommission ? (
+              <CardDescription>
+                Процент компании удерживается из комиссии каждой успешно
+                закрытой сделки риелтора.
+              </CardDescription>
+            ) : null}
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
               {(profiles ?? []).map((p) => {
                 const openCount = openByAuthor.get(p.id) ?? 0;
+                const canChangeRole =
+                  canAdministerTeam && p.id !== profile.id && !p.is_owner;
+                const memberSummary = (
+                  <>
+                    <Avatar>
+                      {p.avatar_url ? (
+                        <AvatarImage
+                          src={p.avatar_url}
+                          alt={p.full_name ?? "Аватар"}
+                        />
+                      ) : null}
+                      <AvatarFallback>{initials(p.full_name)}</AvatarFallback>
+                    </Avatar>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">
+                          {p.full_name ?? "Без имени"}
+                        </p>
+                        {openCount ? (
+                          <Badge className="rounded-full">{openCount}</Badge>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {[p.email, p.phone].filter(Boolean).join(" · ")}
+                        {p.email || p.phone ? " · " : ""}
+                        в системе с {formatDate(p.created_at)}
+                      </p>
+                    </div>
+                  </>
+                );
                 return (
                   <div
                     key={p.id}
-                    className="flex flex-col gap-3 rounded-2xl border p-3 md:flex-row md:items-center md:justify-between"
+                    className="flex flex-col gap-3 rounded-2xl border p-3 xl:flex-row xl:items-center xl:justify-between"
                   >
-                    <PrefetchLink
-                      href={teamMemberPath(p.id)}
-                      className="flex min-w-0 flex-1 items-center gap-3"
-                    >
-                      <Avatar>
-                        {p.avatar_url ? (
-                          <AvatarImage
-                            src={p.avatar_url}
-                            alt={p.full_name ?? "Аватар"}
-                          />
-                        ) : null}
-                        <AvatarFallback>{initials(p.full_name)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="font-medium">
-                            {p.full_name ?? "Без имени"}
-                          </p>
-                          {openCount ? (
-                            <Badge className="rounded-full">
-                              {openCount}
-                            </Badge>
-                          ) : null}
-                        </div>
-                        <p className="text-xs text-muted-foreground">
-                          {[p.email, p.phone].filter(Boolean).join(" · ")}
-                          {p.email || p.phone ? " · " : ""}
-                          в системе с {formatDate(p.created_at)}
-                        </p>
-                      </div>
-                    </PrefetchLink>
-                    <div className="flex items-center gap-3">
-                      <Badge
-                        variant={
-                          p.role === "admin"
-                            ? "default"
-                            : canViewCompanyAnalytics(p.role)
-                              ? "outline"
-                              : "secondary"
-                        }
+                    {canAdministerTeam ? (
+                      <PrefetchLink
+                        href={teamMemberPath(p.id)}
+                        className="flex min-w-0 flex-1 items-center gap-3"
                       >
-                        {p.is_owner
-                          ? "Разработчик"
-                          : USER_ROLE_LABELS[p.role]}
-                      </Badge>
-                      <RoleSelect
-                        userId={p.id}
-                        role={p.role}
-                        disabled={p.id === profile.id || p.is_owner}
-                      />
+                        {memberSummary}
+                      </PrefetchLink>
+                    ) : (
+                      <div className="flex min-w-0 flex-1 items-center gap-3">
+                        {memberSummary}
+                      </div>
+                    )}
+                    <div className="flex flex-wrap items-center gap-3 xl:justify-end">
+                      {!canChangeRole ? (
+                        <Badge
+                          variant={
+                            p.role === "admin"
+                              ? "default"
+                              : canViewCompanyAnalytics(p.role)
+                                ? "outline"
+                                : "secondary"
+                          }
+                        >
+                          {p.is_owner
+                            ? "Разработчик"
+                            : USER_ROLE_LABELS[p.role]}
+                        </Badge>
+                      ) : null}
+                      {canManageCommission &&
+                      isRealtorRole(p.role) &&
+                      !p.is_owner ? (
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">
+                            Доля компании
+                          </span>
+                          <CommissionPercentField
+                            userId={p.id}
+                            initialValue={Number(
+                              p.company_commission_percent ?? 0,
+                            )}
+                          />
+                        </div>
+                      ) : null}
+                      {canChangeRole ? (
+                        <RoleSelect
+                          userId={p.id}
+                          role={p.role}
+                        />
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -154,14 +216,16 @@ export default async function TeamPage() {
             </div>
           </CardContent>
         </Card>
-        <TeamFeedbackInbox
-          undoneCount={[...openByAuthor.values()].reduce(
-            (sum, count) => sum + count,
-            0,
-          )}
-          undoneItems={undoneRows ?? []}
-          doneItems={doneRows ?? []}
-        />
+        {canAdministerTeam ? (
+          <TeamFeedbackInbox
+            undoneCount={[...openByAuthor.values()].reduce(
+              (sum, count) => sum + count,
+              0,
+            )}
+            undoneItems={undoneRows}
+            doneItems={doneRows}
+          />
+        ) : null}
       </div>
     </>
   );
