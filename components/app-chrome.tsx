@@ -69,6 +69,7 @@ export function AppChrome({
         {presentMode ? null : (
           <AppSidebar
             role={role}
+            isOwner={profile.is_owner}
             onClose={toggle}
             collapsed={!open}
             animate={ready}

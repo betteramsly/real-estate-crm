@@ -43,6 +43,7 @@ import {
   type TaskFormState,
 } from "@/lib/actions/tasks";
 import { cn } from "@/lib/utils";
+import { canAssignWork } from "@/lib/role-management";
 import type { Client, Deal, Profile, Property, UserRole } from "@/lib/types";
 
 interface TaskFormDialogProps {
@@ -53,6 +54,7 @@ interface TaskFormDialogProps {
   profiles: Profile[];
   currentUserId: string;
   currentRole: UserRole;
+  currentIsOwner?: boolean;
   defaultClientId?: string;
   defaultDealId?: string;
   defaultPropertyId?: string;
@@ -83,6 +85,7 @@ export function TaskFormDialog({
   profiles,
   currentUserId,
   currentRole,
+  currentIsOwner = false,
   defaultClientId,
   defaultDealId,
   defaultPropertyId,
@@ -130,7 +133,7 @@ export function TaskFormDialog({
     return () => window.cancelAnimationFrame(frame);
   }, [dueTime, timeOpen]);
 
-  const canAssignOthers = currentRole === "admin";
+  const canAssignOthers = canAssignWork(currentRole, currentIsOwner);
   const assignableProfiles = canAssignOthers
     ? profiles
     : profiles.filter((profile) => profile.id === currentUserId);

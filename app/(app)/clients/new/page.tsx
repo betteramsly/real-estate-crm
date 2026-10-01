@@ -26,6 +26,7 @@ export default async function NewClientPage() {
       <ClientForm
         profiles={profiles ?? []}
         currentRole={profile.role}
+        currentIsOwner={profile.is_owner}
         currentUserId={profile.id}
       />
     </>

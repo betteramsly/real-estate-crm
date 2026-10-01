@@ -5,6 +5,7 @@ import { PrefetchLink } from "@/components/prefetch-link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  ChartNoAxesCombined,
   CheckSquare,
   Handshake,
   LayoutDashboard,
@@ -16,6 +17,7 @@ import {
 import { BrandLockup } from "@/components/brand-mark";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { canViewCompanyAnalytics } from "@/lib/role-management";
 import type { UserRole } from "@/lib/types";
 
 interface NavItem {
@@ -23,10 +25,17 @@ interface NavItem {
   label: string;
   icon: React.ComponentType<{ className?: string }>;
   adminOnly?: boolean;
+  leadershipOnly?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { href: "/dashboard", label: "Дашборд", icon: LayoutDashboard },
+  {
+    href: "/analytics",
+    label: "Аналитика",
+    icon: ChartNoAxesCombined,
+    leadershipOnly: true,
+  },
   { href: "/clients", label: "Клиенты", icon: Users },
   { href: "/deals", label: "Сделки", icon: Handshake },
   { href: "/tasks", label: "Задачи", icon: CheckSquare },
@@ -35,12 +44,14 @@ const NAV_ITEMS: NavItem[] = [
 
 export function AppSidebar({
   role,
+  isOwner = false,
   onClose,
   collapsed = false,
   animate = true,
   teamOpenCount = 0,
 }: {
   role: UserRole;
+  isOwner?: boolean;
   onClose: () => void;
   collapsed?: boolean;
   animate?: boolean;
@@ -57,7 +68,11 @@ export function AppSidebar({
     if (navigationFinished) setClickedHref(null);
   }, [clickedHref, pathname]);
 
-  const items = NAV_ITEMS.filter((item) => !item.adminOnly || role === "admin");
+  const items = NAV_ITEMS.filter(
+    (item) =>
+      (!item.adminOnly || role === "admin") &&
+      (!item.leadershipOnly || canViewCompanyAnalytics(role, isOwner)),
+  );
   const catalogActive =
     pathname === "/properties" || pathname.startsWith("/properties/");
 

@@ -18,7 +18,7 @@ const FIELDS: {
   { label: "Этап" },
   { label: "Ответственный" },
   { label: "Сумма, ₽" },
-  { label: "Комиссия, ₽" },
+  { label: "Комиссия компании, ₽" },
   { label: "Ожидаемое закрытие" },
   { label: "Заметки", full: true, tall: true },
 ];

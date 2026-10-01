@@ -10,7 +10,7 @@ export default function ClientsLoading() {
     <>
       <PageHeader
         title="Клиенты"
-        description="Все клиенты и их статусы в одном месте"
+        description="Клиенты и их статусы в одном месте"
         actions={
           <PrefetchLink href="/clients/new" className={buttonVariants()}>
             <Plus className="h-4 w-4" />

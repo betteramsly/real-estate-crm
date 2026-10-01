@@ -13,6 +13,7 @@ const PUBLIC_WITHOUT_SESSION = [
 
 const PRESENT_BLOCKED = [
   "/dashboard",
+  "/analytics",
   "/clients",
   "/deals",
   "/tasks",

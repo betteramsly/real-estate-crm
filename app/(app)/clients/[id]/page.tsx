@@ -180,6 +180,7 @@ export default async function ClientPage(props: {
                   profiles={profiles ?? []}
                   currentUserId={profile.id}
                   currentRole={profile.role}
+                  currentIsOwner={profile.is_owner}
                   defaultClientId={client.id}
                   trigger={
                     <Button
@@ -230,6 +231,7 @@ export default async function ClientPage(props: {
           profiles={profiles ?? []}
           currentUserId={profile.id}
           currentRole={profile.role}
+          currentIsOwner={profile.is_owner}
           defaultClientId={client.id}
           trigger={
             <Button size="sm" variant="outline">
@@ -320,6 +322,7 @@ export default async function ClientPage(props: {
             client={client}
             profiles={profiles ?? []}
             currentRole={profile.role}
+            currentIsOwner={profile.is_owner}
             currentUserId={profile.id}
           />
         </TabsContent>
@@ -408,6 +411,7 @@ export default async function ClientPage(props: {
                     profiles={profiles ?? []}
                     currentUserId={profile.id}
                     currentRole={profile.role}
+                    currentIsOwner={profile.is_owner}
                     defaultClientId={client.id}
                     trigger={
                       <Button size="sm" variant="outline">

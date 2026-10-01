@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/page-header";
 import { TeamMemberFeedbackList } from "./feedback-list";
 import { requireProfile } from "@/lib/auth";
 import { formatDate, initials } from "@/lib/formatters";
+import { canViewCompanyAnalytics, USER_ROLE_LABELS } from "@/lib/role-management";
 import {
   isPropertyFeedbackId,
   PROPERTY_FEEDBACK_TEAM_COLUMNS,
@@ -64,12 +65,18 @@ export default async function TeamMemberPage(props: {
           ) : null}
           <AvatarFallback>{initials(member.full_name)}</AvatarFallback>
         </Avatar>
-        <Badge variant={member.role === "admin" ? "default" : "secondary"}>
+        <Badge
+          variant={
+            member.role === "admin"
+              ? "default"
+              : canViewCompanyAnalytics(member.role)
+                ? "outline"
+                : "secondary"
+          }
+        >
           {member.is_owner
             ? "Разработчик"
-            : member.role === "admin"
-              ? "Админ"
-              : "Агент"}
+            : USER_ROLE_LABELS[member.role]}
         </Badge>
       </div>
 

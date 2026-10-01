@@ -36,6 +36,7 @@ import {
   updateDealAction,
 } from "@/lib/actions/deals";
 import { cn } from "@/lib/utils";
+import { canAssignWork } from "@/lib/role-management";
 import type { Client, Deal, Profile, Property, UserRole } from "@/lib/types";
 
 interface DealFormProps {
@@ -44,6 +45,7 @@ interface DealFormProps {
   properties: Pick<Property, "id" | "title">[];
   profiles: Profile[];
   currentRole: UserRole;
+  currentIsOwner?: boolean;
   currentUserId: string;
   defaultClientId?: string;
 }
@@ -71,6 +73,7 @@ export function DealForm({
   properties,
   profiles,
   currentRole,
+  currentIsOwner = false,
   currentUserId,
   defaultClientId,
 }: DealFormProps) {
@@ -87,7 +90,7 @@ export function DealForm({
   }, [state]);
 
   const fe = state.fieldErrors ?? {};
-  const canAssignOthers = currentRole === "admin";
+  const canAssignOthers = canAssignWork(currentRole, currentIsOwner);
   const assignedTo = deal ? (deal.assigned_to ?? "") : currentUserId;
 
   return (
@@ -192,7 +195,7 @@ export function DealForm({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="commission">Комиссия, ₽</Label>
+            <Label htmlFor="commission">Комиссия компании, ₽</Label>
             <AmountInput
               id="commission"
               name="commission"

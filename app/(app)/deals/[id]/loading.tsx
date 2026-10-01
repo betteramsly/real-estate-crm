@@ -52,7 +52,7 @@ export default function DealDetailLoading() {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Комиссия
+              Комиссия компании
             </CardTitle>
           </CardHeader>
           <CardContent>

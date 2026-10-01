@@ -6,6 +6,7 @@ import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
 import { logActivity } from "@/lib/activities";
 import { parseDateTimeFormValue, parseStringFormValue } from "@/lib/parse";
+import { canAssignWork } from "@/lib/role-management";
 import type { TaskStatus } from "@/lib/types";
 
 const taskStatusSchema = z.enum(["todo", "in_progress", "done", "cancelled"]);
@@ -66,7 +67,9 @@ export async function createTaskAction(
 
   const { supabase, user, profile } = await requireProfile();
   const assignedTo =
-    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
+    canAssignWork(profile.role, profile.is_owner)
+      ? (parsed.data.assigned_to ?? user.id)
+      : user.id;
 
   const { data: created, error } = await supabase
     .from("tasks")
@@ -99,6 +102,7 @@ export async function createTaskAction(
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
   redirect("/tasks");
 }
 
@@ -137,7 +141,7 @@ export async function updateTaskAction(
       deal_id: parsed.data.deal_id ?? null,
       property_id: parsed.data.property_id ?? null,
       assigned_to:
-        profile.role === "admin"
+        canAssignWork(profile.role, profile.is_owner)
           ? (parsed.data.assigned_to ?? null)
           : existing.assigned_to,
     })
@@ -151,6 +155,7 @@ export async function updateTaskAction(
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
   return {};
 }
 
@@ -196,6 +201,7 @@ export async function setTaskStatus(id: string, status: TaskStatus) {
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
 }
 
 export async function deleteTaskAction(id: string) {
@@ -235,4 +241,5 @@ export async function deleteTaskAction(id: string) {
 
   revalidatePath("/tasks");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
 }

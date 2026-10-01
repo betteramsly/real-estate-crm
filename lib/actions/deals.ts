@@ -7,6 +7,7 @@ import { requireProfile } from "@/lib/auth";
 import { logActivity } from "@/lib/activities";
 import { diffRecords } from "@/lib/diff";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
+import { canAssignWork } from "@/lib/role-management";
 import type { DealStage } from "@/lib/types";
 
 const dealStageSchema = z.enum([
@@ -87,7 +88,9 @@ export async function createDealAction(
 
   const { supabase, user, profile } = await requireProfile();
   const assignedTo =
-    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
+    canAssignWork(profile.role, profile.is_owner)
+      ? (parsed.data.assigned_to ?? user.id)
+      : user.id;
 
   const closed_at =
     parsed.data.stage === "closed_won" || parsed.data.stage === "closed_lost"
@@ -125,6 +128,7 @@ export async function createDealAction(
 
   revalidatePath("/deals");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
   redirect(`/deals/${created.id}?created=deal`);
 }
 
@@ -173,7 +177,7 @@ export async function updateDealAction(
       client_id: parsed.data.client_id ?? null,
       property_id: parsed.data.property_id ?? null,
       assigned_to:
-        profile.role === "admin"
+        canAssignWork(profile.role, profile.is_owner)
           ? (parsed.data.assigned_to ?? null)
           : existing.assigned_to,
       closed_at,
@@ -219,6 +223,7 @@ export async function updateDealAction(
   revalidatePath("/deals");
   revalidatePath(`/deals/${id}`);
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
   return { success: true };
 }
 
@@ -268,6 +273,7 @@ export async function moveDealStage(id: string, stage: DealStage) {
 
   revalidatePath("/deals");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
 }
 
 export async function deleteDealAction(id: string) {
@@ -299,5 +305,6 @@ export async function deleteDealAction(id: string) {
   });
   revalidatePath("/deals");
   revalidatePath("/dashboard");
+  revalidatePath("/analytics");
   redirect("/deals");
 }

@@ -31,12 +31,14 @@ import {
   createClientAction,
   updateClientAction,
 } from "@/lib/actions/clients";
+import { canAssignWork } from "@/lib/role-management";
 import type { Client, Profile, UserRole } from "@/lib/types";
 
 interface ClientFormProps {
   client?: Client;
   profiles: Profile[];
   currentRole: UserRole;
+  currentIsOwner?: boolean;
   currentUserId: string;
 }
 
@@ -54,6 +56,7 @@ export function ClientForm({
   client,
   profiles,
   currentRole,
+  currentIsOwner = false,
   currentUserId,
 }: ClientFormProps) {
   const router = useRouter();
@@ -68,7 +71,7 @@ export function ClientForm({
   }, [state]);
 
   const fe = state.fieldErrors ?? {};
-  const canAssignOthers = currentRole === "admin";
+  const canAssignOthers = canAssignWork(currentRole, currentIsOwner);
   const assignedTo = client ? (client.assigned_to ?? "") : currentUserId;
 
   return (

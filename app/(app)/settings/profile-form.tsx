@@ -15,6 +15,7 @@ import {
   updateProfileAction,
 } from "@/lib/actions/profile";
 import { initials } from "@/lib/formatters";
+import { USER_ROLE_LABELS } from "@/lib/role-management";
 import type { Profile } from "@/lib/types";
 
 interface ProfileFormProps {
@@ -138,9 +139,7 @@ export function ProfileForm({ profile, email }: ProfileFormProps) {
           value={
             profile.is_owner
               ? "Разработчик"
-              : profile.role === "admin"
-                ? "Админ"
-                : "Агент"
+              : USER_ROLE_LABELS[profile.role]
           }
           disabled
         />

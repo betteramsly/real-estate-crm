@@ -10,6 +10,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { setUserRoleAction } from "@/lib/actions/profile";
+import { isUserRole, USER_ROLE_LABELS, USER_ROLES } from "@/lib/role-management";
 import type { UserRole } from "@/lib/types";
 
 interface RoleSelectProps {
@@ -23,7 +24,7 @@ export function RoleSelect({ userId, role, disabled }: RoleSelectProps) {
   const [value, setValue] = React.useState<UserRole>(role);
 
   const handleChange = (next: string) => {
-    if (next !== "admin" && next !== "agent") return;
+    if (!isUserRole(next)) return;
     const nextRole = next;
     const previousRole = value;
     setValue(nextRole);
@@ -44,12 +45,15 @@ export function RoleSelect({ userId, role, disabled }: RoleSelectProps) {
       onValueChange={handleChange}
       disabled={disabled || pending}
     >
-      <SelectTrigger className="w-32">
+      <SelectTrigger className="w-40">
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="agent">Агент</SelectItem>
-        <SelectItem value="admin">Админ</SelectItem>
+        {USER_ROLES.map((item) => (
+          <SelectItem key={item} value={item}>
+            {USER_ROLE_LABELS[item]}
+          </SelectItem>
+        ))}
       </SelectContent>
     </Select>
   );

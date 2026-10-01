@@ -1,7 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { canChangeUserRole } from "@/lib/role-management";
+import {
+  canAssignWork,
+  canChangeUserRole,
+  canViewCompanyAnalytics,
+  isUserRole,
+} from "@/lib/role-management";
 
 describe("role management", () => {
+  it("keeps company-wide analytics limited to leadership and the owner", () => {
+    expect(canViewCompanyAnalytics("rop")).toBe(true);
+    expect(canViewCompanyAnalytics("manager")).toBe(true);
+    expect(canViewCompanyAnalytics("admin")).toBe(false);
+    expect(canViewCompanyAnalytics("agent")).toBe(false);
+    expect(canViewCompanyAnalytics("admin", true)).toBe(true);
+    expect(canAssignWork("rop")).toBe(true);
+    expect(canAssignWork("admin")).toBe(false);
+    expect(canAssignWork("admin", true)).toBe(true);
+  });
+
+  it("recognizes every supported role", () => {
+    expect(["agent", "admin", "rop", "manager"].every(isUserRole)).toBe(true);
+    expect(isUserRole("owner")).toBe(false);
+  });
+
   it("allows admins to change another non-owner user's role", () => {
     expect(
       canChangeUserRole({

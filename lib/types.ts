@@ -1,4 +1,4 @@
-export type UserRole = "admin" | "agent";
+export type UserRole = "admin" | "agent" | "rop" | "manager";
 
 export type ClientStatus = "new" | "in_progress" | "won" | "lost";
 export type ClientSource =

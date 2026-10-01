@@ -4,7 +4,7 @@ import { randomUUID } from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireProfile } from "@/lib/auth";
-import { canChangeUserRole } from "@/lib/role-management";
+import { canChangeUserRole, isUserRole } from "@/lib/role-management";
 import {
   convertImageToWebp,
   WEBP_CONTENT_TYPE,
@@ -179,7 +179,7 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
   if (!uuidSchema.safeParse(userId).success) {
     throw new Error("Пользователь не найден");
   }
-  if (role !== "admin" && role !== "agent") {
+  if (!isUserRole(role)) {
     throw new Error("Неизвестная роль");
   }
 
@@ -222,6 +222,8 @@ export async function setUserRoleAction(userId: string, role: UserRole) {
   }
 
   revalidatePath("/team");
+  revalidatePath("/analytics");
+  revalidatePath("/", "layout");
 }
 
 const agentSchema = z.object({

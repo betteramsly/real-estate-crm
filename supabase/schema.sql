@@ -15,13 +15,21 @@ create extension if not exists pg_trgm;
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   full_name text,
-  role text not null default 'agent' check (role in ('admin', 'agent')),
+  role text not null default 'agent'
+    check (role in ('admin', 'agent', 'rop', 'manager')),
   is_owner boolean not null default false,
   phone text,
   email text,
   avatar_url text,
   created_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  drop constraint if exists profiles_role_check;
+
+alter table public.profiles
+  add constraint profiles_role_check
+  check (role in ('admin', 'agent', 'rop', 'manager'));
 
 alter table public.profiles
   add column if not exists is_owner boolean not null default false;
@@ -358,10 +366,26 @@ as $$
   );
 $$;
 
+create or replace function public.can_view_all_sales()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.profiles p
+    where p.id = (select auth.uid())
+      and (p.is_owner or p.role in ('rop', 'manager'))
+  );
+$$;
+
 revoke all on function public.handle_new_user() from public, anon, authenticated;
 revoke all on function public.set_updated_at() from public, anon, authenticated;
 revoke all on function public.is_admin() from public, anon;
 grant execute on function public.is_admin() to authenticated;
+revoke all on function public.can_view_all_sales() from public, anon;
+grant execute on function public.can_view_all_sales() to authenticated;
 
 create or replace function public.enforce_profile_role()
 returns trigger
@@ -617,37 +641,37 @@ create policy "profiles_insert_self" on public.profiles
 -- clients
 drop policy if exists "clients_select" on public.clients;
 create policy "clients_select" on public.clients
-  for select using (
-    public.is_admin()
+  for select to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "clients_insert" on public.clients;
 create policy "clients_insert" on public.clients
-  for insert with check (
-    (select auth.uid()) is not null
-    and (created_by is null or created_by = (select auth.uid()) or public.is_admin())
+  for insert to authenticated with check (
+    created_by = (select auth.uid())
+    and (
+      public.can_view_all_sales()
+      or assigned_to = (select auth.uid())
+    )
   );
 
 drop policy if exists "clients_update" on public.clients;
 create policy "clients_update" on public.clients
-  for update using (
-    public.is_admin()
+  for update to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   )
   with check (
-    public.is_admin()
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "clients_delete" on public.clients;
 create policy "clients_delete" on public.clients
-  for delete using (
-    public.is_admin()
-    or created_by = (select auth.uid())
+  for delete to authenticated using (
+    public.can_view_all_sales()
+    or assigned_to = (select auth.uid())
   );
 
 -- properties (общий ресурс — все авторизованные видят активные)
@@ -678,95 +702,90 @@ create policy "properties_delete" on public.properties
 -- deals
 drop policy if exists "deals_select" on public.deals;
 create policy "deals_select" on public.deals
-  for select using (
-    public.is_admin()
+  for select to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "deals_insert" on public.deals;
 create policy "deals_insert" on public.deals
-  for insert with check (
-    (select auth.uid()) is not null
-    and (created_by is null or created_by = (select auth.uid()) or public.is_admin())
+  for insert to authenticated with check (
+    created_by = (select auth.uid())
+    and (
+      public.can_view_all_sales()
+      or assigned_to = (select auth.uid())
+    )
   );
 
 drop policy if exists "deals_update" on public.deals;
 create policy "deals_update" on public.deals
-  for update using (
-    public.is_admin()
+  for update to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   )
   with check (
-    public.is_admin()
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "deals_delete" on public.deals;
 create policy "deals_delete" on public.deals
-  for delete using (
-    public.is_admin()
-    or created_by = (select auth.uid())
+  for delete to authenticated using (
+    public.can_view_all_sales()
+    or assigned_to = (select auth.uid())
   );
 
 -- tasks
 drop policy if exists "tasks_select" on public.tasks;
 create policy "tasks_select" on public.tasks
-  for select using (
-    public.is_admin()
+  for select to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "tasks_insert" on public.tasks;
 create policy "tasks_insert" on public.tasks
-  for insert with check (
-    (select auth.uid()) is not null
-    and (created_by is null or created_by = (select auth.uid()) or public.is_admin())
+  for insert to authenticated with check (
+    created_by = (select auth.uid())
     and (
-      public.is_admin()
-      or assigned_to is null
+      public.can_view_all_sales()
       or assigned_to = (select auth.uid())
     )
   );
 
 drop policy if exists "tasks_update" on public.tasks;
 create policy "tasks_update" on public.tasks
-  for update using (
-    public.is_admin()
+  for update to authenticated using (
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   )
   with check (
-    public.is_admin()
+    public.can_view_all_sales()
     or assigned_to = (select auth.uid())
-    or created_by = (select auth.uid())
   );
 
 drop policy if exists "tasks_delete" on public.tasks;
 create policy "tasks_delete" on public.tasks
-  for delete using (
-    public.is_admin()
-    or created_by = (select auth.uid())
+  for delete to authenticated using (
+    public.can_view_all_sales()
+    or assigned_to = (select auth.uid())
   );
 
 -- activities
 drop policy if exists "activities_select" on public.activities;
 create policy "activities_select" on public.activities
-  for select using (
-    public.is_admin()
+  for select to authenticated using (
+    public.can_view_all_sales()
     or actor_id = (select auth.uid())
     or exists (
       select 1 from public.clients c
       where c.id = activities.client_id
-        and (c.assigned_to = (select auth.uid()) or c.created_by = (select auth.uid()))
+        and c.assigned_to = (select auth.uid())
     )
     or exists (
       select 1 from public.deals d
       where d.id = activities.deal_id
-        and (d.assigned_to = (select auth.uid()) or d.created_by = (select auth.uid()))
+        and d.assigned_to = (select auth.uid())
     )
     or exists (
       select 1 from public.properties p

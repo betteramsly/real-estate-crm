@@ -115,7 +115,7 @@ export default async function DealPage(props: {
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
-              Комиссия
+              Комиссия компании
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -167,6 +167,7 @@ export default async function DealPage(props: {
           profiles={profiles ?? []}
           currentUserId={profile.id}
           currentRole={profile.role}
+          currentIsOwner={profile.is_owner}
           defaultClientId={deal.client_id ?? undefined}
           defaultDealId={deal.id}
           defaultPropertyId={deal.property_id ?? undefined}
@@ -228,6 +229,7 @@ export default async function DealPage(props: {
             properties={properties ?? []}
             profiles={profiles ?? []}
             currentRole={profile.role}
+            currentIsOwner={profile.is_owner}
             currentUserId={profile.id}
           />
         </TabsContent>

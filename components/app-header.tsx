@@ -18,6 +18,10 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { initials } from "@/lib/formatters";
+import {
+  canViewCompanyAnalytics,
+  USER_ROLE_LABELS,
+} from "@/lib/role-management";
 import type { Profile, UserRole } from "@/lib/types";
 import { usePathname, useRouter } from "next/navigation";
 import { PresentModeToggle } from "@/components/catalog/present-mode-toggle";
@@ -25,8 +29,15 @@ import { ShareClientButton } from "@/components/catalog/share-client-sheet";
 import { BrandLoaderOverlay } from "@/components/brand-loader";
 import { usePresence } from "@/hooks/use-presence";
 
-const NAV_ITEMS: { href: string; label: string; adminOnly?: boolean; accent?: boolean }[] = [
+const NAV_ITEMS: {
+  href: string;
+  label: string;
+  adminOnly?: boolean;
+  leadershipOnly?: boolean;
+  accent?: boolean;
+}[] = [
   { href: "/dashboard", label: "Дашборд" },
+  { href: "/analytics", label: "Аналитика", leadershipOnly: true },
   { href: "/clients", label: "Клиенты" },
   { href: "/deals", label: "Сделки" },
   { href: "/tasks", label: "Задачи" },
@@ -67,7 +78,12 @@ export function AppHeader({
   };
 
   const role: UserRole = profile.role;
-  const items = NAV_ITEMS.filter((i) => !i.adminOnly || role === "admin");
+  const items = NAV_ITEMS.filter(
+    (item) =>
+      (!item.adminOnly || role === "admin") &&
+      (!item.leadershipOnly ||
+        canViewCompanyAnalytics(role, profile.is_owner)),
+  );
 
   return (
     <>
@@ -158,9 +174,7 @@ export function AppHeader({
                 <p className="text-xs text-muted-foreground">
                   {profile.is_owner
                     ? "Разработчик"
-                    : role === "admin"
-                      ? "Администратор"
-                      : "Агент"}
+                    : USER_ROLE_LABELS[role]}
                 </p>
               </div>
             </DropdownMenuTrigger>

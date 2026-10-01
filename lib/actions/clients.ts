@@ -7,6 +7,7 @@ import { requireProfile } from "@/lib/auth";
 import { logActivity } from "@/lib/activities";
 import { parseNumericFormValue, parseStringFormValue } from "@/lib/parse";
 import { diffRecords } from "@/lib/diff";
+import { canAssignWork } from "@/lib/role-management";
 
 const uuidSchema = z.string().uuid();
 
@@ -99,7 +100,9 @@ export async function createClientAction(
 
   const { supabase, user, profile } = await requireProfile();
   const assignedTo =
-    profile.role === "admin" ? (parsed.data.assigned_to ?? user.id) : user.id;
+    canAssignWork(profile.role, profile.is_owner)
+      ? (parsed.data.assigned_to ?? user.id)
+      : user.id;
 
   const { data: created, error } = await supabase
     .from("clients")
@@ -123,6 +126,7 @@ export async function createClientAction(
   });
 
   revalidatePath("/clients");
+  revalidatePath("/analytics");
   redirect(`/clients/${created.id}?created=client`);
 }
 
@@ -162,7 +166,7 @@ export async function updateClientAction(
       ...parsed.data,
       email: parsed.data.email || null,
       assigned_to:
-        profile.role === "admin"
+        canAssignWork(profile.role, profile.is_owner)
           ? (parsed.data.assigned_to ?? null)
           : existing.assigned_to,
     })
@@ -196,6 +200,7 @@ export async function updateClientAction(
 
   revalidatePath("/clients");
   revalidatePath(`/clients/${id}`);
+  revalidatePath("/analytics");
   return { success: true };
 }
 
@@ -220,5 +225,6 @@ export async function deleteClientAction(id: string) {
     clientId: null,
   });
   revalidatePath("/clients");
+  revalidatePath("/analytics");
   redirect("/clients");
 }

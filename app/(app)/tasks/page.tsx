@@ -73,6 +73,7 @@ export default async function TasksPage(props: PageProps) {
             profiles={profiles ?? []}
             currentUserId={profile.id}
             currentRole={profile.role}
+            currentIsOwner={profile.is_owner}
             trigger={<Button>Новая задача</Button>}
           />
         }
@@ -101,6 +102,7 @@ export default async function TasksPage(props: PageProps) {
               profiles={profiles ?? []}
               currentUserId={profile.id}
               currentRole={profile.role}
+              currentIsOwner={profile.is_owner}
               trigger={<Button>Новая задача</Button>}
             />
           }

@@ -15,6 +15,7 @@ import { TeamFeedbackInbox } from "./feedback-inbox";
 import { RoleSelect } from "./role-select";
 import { requireProfile } from "@/lib/auth";
 import { formatDate, initials } from "@/lib/formatters";
+import { canViewCompanyAnalytics, USER_ROLE_LABELS } from "@/lib/role-management";
 import {
   PROPERTY_FEEDBACK_INBOX_ALL,
   PROPERTY_FEEDBACK_TEAM_COLUMNS,
@@ -129,13 +130,17 @@ export default async function TeamPage() {
                     </PrefetchLink>
                     <div className="flex items-center gap-3">
                       <Badge
-                        variant={p.role === "admin" ? "default" : "secondary"}
+                        variant={
+                          p.role === "admin"
+                            ? "default"
+                            : canViewCompanyAnalytics(p.role)
+                              ? "outline"
+                              : "secondary"
+                        }
                       >
                         {p.is_owner
                           ? "Разработчик"
-                          : p.role === "admin"
-                            ? "Админ"
-                            : "Агент"}
+                          : USER_ROLE_LABELS[p.role]}
                       </Badge>
                       <RoleSelect
                         userId={p.id}

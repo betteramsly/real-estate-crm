@@ -6,6 +6,7 @@ import { ClientsTable } from "./clients-table";
 import { ClientsFilters } from "./clients-filters";
 import { EmptyState } from "@/components/ui/empty-state";
 import { requireProfile } from "@/lib/auth";
+import { canViewCompanyAnalytics } from "@/lib/role-management";
 import { normalizeSearchTerm } from "@/lib/search";
 import type { Client, Profile } from "@/lib/types";
 
@@ -20,7 +21,7 @@ interface PageProps {
 
 export default async function ClientsPage(props: PageProps) {
   const searchParams = await props.searchParams;
-  const { supabase } = await requireProfile();
+  const { supabase, user, profile } = await requireProfile();
 
   let query = supabase
     .from("clients")
@@ -28,6 +29,10 @@ export default async function ClientsPage(props: PageProps) {
       "id, full_name, phone, email, source, status, budget_min, budget_max, deal_type, notes, assigned_to, created_by, created_at, updated_at",
     )
     .order("created_at", { ascending: false });
+
+  if (!canViewCompanyAnalytics(profile.role, profile.is_owner)) {
+    query = query.eq("assigned_to", user.id);
+  }
 
   if (
     ["new", "in_progress", "won", "lost"].includes(
@@ -70,7 +75,7 @@ export default async function ClientsPage(props: PageProps) {
     <>
       <PageHeader
         title="Клиенты"
-        description="Все клиенты и их статусы в одном месте"
+        description="Клиенты и их статусы в одном месте"
         actions={
           <PrefetchLink href="/clients/new" className={buttonVariants()}>
             <Plus className="h-4 w-4" />
