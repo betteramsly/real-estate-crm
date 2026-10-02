@@ -475,12 +475,20 @@ export function ApartmentCalculator({
             <ResultLine label="Стоимость" value={quote ? formatCurrency(quote.price) : "—"} />
             <ResultLine label="Площадь" value={formatArea(quote?.area)} />
             <ResultLine
-              label="Наценка"
-              value={quote ? formatMarkup(quote.markupPct) : "—"}
-            />
-            <ResultLine
               label="Первый взнос"
               value={quote ? formatCurrency(quote.downPayment) : "—"}
+            />
+            <ResultLine
+              label="Остаток"
+              value={
+                quote && quote.months > 0
+                  ? formatCurrency(Math.max(0, quote.price - quote.downPayment))
+                  : "—"
+              }
+            />
+            <ResultLine
+              label="Наценка на остаток"
+              value={quote && quote.months > 0 ? formatMarkup(quote.markupPct) : "без наценки"}
             />
             <ResultLine
               label="Остаток с наценкой"

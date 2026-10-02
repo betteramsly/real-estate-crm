@@ -553,19 +553,6 @@ export function ComplexSections({
         </>
       ) : null}
 
-      {calculator ? (
-        <>
-          <Separator className="bg-border/60" />
-          <section className="space-y-4">
-            <SectionHeading
-              title="Расчёт стоимости"
-              description="Площадь, цена и срок — сумма обновляется сразу. Планировку можно вставить скриншотом."
-            />
-            {calculator}
-          </section>
-        </>
-      ) : null}
-
       {showPrices ? (
         <>
           <Separator className="bg-border/60" />
@@ -581,6 +568,19 @@ export function ComplexSections({
                 size="price"
               />
             </div>
+          </section>
+        </>
+      ) : null}
+
+      {calculator ? (
+        <>
+          <Separator className="bg-border/60" />
+          <section className="space-y-4">
+            <SectionHeading
+              title="Расчёт стоимости"
+              description="Площадь, цена и срок — сумма обновляется сразу. Планировку можно вставить скриншотом."
+            />
+            {calculator}
           </section>
         </>
       ) : null}

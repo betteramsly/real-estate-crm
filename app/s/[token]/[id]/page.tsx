@@ -68,11 +68,11 @@ export default async function SharePropertyPage(props: {
           ]}
         />
         <ComplexHero property={property} hideRelevance />
+        <ComplexSections property={property} presentMode guest />
         <ShareQuotes
           quotes={share.quotes.filter((quote) => quote.property_id === property.id)}
           propertyTitles={{ [property.id]: property.title }}
         />
-        <ComplexSections property={property} presentMode guest />
       </main>
     </>
   );
