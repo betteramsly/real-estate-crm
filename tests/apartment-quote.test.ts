@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   calculateApartmentQuote,
   defaultInstallmentTerm,
+  discountCaption,
   isFloorPlanUrl,
   parseInstallmentTerms,
   parseMarkupPercent,
@@ -114,7 +115,7 @@ describe("installment defaults", () => {
     expect(parseMarkupPercent("без наценки")).toBe(0);
   });
 
-  it("applies up to two discounts to the list price before the down payment", () => {
+  it("subtracts discounts after markup, leaving the down payment and remainder unchanged", () => {
     const quote = calculateApartmentQuote({
       area: 89,
       priceM2: 61000,
@@ -131,16 +132,15 @@ describe("installment defaults", () => {
     });
     expect(quote).toMatchObject({
       price: 5429000,
-      priceAfterDiscount: 5166130,
+      downPayment: 356000,
+      remaining: 6848550,
       discountTotal: 262870,
       discounts: [
         { label: "Семейная", mode: "percent", value: 3, amount: 162870 },
         { label: "Отделка", mode: "amount", value: 100000, amount: 100000 },
       ],
-      downPayment: 356000,
-      remaining: 6493676,
-      total: 6849676,
-      monthly: 108228,
+      total: 6941680,
+      monthly: 109761,
       developerPromo: "отопление в подарок",
     });
   });
@@ -159,9 +159,88 @@ describe("installment defaults", () => {
         { label: "Ещё", mode: "amount", value: 500000 },
       ],
     });
-    expect(quote?.priceAfterDiscount).toBe(1);
     expect(quote?.discounts[0]?.label).toBe("Скидка");
     expect(quote?.total).toBe(1);
+    expect(quote?.price).toBe(1000000);
+  });
+
+  it("prefixes the agent discount name and does not add a comma", () => {
+    expect(
+      discountCaption({ label: "Семейная", mode: "percent", value: 3, amount: 1 }),
+    ).toBe("Скидка Семейная 3%");
+    expect(
+      discountCaption({ label: "Отделка", mode: "amount", value: 100000, amount: 100000 }),
+    ).toBe("Скидка Отделка");
+    expect(
+      discountCaption({ label: "Скидка", mode: "percent", value: 3, amount: 1 }),
+    ).toBe("Скидка 3%");
+    expect(
+      discountCaption({ label: "Скидка на кухню", mode: "amount", value: 1, amount: 1 }),
+    ).toBe("Скидка на кухню");
+  });
+
+  it("does not let a discount change the down payment or the marked-up remainder", () => {
+    const plain = calculateApartmentQuote({
+      area: 89,
+      priceM2: 61000,
+      price: null,
+      markupPct: 35,
+      months: 60,
+      downM2: 4000,
+      downLump: 0,
+    });
+    const discounted = calculateApartmentQuote({
+      area: 89,
+      priceM2: 61000,
+      price: null,
+      markupPct: 35,
+      months: 60,
+      downM2: 4000,
+      downLump: 0,
+      discounts: [{ label: "Семейная", mode: "percent", value: 3 }],
+    });
+    expect(discounted?.downPayment).toBe(plain?.downPayment);
+    expect(discounted?.remaining).toBe(plain?.remaining);
+    expect(discounted?.total).toBe((plain?.total ?? 0) - 162870);
+    expect(discounted?.discountCapped).toBe(false);
+  });
+
+  it("caps a discount that is larger than the marked-up remainder", () => {
+    const quote = calculateApartmentQuote({
+      area: null,
+      priceM2: null,
+      price: 1000000,
+      markupPct: 0,
+      months: 12,
+      downM2: 0,
+      downLump: 900000,
+      discounts: [{ label: "Большая", mode: "amount", value: 500000 }],
+    });
+    expect(quote?.downPayment).toBe(900000);
+    expect(quote?.remaining).toBe(100000);
+    expect(quote?.discountCapped).toBe(true);
+    expect(quote?.discounts[0]?.amount).toBe(99999);
+    expect(quote?.total).toBe(900001);
+  });
+
+  it("reduces a cash price and leaves the installment fields at zero", () => {
+    const quote = calculateApartmentQuote({
+      area: null,
+      priceM2: null,
+      price: 2000000,
+      markupPct: 25,
+      months: 0,
+      downM2: 0,
+      downLump: 0,
+      discounts: [{ label: "Наличные", mode: "percent", value: 10 }],
+    });
+    expect(quote).toMatchObject({
+      remaining: 0,
+      monthly: 0,
+      downPayment: 0,
+      total: 1800000,
+      discounts: [{ label: "Наличные", mode: "percent", value: 10, amount: 200000 }],
+    });
   });
 
   it("suggests a small obligatory payment as price per meter", () => {

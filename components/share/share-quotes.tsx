@@ -55,6 +55,7 @@ export function ShareQuotes({
             "Квартира";
           const alt = `Планировка — ${title}`;
           const hasPlan = Boolean(quote.floor_plan_url);
+          const discounts = quote.discounts ?? [];
           return (
             <article
               key={quote.id ?? quote.calculation_id ?? `${quote.property_id}-${index}`}
@@ -106,20 +107,6 @@ export function ShareQuotes({
                         }
                       />
                       <MoneyRow label="Стоимость" value={formatCurrency(quote.price)} />
-                      {quote.discounts.map((discount, discountIndex) => (
-                        <MoneyRow
-                          key={`${discount.label}-${discountIndex}`}
-                          label={discountCaption(discount)}
-                          value={`−${formatCurrency(discount.amount)}`}
-                          accent
-                        />
-                      ))}
-                      {quote.discounts.length ? (
-                        <MoneyRow
-                          label="Со скидкой"
-                          value={formatCurrency(quote.price_after_discount)}
-                        />
-                      ) : null}
                       <MoneyRow
                         label="Первый взнос"
                         value={formatCurrency(quote.down_payment)}
@@ -128,10 +115,7 @@ export function ShareQuotes({
                         <MoneyRow
                           label="Остаток"
                           value={formatCurrency(
-                            Math.max(
-                              0,
-                              quote.price_after_discount - quote.down_payment,
-                            ),
+                            Math.max(0, quote.price - quote.down_payment),
                           )}
                         />
                       ) : null}
@@ -143,6 +127,24 @@ export function ShareQuotes({
                         <MoneyRow
                           label="Остаток с наценкой"
                           value={formatCurrency(quote.remaining)}
+                        />
+                      ) : null}
+                      {discounts.map((discount, discountIndex) => (
+                        <MoneyRow
+                          key={`${discount.label}-${discountIndex}`}
+                          label={discountCaption(discount)}
+                          value={`−${formatCurrency(discount.amount)}`}
+                          accent
+                        />
+                      ))}
+                      {discounts.length ? (
+                        <MoneyRow
+                          label={quote.months > 0 ? "Остаток со скидкой" : "Со скидкой"}
+                          value={formatCurrency(
+                            quote.months > 0
+                              ? Math.max(0, quote.total - quote.down_payment)
+                              : quote.total,
+                          )}
                         />
                       ) : null}
                     </div>

@@ -372,6 +372,7 @@ export function ApartmentCalculator({
       savedCurrent.months !== quote?.months ||
       savedCurrent.down_m2 !== quote?.downM2 ||
       savedCurrent.down_lump !== quote?.downLump ||
+      savedCurrent.total !== quote?.total ||
       savedCurrent.term_label !== termLabel ||
       discountSignature(savedCurrent.discounts) !==
         discountSignature(quote?.discounts ?? []) ||
@@ -544,20 +545,6 @@ export function ApartmentCalculator({
           </div>
           <dl className="divide-y divide-border/60 px-4">
             <ResultLine label="Стоимость" value={quote ? formatCurrency(quote.price) : "—"} />
-            {quote?.discounts.map((discount, index) => (
-              <ResultLine
-                key={`${discount.label}-${index}`}
-                label={discountCaption(discount)}
-                value={`−${formatCurrency(discount.amount)}`}
-                accent
-              />
-            ))}
-            {quote && quote.discounts.length ? (
-              <ResultLine
-                label="Со скидкой"
-                value={formatCurrency(quote.priceAfterDiscount)}
-              />
-            ) : null}
             <ResultLine label="Площадь" value={formatArea(quote?.area)} />
             <ResultLine
               label="Первый взнос"
@@ -567,7 +554,7 @@ export function ApartmentCalculator({
               label="Остаток"
               value={
                 quote && quote.months > 0
-                  ? formatCurrency(Math.max(0, quote.priceAfterDiscount - quote.downPayment))
+                  ? formatCurrency(Math.max(0, quote.price - quote.downPayment))
                   : "—"
               }
             />
@@ -579,6 +566,22 @@ export function ApartmentCalculator({
               label="Остаток с наценкой"
               value={quote && quote.months > 0 ? formatCurrency(quote.remaining) : "—"}
             />
+            {quote?.discounts.map((discount, index) => (
+              <ResultLine
+                key={`${discount.label}-${index}`}
+                label={discountCaption(discount)}
+                value={`−${formatCurrency(discount.amount)}`}
+                accent
+              />
+            ))}
+            {quote && quote.discounts.length ? (
+              <ResultLine
+                label={quote.months > 0 ? "Остаток со скидкой" : "Со скидкой"}
+                value={formatCurrency(
+                  quote.months > 0 ? quote.total - quote.downPayment : quote.total,
+                )}
+              />
+            ) : null}
           </dl>
           {quote?.developerPromo ? (
             <div className="border-t border-gold/30 bg-gold/10 px-4 py-3">
@@ -587,6 +590,11 @@ export function ApartmentCalculator({
               </p>
               <p className="mt-1 text-sm leading-5">{quote.developerPromo}</p>
             </div>
+          ) : null}
+          {quote?.discountCapped ? (
+            <p className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
+              Скидка больше остатка с наценкой — в расчёт взята только доступная сумма.
+            </p>
           ) : null}
           {quote?.downClamped ? (
             <p className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
@@ -726,7 +734,13 @@ export function ApartmentCalculator({
                     onClick={() =>
                       setDiscounts((current) =>
                         current.map((item) =>
-                          item.key === discount.key ? { ...item, mode } : item,
+                          item.key === discount.key
+                            ? {
+                                ...item,
+                                mode,
+                                valueText: item.mode === mode ? item.valueText : "",
+                              }
+                            : item,
                         ),
                       )
                     }

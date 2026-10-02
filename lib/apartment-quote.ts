@@ -45,6 +45,7 @@ export type QuoteMath = {
   priceAfterDiscount: number;
   discounts: QuoteDiscount[];
   discountTotal: number;
+  discountCapped: boolean;
   developerPromo: string | null;
   markupPct: number;
   markup: string;
@@ -84,8 +85,10 @@ export function formatMarkup(pct: number) {
 }
 
 export function discountCaption(discount: QuoteDiscount) {
-  if (discount.mode !== "percent") return discount.label;
-  return `${discount.label}, ${formatMarkup(discount.value)}`;
+  const name = discount.label.trim();
+  const title = !name || /^скидк/i.test(name) ? name || "Скидка" : `Скидка ${name}`;
+  if (discount.mode !== "percent") return title;
+  return `${title} ${formatMarkup(discount.value)}`;
 }
 
 export function formatTermMonths(months: number) {
@@ -240,34 +243,39 @@ export function normalizeDeveloperPromo(value: string | null | undefined) {
 
 export function applyQuoteDiscounts(
   listPrice: number,
+  payable: number,
   inputs: QuoteDiscountInput[] | undefined,
-): { discounts: QuoteDiscount[]; discountTotal: number; priceAfterDiscount: number } {
+): { discounts: QuoteDiscount[]; discountTotal: number; capped: boolean } {
   const discounts: QuoteDiscount[] = [];
   let spent = 0;
-  for (const raw of (inputs ?? []).slice(0, DISCOUNT_MAX)) {
-    const room = listPrice - spent - 1;
-    if (room <= 0) break;
-    const mode: QuoteDiscountMode = raw.mode === "percent" ? "percent" : "amount";
+  let capped = false;
+  const pending = (inputs ?? []).slice(0, DISCOUNT_MAX);
+  for (let index = 0; index < pending.length; index += 1) {
+    const raw = pending[index];
+    if (!raw) continue;
+    const room = payable - spent - 1;
     const rawValue = Number.isFinite(raw.value) ? raw.value : 0;
     if (rawValue <= 0) continue;
+    if (room <= 0) {
+      capped = true;
+      break;
+    }
+    const mode: QuoteDiscountMode = raw.mode === "percent" ? "percent" : "amount";
     const value =
       mode === "percent"
         ? Math.round(clamp(rawValue, 0, 90) * 100) / 100
-        : roundMoney(clamp(rawValue, 0, listPrice));
+        : roundMoney(clamp(rawValue, 0, payable));
     if (value <= 0) continue;
     const requested =
       mode === "percent" ? roundMoney((listPrice * value) / 100) : value;
     const amount = Math.min(requested, room);
     if (amount <= 0) continue;
+    if (amount < requested) capped = true;
     spent += amount;
     const label = raw.label.replace(/\s+/g, " ").trim().slice(0, 40) || "Скидка";
     discounts.push({ label, mode, value, amount });
   }
-  return {
-    discounts,
-    discountTotal: spent,
-    priceAfterDiscount: listPrice - spent,
-  };
+  return { discounts, discountTotal: spent, capped };
 }
 
 export function parseDiscountInputs(value: unknown): QuoteDiscountInput[] {
@@ -302,10 +310,6 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
   if (!price && area && priceM2) price = roundMoney(area * priceM2);
   if (!price || price > 5_000_000_000) return null;
 
-  const { discounts, discountTotal, priceAfterDiscount } = applyQuoteDiscounts(
-    price,
-    input.discounts,
-  );
   const markupPct = clamp(
     Number.isFinite(input.markupPct) ? input.markupPct : 0,
     0,
@@ -321,20 +325,28 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
     5_000_000_000,
   );
   const rawDown = roundMoney((area ? area * downM2 : 0) + downLump);
-  const downPayment = Math.min(priceAfterDiscount, Math.max(0, rawDown));
-  const principal = priceAfterDiscount - downPayment;
+  const downPayment = Math.min(price, Math.max(0, rawDown));
+  const principal = price - downPayment;
   const remaining =
     months > 0 ? roundMoney(principal * (1 + markupPct / 100)) : 0;
-  const total = downPayment + remaining + (months > 0 ? 0 : principal);
-  const monthly = months > 0 ? roundMoney(remaining / months) : 0;
+  const payable = months > 0 ? remaining : price;
+  const { discounts, discountTotal, capped } = applyQuoteDiscounts(
+    price,
+    payable,
+    input.discounts,
+  );
+  const afterDiscount = payable - discountTotal;
+  const total = months > 0 ? downPayment + afterDiscount : afterDiscount;
+  const monthly = months > 0 ? roundMoney(afterDiscount / months) : 0;
 
   return {
     area,
     priceM2,
     price,
-    priceAfterDiscount,
+    priceAfterDiscount: price,
     discounts,
     discountTotal,
+    discountCapped: capped,
     developerPromo: normalizeDeveloperPromo(input.developerPromo),
     markupPct,
     markup: formatMarkup(markupPct),
@@ -346,7 +358,7 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
     remaining,
     total,
     monthly,
-    downClamped: rawDown > priceAfterDiscount,
+    downClamped: rawDown > price,
   };
 }
 
