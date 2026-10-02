@@ -114,6 +114,56 @@ describe("installment defaults", () => {
     expect(parseMarkupPercent("без наценки")).toBe(0);
   });
 
+  it("applies up to two discounts to the list price before the down payment", () => {
+    const quote = calculateApartmentQuote({
+      area: 89,
+      priceM2: 61000,
+      price: null,
+      markupPct: 35,
+      months: 60,
+      downM2: 4000,
+      downLump: 0,
+      discounts: [
+        { label: "Семейная", mode: "percent", value: 3 },
+        { label: "Отделка", mode: "amount", value: 100000 },
+      ],
+      developerPromo: "  отопление в подарок  ",
+    });
+    expect(quote).toMatchObject({
+      price: 5429000,
+      priceAfterDiscount: 5166130,
+      discountTotal: 262870,
+      discounts: [
+        { label: "Семейная", mode: "percent", value: 3, amount: 162870 },
+        { label: "Отделка", mode: "amount", value: 100000, amount: 100000 },
+      ],
+      downPayment: 356000,
+      remaining: 6493676,
+      total: 6849676,
+      monthly: 108228,
+      developerPromo: "отопление в подарок",
+    });
+  });
+
+  it("keeps a ruble of price when discounts would wipe it out", () => {
+    const quote = calculateApartmentQuote({
+      area: null,
+      priceM2: null,
+      price: 1000000,
+      markupPct: 0,
+      months: 0,
+      downM2: 0,
+      downLump: 0,
+      discounts: [
+        { label: "", mode: "percent", value: 90 },
+        { label: "Ещё", mode: "amount", value: 500000 },
+      ],
+    });
+    expect(quote?.priceAfterDiscount).toBe(1);
+    expect(quote?.discounts[0]?.label).toBe("Скидка");
+    expect(quote?.total).toBe(1);
+  });
+
   it("suggests a small obligatory payment as price per meter", () => {
     expect(suggestDownPayment(groups[0]?.note)).toEqual({
       downM2: 4000,
@@ -150,9 +200,34 @@ describe("share quote snapshots", () => {
       total: 7204550,
       term_label: "5 лет",
       floor_plan_url: null,
+      discounts: [],
+      developer_promo: null,
+      price_after_discount: 5429000,
     });
     expect(quoteKey(quote!, 0)).toContain("legacy:");
     expect(quotesToJson([quote!])[0]).not.toHaveProperty("secret");
+  });
+
+  it("keeps two discounts and a developer promo, and drops junk", () => {
+    const [quote] = parseShareQuotes([
+      {
+        price: 1000000,
+        price_after_discount: 850000,
+        developer_promo: "  перегородки  ",
+        discounts: [
+          { label: "Семейная", mode: "percent", value: 10, amount: 100000 },
+          { label: "Скрипт", mode: "amount", value: 50000, amount: 50000, extra: true },
+          { label: "Третья", mode: "amount", value: 1, amount: 1 },
+        ],
+      },
+    ]);
+    expect(quote?.developer_promo).toBe("перегородки");
+    expect(quote?.price_after_discount).toBe(850000);
+    expect(quote?.discounts).toEqual([
+      { label: "Семейная", mode: "percent", value: 10, amount: 100000 },
+      { label: "Скрипт", mode: "amount", value: 50000, amount: 50000 },
+    ]);
+    expect(quotesToJson([quote!])[0]?.discounts).toHaveLength(2);
   });
 
   it("accepts only floor-plan storage URLs", () => {

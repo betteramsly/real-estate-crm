@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { ImagePlus, Loader2, Trash2 } from "lucide-react";
+import { ImagePlus, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { FloorPlanView } from "@/components/catalog/floor-plan-view";
 import {
@@ -10,10 +10,13 @@ import {
 } from "@/components/catalog/presentation-basket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import {
+  DISCOUNT_MAX,
   FLOOR_PLAN_SOURCE_MAX_BYTES,
   calculateApartmentQuote,
   defaultInstallmentTerm,
+  discountCaption,
   formatArea,
   formatMarkup,
   formatTermMonths,
@@ -30,7 +33,25 @@ import {
 import { compactTermGroups } from "@/lib/catalog";
 import { formatCurrency } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
-import type { ApartmentCalculation, CatalogTermGroup } from "@/lib/types";
+import type {
+  ApartmentCalculation,
+  CatalogTermGroup,
+  QuoteDiscount,
+  QuoteDiscountMode,
+} from "@/lib/types";
+
+type DiscountDraft = {
+  key: string;
+  label: string;
+  mode: QuoteDiscountMode;
+  valueText: string;
+};
+
+function discountSignature(discounts: QuoteDiscount[]) {
+  return discounts
+    .map((discount) => `${discount.label}|${discount.mode}|${discount.value}|${discount.amount}`)
+    .join(";");
+}
 
 const PLAN_TYPES = new Set([
   "image/jpeg",
@@ -130,11 +151,26 @@ function Field({
   );
 }
 
-function ResultLine({ label, value }: { label: string; value: string }) {
+function ResultLine({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 py-2.5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium tabular-nums">{value}</dd>
+      <dd
+        className={cn(
+          "text-right text-sm font-medium tabular-nums",
+          accent && "text-gold",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
@@ -184,6 +220,9 @@ export function ApartmentCalculator({
   );
   const [downM2Text, setDownM2Text] = React.useState(money(suggestedDown.downM2));
   const [downLumpText, setDownLumpText] = React.useState("");
+  const [discounts, setDiscounts] = React.useState<DiscountDraft[]>([]);
+  const [promo, setPromo] = React.useState("");
+  const discountSeq = React.useRef(0);
   const [planFile, setPlanFile] = React.useState<File | null>(null);
   const [planPreview, setPlanPreview] = React.useState<string | null>(null);
   const [removePlan, setRemovePlan] = React.useState(false);
@@ -219,6 +258,12 @@ export function ApartmentCalculator({
     months,
     downM2: parseDecimal(downM2Text) ?? 0,
     downLump: parseDecimal(downLumpText) ?? 0,
+    discounts: discounts.map((discount) => ({
+      label: discount.label,
+      mode: discount.mode,
+      value: parseDecimal(discount.valueText) ?? 0,
+    })),
+    developerPromo: promo,
   });
 
   const termLabel =
@@ -298,6 +343,18 @@ export function ApartmentCalculator({
     }
     setDownM2Text(money(calculation.down_m2));
     setDownLumpText(money(calculation.down_lump));
+    setDiscounts(
+      calculation.discounts.map((discount) => ({
+        key: `saved-${discountSeq.current++}`,
+        label: discount.label === "Скидка" ? "" : discount.label,
+        mode: discount.mode,
+        valueText:
+          discount.mode === "percent"
+            ? String(discount.value).replace(".", ",")
+            : money(discount.value),
+      })),
+    );
+    setPromo(calculation.developer_promo ?? "");
     setPlanFile(null);
     setRemovePlan(false);
     replacePreview(calculation.floor_plan_url);
@@ -315,7 +372,10 @@ export function ApartmentCalculator({
       savedCurrent.months !== quote?.months ||
       savedCurrent.down_m2 !== quote?.downM2 ||
       savedCurrent.down_lump !== quote?.downLump ||
-      savedCurrent.term_label !== termLabel,
+      savedCurrent.term_label !== termLabel ||
+      discountSignature(savedCurrent.discounts) !==
+        discountSignature(quote?.discounts ?? []) ||
+      (savedCurrent.developer_promo ?? "") !== (quote?.developerPromo ?? ""),
   );
   const inBasket = calculationId ? basket.hasQuote(calculationId) : false;
 
@@ -337,6 +397,17 @@ export function ApartmentCalculator({
       form.set("term_label", termLabel);
       form.set("down_m2", String(quote.downM2));
       form.set("down_lump", String(quote.downLump));
+      form.set(
+        "discounts",
+        JSON.stringify(
+          discounts.map((discount) => ({
+            label: discount.label,
+            mode: discount.mode,
+            value: parseDecimal(discount.valueText) ?? 0,
+          })),
+        ),
+      );
+      form.set("developer_promo", promo);
       if (planFile) form.set("floor_plan", planFile);
       if (removePlan) form.set("remove_floor_plan", "1");
       let result: Awaited<ReturnType<typeof saveApartmentCalculationAction>>;
@@ -473,6 +544,20 @@ export function ApartmentCalculator({
           </div>
           <dl className="divide-y divide-border/60 px-4">
             <ResultLine label="Стоимость" value={quote ? formatCurrency(quote.price) : "—"} />
+            {quote?.discounts.map((discount, index) => (
+              <ResultLine
+                key={`${discount.label}-${index}`}
+                label={discountCaption(discount)}
+                value={`−${formatCurrency(discount.amount)}`}
+                accent
+              />
+            ))}
+            {quote && quote.discounts.length ? (
+              <ResultLine
+                label="Со скидкой"
+                value={formatCurrency(quote.priceAfterDiscount)}
+              />
+            ) : null}
             <ResultLine label="Площадь" value={formatArea(quote?.area)} />
             <ResultLine
               label="Первый взнос"
@@ -482,7 +567,7 @@ export function ApartmentCalculator({
               label="Остаток"
               value={
                 quote && quote.months > 0
-                  ? formatCurrency(Math.max(0, quote.price - quote.downPayment))
+                  ? formatCurrency(Math.max(0, quote.priceAfterDiscount - quote.downPayment))
                   : "—"
               }
             />
@@ -495,6 +580,14 @@ export function ApartmentCalculator({
               value={quote && quote.months > 0 ? formatCurrency(quote.remaining) : "—"}
             />
           </dl>
+          {quote?.developerPromo ? (
+            <div className="border-t border-gold/30 bg-gold/10 px-4 py-3">
+              <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-gold">
+                Акция от застройщика
+              </p>
+              <p className="mt-1 text-sm leading-5">{quote.developerPromo}</p>
+            </div>
+          ) : null}
           {quote?.downClamped ? (
             <p className="border-t border-border/60 px-4 py-2.5 text-xs text-muted-foreground">
               Взнос больше стоимости — в расчёт берётся вся сумма.
@@ -575,6 +668,124 @@ export function ApartmentCalculator({
               onChange={(event) => setDownLumpText(formatGrouped(event.target.value))}
             />
           </Field>
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-xs font-medium leading-4 text-muted-foreground">Скидки</p>
+            {discounts.length < DISCOUNT_MAX ? (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 rounded-full"
+                onClick={() =>
+                  setDiscounts((current) => [
+                    ...current,
+                    {
+                      key: `new-${discountSeq.current++}`,
+                      label: "",
+                      mode: "percent",
+                      valueText: "",
+                    },
+                  ])
+                }
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Добавить
+              </Button>
+            ) : null}
+          </div>
+          {discounts.map((discount, index) => (
+            <div
+              key={discount.key}
+              className="grid gap-2 rounded-2xl border border-border/70 p-3 sm:grid-cols-[minmax(0,1fr)_auto_8.5rem_auto] sm:items-end"
+            >
+              <Field label={index === 0 ? "Скидка 1" : "Скидка 2"}>
+                <Input
+                  value={discount.label}
+                  maxLength={40}
+                  placeholder="Семейная"
+                  className="h-10 text-base"
+                  onChange={(event) =>
+                    setDiscounts((current) =>
+                      current.map((item) =>
+                        item.key === discount.key
+                          ? { ...item, label: event.target.value }
+                          : item,
+                      ),
+                    )
+                  }
+                />
+              </Field>
+              <div className="flex gap-1 pb-0.5">
+                {(["percent", "amount"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() =>
+                      setDiscounts((current) =>
+                        current.map((item) =>
+                          item.key === discount.key ? { ...item, mode } : item,
+                        ),
+                      )
+                    }
+                    className={cn(
+                      "h-10 rounded-full border px-3 text-sm tabular-nums transition-colors",
+                      discount.mode === mode
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : "border-input bg-background text-muted-foreground hover:bg-accent",
+                    )}
+                  >
+                    {mode === "percent" ? "%" : "₽"}
+                  </button>
+                ))}
+              </div>
+              <Field label={discount.mode === "percent" ? "Процент" : "Сумма"}>
+                <Input
+                  inputMode="decimal"
+                  value={discount.valueText}
+                  placeholder={discount.mode === "percent" ? "3" : "100 000"}
+                  className="h-10 text-base tabular-nums"
+                  onChange={(event) => {
+                    const next =
+                      discount.mode === "percent"
+                        ? sanitizeArea(event.target.value)
+                        : formatGrouped(event.target.value);
+                    setDiscounts((current) =>
+                      current.map((item) =>
+                        item.key === discount.key ? { ...item, valueText: next } : item,
+                      ),
+                    );
+                  }}
+                />
+              </Field>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 shrink-0"
+                aria-label="Убрать скидку"
+                onClick={() =>
+                  setDiscounts((current) => current.filter((item) => item.key !== discount.key))
+                }
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          ))}
+          <label className="block space-y-1.5">
+            <span className="text-xs font-medium leading-4 text-muted-foreground">
+              Акция от застройщика
+            </span>
+            <Textarea
+              value={promo}
+              maxLength={240}
+              placeholder="Например, отопление в подарок или перегородки"
+              className="min-h-20 rounded-2xl text-base"
+              onChange={(event) => setPromo(event.target.value)}
+            />
+          </label>
         </div>
         {note ? (
           <p className="text-xs leading-5 text-muted-foreground">{note}</p>

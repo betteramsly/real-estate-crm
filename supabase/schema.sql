@@ -1149,6 +1149,43 @@ $$;
 revoke all on function public.quote_number(text, numeric, numeric)
   from public, anon, authenticated;
 
+create or replace function public.sanitize_quote_discounts(source jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = pg_catalog
+as $$
+  select coalesce(
+    (
+      select jsonb_agg(item.obj order by item.ord)
+      from (
+        select
+          d.ord,
+          jsonb_strip_nulls(jsonb_build_object(
+            'label', case
+              when nullif(btrim(d.item->>'label'), '') is null then 'Скидка'
+              else left(btrim(d.item->>'label'), 40)
+            end,
+            'mode', case when d.item->>'mode' = 'percent' then 'percent' else 'amount' end,
+            'value', public.quote_number(d.item->>'value', 0.01, 5000000000),
+            'amount', public.quote_number(d.item->>'amount', 0.01, 5000000000)
+          )) as obj
+        from jsonb_array_elements(
+          case when jsonb_typeof(source) = 'array' then source else '[]'::jsonb end
+        ) with ordinality as d(item, ord)
+        where jsonb_typeof(d.item) = 'object'
+          and d.ord <= 2
+          and public.quote_number(d.item->>'amount', 0.01, 5000000000) is not null
+          and public.quote_number(d.item->>'value', 0.01, 5000000000) is not null
+      ) item
+    ),
+    '[]'::jsonb
+  );
+$$;
+
+revoke all on function public.sanitize_quote_discounts(jsonb)
+  from public, anon, authenticated;
+
 create or replace function public.sanitize_share_quotes(source jsonb)
 returns jsonb
 language sql
@@ -1178,6 +1215,15 @@ as $$
               'area', public.quote_number(src.quote->>'area', 0.01, 500),
               'price_m2', public.quote_number(src.quote->>'price_m2', 0, 50000000),
               'price', public.quote_number(src.quote->>'price', 0.01, 5000000000),
+              'price_after_discount', public.quote_number(src.quote->>'price_after_discount', 0.01, 5000000000),
+              'discounts', case
+                when jsonb_array_length(public.sanitize_quote_discounts(src.quote->'discounts')) = 0 then null
+                else public.sanitize_quote_discounts(src.quote->'discounts')
+              end,
+              'developer_promo', case
+                when nullif(btrim(src.quote->>'developer_promo'), '') is null then null
+                else left(regexp_replace(btrim(src.quote->>'developer_promo'), '\s+', ' ', 'g'), 240)
+              end,
               'markup_pct', coalesce(public.quote_number(src.quote->>'markup_pct', 0, 200), 0),
               'markup', case
                 when nullif(btrim(src.quote->>'markup'), '') is null then null
@@ -1316,6 +1362,9 @@ create table if not exists public.apartment_calculations (
   area numeric,
   price_m2 numeric,
   price numeric not null,
+  price_after_discount numeric not null,
+  discounts jsonb not null default '[]'::jsonb,
+  developer_promo text,
   markup_pct numeric not null default 0,
   markup text not null default 'без наценки',
   months integer not null default 0,
@@ -1335,6 +1384,19 @@ create table if not exists public.apartment_calculations (
     check (price_m2 is null or (price_m2 >= 0 and price_m2 <= 50000000)),
   constraint apartment_calculations_price_range
     check (price > 0 and price <= 5000000000),
+  constraint apartment_calculations_price_after_discount_range
+    check (
+      price_after_discount > 0
+      and price_after_discount <= price
+      and price_after_discount <= 5000000000
+    ),
+  constraint apartment_calculations_discounts_array
+    check (
+      jsonb_typeof(discounts) = 'array'
+      and jsonb_array_length(discounts) <= 2
+    ),
+  constraint apartment_calculations_promo_len
+    check (developer_promo is null or char_length(developer_promo) <= 240),
   constraint apartment_calculations_markup_range
     check (markup_pct >= 0 and markup_pct <= 200),
   constraint apartment_calculations_months_range

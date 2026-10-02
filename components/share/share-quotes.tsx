@@ -1,14 +1,29 @@
 import { FloorPlanView } from "@/components/catalog/floor-plan-view";
 import { formatCurrency } from "@/lib/formatters";
-import { formatArea, quoteSummary } from "@/lib/apartment-quote";
+import { discountCaption, formatArea, quoteSummary } from "@/lib/apartment-quote";
 import { cn } from "@/lib/utils";
 import type { ApartmentQuote } from "@/lib/types";
 
-function MoneyRow({ label, value }: { label: string; value: string }) {
+function MoneyRow({
+  label,
+  value,
+  accent = false,
+}: {
+  label: string;
+  value: string;
+  accent?: boolean;
+}) {
   return (
     <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 px-4 py-2.5">
       <dt className="text-sm text-muted-foreground">{label}</dt>
-      <dd className="text-right text-sm font-medium tabular-nums">{value}</dd>
+      <dd
+        className={cn(
+          "text-right text-sm font-medium tabular-nums",
+          accent && "text-gold",
+        )}
+      >
+        {value}
+      </dd>
     </div>
   );
 }
@@ -71,6 +86,14 @@ export function ShareQuotes({
                       {quoteSummary({ ...quote, property_title: null })}
                     </p>
                   </div>
+                  {quote.developer_promo ? (
+                    <div className="rounded-2xl border border-gold/40 bg-gold/10 px-4 py-3">
+                      <p className="text-[11px] font-medium uppercase tracking-[0.16em] text-gold">
+                        Акция от застройщика
+                      </p>
+                      <p className="mt-1 text-sm leading-5">{quote.developer_promo}</p>
+                    </div>
+                  ) : null}
                   <dl className="overflow-hidden rounded-2xl border border-border/70">
                     <div className="divide-y divide-border/70">
                       <MoneyRow label="Площадь" value={formatArea(quote.area)} />
@@ -83,6 +106,20 @@ export function ShareQuotes({
                         }
                       />
                       <MoneyRow label="Стоимость" value={formatCurrency(quote.price)} />
+                      {quote.discounts.map((discount, discountIndex) => (
+                        <MoneyRow
+                          key={`${discount.label}-${discountIndex}`}
+                          label={discountCaption(discount)}
+                          value={`−${formatCurrency(discount.amount)}`}
+                          accent
+                        />
+                      ))}
+                      {quote.discounts.length ? (
+                        <MoneyRow
+                          label="Со скидкой"
+                          value={formatCurrency(quote.price_after_discount)}
+                        />
+                      ) : null}
                       <MoneyRow
                         label="Первый взнос"
                         value={formatCurrency(quote.down_payment)}
@@ -91,7 +128,10 @@ export function ShareQuotes({
                         <MoneyRow
                           label="Остаток"
                           value={formatCurrency(
-                            Math.max(0, quote.price - quote.down_payment),
+                            Math.max(
+                              0,
+                              quote.price_after_discount - quote.down_payment,
+                            ),
                           )}
                         />
                       ) : null}

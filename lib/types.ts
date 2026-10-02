@@ -215,6 +215,15 @@ export interface ActivityWithActor extends Activity {
   actor?: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
 }
 
+export type QuoteDiscountMode = "percent" | "amount";
+
+export interface QuoteDiscount {
+  label: string;
+  mode: QuoteDiscountMode;
+  value: number;
+  amount: number;
+}
+
 export interface ApartmentQuote {
   id: string | null;
   calculation_id: string | null;
@@ -223,6 +232,9 @@ export interface ApartmentQuote {
   area: number | null;
   price_m2: number | null;
   price: number;
+  price_after_discount: number;
+  discounts: QuoteDiscount[];
+  developer_promo: string | null;
   markup_pct: number;
   markup: string;
   months: number;

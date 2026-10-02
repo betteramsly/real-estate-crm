@@ -2,6 +2,8 @@ import type {
   ApartmentCalculation,
   ApartmentQuote,
   CatalogTermGroup,
+  QuoteDiscount,
+  QuoteDiscountMode,
 } from "@/lib/types";
 
 export const QUOTE_MAX = 12;
@@ -14,7 +16,15 @@ const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const CALCULATION_COLUMNS =
-  "id, created_by, property_id, property_title, area, price_m2, price, markup_pct, markup, months, term_label, down_m2, down_lump, down_payment, remaining, total, monthly, floor_plan_url, created_at, updated_at";
+  "id, created_by, property_id, property_title, area, price_m2, price, price_after_discount, discounts, developer_promo, markup_pct, markup, months, term_label, down_m2, down_lump, down_payment, remaining, total, monthly, floor_plan_url, created_at, updated_at";
+
+export const DISCOUNT_MAX = 2;
+
+export type QuoteDiscountInput = {
+  label: string;
+  mode: QuoteDiscountMode;
+  value: number;
+};
 
 export type QuoteInput = {
   area: number | null;
@@ -24,12 +34,18 @@ export type QuoteInput = {
   months: number;
   downM2: number;
   downLump: number;
+  discounts?: QuoteDiscountInput[];
+  developerPromo?: string | null;
 };
 
 export type QuoteMath = {
   area: number | null;
   priceM2: number | null;
   price: number;
+  priceAfterDiscount: number;
+  discounts: QuoteDiscount[];
+  discountTotal: number;
+  developerPromo: string | null;
   markupPct: number;
   markup: string;
   months: number;
@@ -65,6 +81,11 @@ export function formatMarkup(pct: number) {
     ? String(rounded)
     : String(rounded).replace(".", ",");
   return `${text}%`;
+}
+
+export function discountCaption(discount: QuoteDiscount) {
+  if (discount.mode !== "percent") return discount.label;
+  return `${discount.label}, ${formatMarkup(discount.value)}`;
 }
 
 export function formatTermMonths(months: number) {
@@ -212,6 +233,61 @@ export function installmentNotes(groups: CatalogTermGroup[] | undefined) {
     .join("\n");
 }
 
+export function normalizeDeveloperPromo(value: string | null | undefined) {
+  const text = (value ?? "").replace(/\s+/g, " ").trim().slice(0, 240);
+  return text || null;
+}
+
+export function applyQuoteDiscounts(
+  listPrice: number,
+  inputs: QuoteDiscountInput[] | undefined,
+): { discounts: QuoteDiscount[]; discountTotal: number; priceAfterDiscount: number } {
+  const discounts: QuoteDiscount[] = [];
+  let spent = 0;
+  for (const raw of (inputs ?? []).slice(0, DISCOUNT_MAX)) {
+    const room = listPrice - spent - 1;
+    if (room <= 0) break;
+    const mode: QuoteDiscountMode = raw.mode === "percent" ? "percent" : "amount";
+    const rawValue = Number.isFinite(raw.value) ? raw.value : 0;
+    if (rawValue <= 0) continue;
+    const value =
+      mode === "percent"
+        ? Math.round(clamp(rawValue, 0, 90) * 100) / 100
+        : roundMoney(clamp(rawValue, 0, listPrice));
+    if (value <= 0) continue;
+    const requested =
+      mode === "percent" ? roundMoney((listPrice * value) / 100) : value;
+    const amount = Math.min(requested, room);
+    if (amount <= 0) continue;
+    spent += amount;
+    const label = raw.label.replace(/\s+/g, " ").trim().slice(0, 40) || "Скидка";
+    discounts.push({ label, mode, value, amount });
+  }
+  return {
+    discounts,
+    discountTotal: spent,
+    priceAfterDiscount: listPrice - spent,
+  };
+}
+
+export function parseDiscountInputs(value: unknown): QuoteDiscountInput[] {
+  if (!Array.isArray(value)) return [];
+  const inputs: QuoteDiscountInput[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const numeric = readNumber(row.value);
+    if (numeric === null || numeric <= 0) continue;
+    inputs.push({
+      label: typeof row.label === "string" ? row.label : "",
+      mode: row.mode === "percent" ? "percent" : "amount",
+      value: numeric,
+    });
+    if (inputs.length >= DISCOUNT_MAX) break;
+  }
+  return inputs;
+}
+
 export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
   const area =
     input.area !== null && input.area > 0 && input.area <= 500
@@ -226,6 +302,10 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
   if (!price && area && priceM2) price = roundMoney(area * priceM2);
   if (!price || price > 5_000_000_000) return null;
 
+  const { discounts, discountTotal, priceAfterDiscount } = applyQuoteDiscounts(
+    price,
+    input.discounts,
+  );
   const markupPct = clamp(
     Number.isFinite(input.markupPct) ? input.markupPct : 0,
     0,
@@ -241,8 +321,8 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
     5_000_000_000,
   );
   const rawDown = roundMoney((area ? area * downM2 : 0) + downLump);
-  const downPayment = Math.min(price, Math.max(0, rawDown));
-  const principal = price - downPayment;
+  const downPayment = Math.min(priceAfterDiscount, Math.max(0, rawDown));
+  const principal = priceAfterDiscount - downPayment;
   const remaining =
     months > 0 ? roundMoney(principal * (1 + markupPct / 100)) : 0;
   const total = downPayment + remaining + (months > 0 ? 0 : principal);
@@ -252,6 +332,10 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
     area,
     priceM2,
     price,
+    priceAfterDiscount,
+    discounts,
+    discountTotal,
+    developerPromo: normalizeDeveloperPromo(input.developerPromo),
     markupPct,
     markup: formatMarkup(markupPct),
     months,
@@ -262,7 +346,7 @@ export function calculateApartmentQuote(input: QuoteInput): QuoteMath | null {
     remaining,
     total,
     monthly,
-    downClamped: rawDown > price,
+    downClamped: rawDown > priceAfterDiscount,
   };
 }
 
@@ -349,6 +433,12 @@ export function parseShareQuote(value: unknown): ApartmentQuote | null {
     typeof row.floor_plan_url === "string" && isFloorPlanUrl(row.floor_plan_url)
       ? row.floor_plan_url
       : null;
+  const priceAfterValue = readNumber(row.price_after_discount);
+  const priceAfterDiscount = clamp(
+    priceAfterValue !== null && priceAfterValue > 0 ? priceAfterValue : price,
+    1,
+    price,
+  );
 
   return {
     id: readUuid(row.id),
@@ -358,6 +448,11 @@ export function parseShareQuote(value: unknown): ApartmentQuote | null {
     area,
     price_m2: priceM2,
     price,
+    price_after_discount: priceAfterDiscount,
+    discounts: parseStoredDiscounts(row.discounts),
+    developer_promo: normalizeDeveloperPromo(
+      typeof row.developer_promo === "string" ? row.developer_promo : null,
+    ),
     markup_pct: markupPct,
     markup: readText(row.markup, 40) ?? formatMarkup(markupPct),
     months,
@@ -370,6 +465,27 @@ export function parseShareQuote(value: unknown): ApartmentQuote | null {
     monthly,
     floor_plan_url: floorPlan,
   };
+}
+
+function parseStoredDiscounts(value: unknown): QuoteDiscount[] {
+  if (!Array.isArray(value)) return [];
+  const discounts: QuoteDiscount[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== "object" || Array.isArray(item)) continue;
+    const row = item as Record<string, unknown>;
+    const amount = readNumber(row.amount);
+    const numeric = readNumber(row.value);
+    if (amount === null || amount <= 0 || numeric === null || numeric <= 0) continue;
+    const mode: QuoteDiscountMode = row.mode === "percent" ? "percent" : "amount";
+    discounts.push({
+      label: readText(row.label, 40) ?? "Скидка",
+      mode,
+      value: clamp(numeric, 0.01, mode === "percent" ? 90 : 5_000_000_000),
+      amount: clamp(amount, 0.01, 5_000_000_000),
+    });
+    if (discounts.length >= DISCOUNT_MAX) break;
+  }
+  return discounts;
 }
 
 export function parseShareQuotes(value: unknown): ApartmentQuote[] {
@@ -399,6 +515,14 @@ export function quoteToJson(quote: ApartmentQuote) {
     area: quote.area,
     price_m2: quote.price_m2,
     price: quote.price,
+    price_after_discount: quote.price_after_discount,
+    discounts: quote.discounts.map((discount) => ({
+      label: discount.label,
+      mode: discount.mode,
+      value: discount.value,
+      amount: discount.amount,
+    })),
+    developer_promo: quote.developer_promo,
     markup: quote.markup,
     markup_pct: quote.markup_pct,
     months: quote.months,

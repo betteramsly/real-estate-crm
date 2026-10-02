@@ -16,6 +16,7 @@ import {
   isFloorPlanUrl,
   mapCalculationRow,
   parseDecimal,
+  parseDiscountInputs,
   parseShareQuotes,
   quoteKey,
   quotesToJson,
@@ -129,6 +130,16 @@ export async function saveApartmentCalculationAction(
   const termLabel = String(formData.get("term_label") ?? "")
     .trim()
     .slice(0, 80);
+  let discountInputs: ReturnType<typeof parseDiscountInputs> = [];
+  const discountsRaw = formData.get("discounts");
+  if (typeof discountsRaw === "string" && discountsRaw.trim()) {
+    try {
+      discountInputs = parseDiscountInputs(JSON.parse(discountsRaw));
+    } catch {
+      return { ok: false, error: "Не удалось прочитать скидки." };
+    }
+  }
+  const promoRaw = formData.get("developer_promo");
   const math = calculateApartmentQuote({
     area: readFormNumber(formData.get("area")),
     priceM2: readFormNumber(formData.get("price_m2")),
@@ -137,6 +148,8 @@ export async function saveApartmentCalculationAction(
     months: readFormNumber(formData.get("months")) ?? 0,
     downM2: readFormNumber(formData.get("down_m2")) ?? 0,
     downLump: readFormNumber(formData.get("down_lump")) ?? 0,
+    discounts: discountInputs,
+    developerPromo: typeof promoRaw === "string" ? promoRaw : null,
   });
   if (!math) return { ok: false, error: "Укажите стоимость квартиры." };
 
@@ -174,6 +187,9 @@ export async function saveApartmentCalculationAction(
     area: math.area,
     price_m2: math.priceM2,
     price: math.price,
+    price_after_discount: math.priceAfterDiscount,
+    discounts: math.discounts,
+    developer_promo: math.developerPromo,
     markup_pct: math.markupPct,
     markup: math.markup,
     months: math.months,
