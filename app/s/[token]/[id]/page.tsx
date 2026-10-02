@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ComplexHero } from "@/components/catalog/complex-hero";
 import { ComplexSections } from "@/components/catalog/complex-sections";
+import { ShareQuotes } from "@/components/share/share-quotes";
 import { ShareChrome } from "@/components/share/share-chrome";
 import { ShareContactDock } from "@/components/share/share-contact";
 import { ShareTracker } from "@/components/share/share-tracker";
@@ -67,6 +68,10 @@ export default async function SharePropertyPage(props: {
           ]}
         />
         <ComplexHero property={property} hideRelevance />
+        <ShareQuotes
+          quotes={share.quotes.filter((quote) => quote.property_id === property.id)}
+          propertyTitles={{ [property.id]: property.title }}
+        />
         <ComplexSections property={property} presentMode guest />
       </main>
     </>

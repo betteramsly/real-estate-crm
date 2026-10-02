@@ -1,5 +1,7 @@
+import { parseShareQuotes } from "@/lib/apartment-quote";
 import { isChessCatalogDocument } from "@/lib/catalog";
 import type {
+  ApartmentQuote,
   CatalogDocument,
   CatalogDocumentKind,
   CatalogShare,
@@ -227,6 +229,7 @@ export type OpenCatalogShareOk = {
   expires_at: string;
   agent: ShareAgent | null;
   properties: Property[];
+  quotes: ApartmentQuote[];
 };
 
 export type OpenCatalogShareErr = {
@@ -321,5 +324,6 @@ export function parseOpenCatalogShare(data: unknown): OpenCatalogShareResult {
       const safe = sanitizeSharedProperty(property);
       return safe ? [safe] : [];
     }),
+    quotes: parseShareQuotes(row.quotes),
   };
 }

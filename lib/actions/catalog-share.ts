@@ -20,8 +20,31 @@ import {
   type CatalogShareWithStats,
   type OpenCatalogShareResult,
 } from "@/lib/catalog-share";
+import { loadQuoteSnapshots } from "@/lib/actions/apartment-quote";
+import { parseShareQuotes, quotesToJson } from "@/lib/apartment-quote";
 import { createClient } from "@/lib/supabase/server";
 import type { CatalogShare } from "@/lib/types";
+
+const SHARE_COLUMNS =
+  "id, token, created_by, title, property_ids, quotes, expires_at, revoked_at, created_at";
+const SHARE_COLUMNS_LEGACY =
+  "id, token, created_by, title, property_ids, expires_at, revoked_at, created_at";
+
+function missingQuotesColumn(error: { code?: string; message?: string } | null) {
+  if (!error) return false;
+  const message = error.message ?? "";
+  return (
+    error.code === "42703" ||
+    error.code === "PGRST204" ||
+    /quotes/i.test(message)
+  );
+}
+
+function asShare(
+  row: Omit<CatalogShare, "quotes"> & { quotes?: unknown },
+): CatalogShare {
+  return { ...row, quotes: parseShareQuotes(row.quotes) };
+}
 
 export type CatalogShareActionResult =
   | { ok: true; share: CatalogShare }
@@ -31,6 +54,7 @@ export async function createCatalogShareAction(input: {
   propertyIds: string[];
   days: number;
   title?: string;
+  calculationIds?: string[];
 }): Promise<CatalogShareActionResult> {
   const { supabase, profile } = await requireProfile();
   const propertyIds = sanitizeSharePropertyIds(input.propertyIds);
@@ -74,29 +98,57 @@ export async function createCatalogShareAction(input: {
     };
   }
 
+  const snapshots = await loadQuoteSnapshots(input.calculationIds ?? []);
+  if (!snapshots.ok) return snapshots;
+
+  const propertyIdSet = new Set(kept);
+  if (snapshots.propertyIds.length) {
+    const extraIds = snapshots.propertyIds.filter((id) => !propertyIdSet.has(id));
+    if (extraIds.length && kept.length < 12) {
+      const { data: extraProperties } = await supabase
+        .from("properties")
+        .select("id")
+        .in("id", extraIds)
+        .neq("status", "archived");
+      for (const row of extraProperties ?? []) {
+        if (kept.length >= 12 || propertyIdSet.has(row.id)) continue;
+        propertyIdSet.add(row.id);
+        kept.push(row.id);
+      }
+    }
+  }
+
   const title = (input.title ?? "").trim().slice(0, 80) || `Подборка · ${kept.length} ЖК`;
   const token = randomBytes(SHARE_TOKEN_BYTES).toString("base64url");
   const expiresAt = new Date(Date.now() + input.days * 24 * 60 * 60 * 1000).toISOString();
+  const quotes = quotesToJson(snapshots.quotes);
+  const payload = {
+    token,
+    created_by: profile.id,
+    title,
+    property_ids: kept,
+    expires_at: expiresAt,
+  };
 
-  const { data, error } = await supabase
+  let inserted = await supabase
     .from("catalog_shares")
-    .insert({
-      token,
-      created_by: profile.id,
-      title,
-      property_ids: kept,
-      expires_at: expiresAt,
-    })
-    .select(
-      "id, token, created_by, title, property_ids, expires_at, revoked_at, created_at",
-    )
+    .insert({ ...payload, quotes })
+    .select(SHARE_COLUMNS)
     .single<CatalogShare>();
 
-  if (error || !data) {
+  if (inserted.error && missingQuotesColumn(inserted.error)) {
+    inserted = await supabase
+      .from("catalog_shares")
+      .insert(payload)
+      .select(SHARE_COLUMNS_LEGACY)
+      .single<CatalogShare>();
+  }
+
+  if (inserted.error || !inserted.data) {
     return { ok: false, error: "Не удалось создать ссылку." };
   }
 
-  return { ok: true, share: data };
+  return { ok: true, share: asShare(inserted.data) };
 }
 
 export async function revokeCatalogShareAction(
@@ -125,11 +177,9 @@ export async function revokeCatalogShareAction(
 
 export async function listCatalogSharesAction(): Promise<CatalogShareWithStats[]> {
   const { supabase, profile } = await requireProfile();
-  const { data } = await supabase
+  let listed = await supabase
     .from("catalog_shares")
-    .select(
-      "id, token, created_by, title, property_ids, expires_at, revoked_at, created_at",
-    )
+    .select(SHARE_COLUMNS)
     .eq("created_by", profile.id)
     .is("revoked_at", null)
     .gt("expires_at", new Date().toISOString())
@@ -137,7 +187,19 @@ export async function listCatalogSharesAction(): Promise<CatalogShareWithStats[]
     .limit(SHARE_MAX_ACTIVE)
     .returns<CatalogShare[]>();
 
-  const shares = data ?? [];
+  if (listed.error && missingQuotesColumn(listed.error)) {
+    listed = await supabase
+      .from("catalog_shares")
+      .select(SHARE_COLUMNS_LEGACY)
+      .eq("created_by", profile.id)
+      .is("revoked_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(SHARE_MAX_ACTIVE)
+      .returns<CatalogShare[]>();
+  }
+
+  const shares = (listed.data ?? []).map(asShare);
   if (!shares.length) return [];
 
   const { data: events } = await supabase

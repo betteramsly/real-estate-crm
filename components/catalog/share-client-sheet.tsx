@@ -12,11 +12,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { updateShareQuotesAction } from "@/lib/actions/apartment-quote";
 import {
   createCatalogShareAction,
   listCatalogSharesAction,
   revokeCatalogShareAction,
 } from "@/lib/actions/catalog-share";
+import { formatArea, quoteKey } from "@/lib/apartment-quote";
 import {
   SHARE_TTL_DAYS,
   emptyShareStats,
@@ -27,7 +29,7 @@ import {
   type CatalogShareWithStats,
   type ShareTtlDays,
 } from "@/lib/catalog-share";
-import { formatDate } from "@/lib/formatters";
+import { formatCurrency, formatDate } from "@/lib/formatters";
 import { cn } from "@/lib/utils";
 import type { CatalogShare } from "@/lib/types";
 
@@ -36,7 +38,7 @@ function pageUrl(token: string) {
 }
 
 export function ShareClientButton({ compact = false }: { compact?: boolean }) {
-  const { items, ids, remove } = usePresentationBasket();
+  const { items, ids, quotes, remove, removeQuote } = usePresentationBasket();
   const [open, setOpen] = React.useState(false);
   const [days, setDays] = React.useState<ShareTtlDays>(3);
   const [pending, startTransition] = React.useTransition();
@@ -57,6 +59,7 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
       const result = await createCatalogShareAction({
         propertyIds: ids,
         days,
+        calculationIds: quotes.map((quote) => quote.id),
       });
       if (!result.ok) {
         toast.error(result.error);
@@ -81,6 +84,32 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
       setActive((current) => current.filter((row) => row.id !== id));
       if (created?.id === id) setCreated(null);
       toast.success("Ссылка отозвана");
+    });
+  };
+
+  const changeQuotes = (
+    shareId: string,
+    change: { addCalculationIds?: string[]; removeKeys?: string[] },
+  ) => {
+    startTransition(async () => {
+      const result = await updateShareQuotesAction({ shareId, ...change });
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      setActive((current) =>
+        current.map((share) =>
+          share.id === shareId ? { ...share, quotes: result.quotes } : share,
+        ),
+      );
+      if (created?.id === shareId) {
+        setCreated((current) =>
+          current ? { ...current, quotes: result.quotes } : current,
+        );
+      }
+      toast.success(
+        change.removeKeys?.length ? "Расчёт убран из подборки" : "Расчёт добавлен в подборку",
+      );
     });
   };
 
@@ -141,8 +170,8 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
           <DialogHeader>
             <DialogTitle className="font-display">Ссылка клиенту</DialogTitle>
             <DialogDescription>
-              Клиент увидит только отмеченные комплексы. Если в профиле указан
-              телефон, он сможет написать вам в WhatsApp.
+              Клиент увидит отмеченные комплексы и приложенные расчёты. Если в
+              профиле указан телефон, он сможет написать вам в WhatsApp.
             </DialogDescription>
           </DialogHeader>
 
@@ -204,6 +233,50 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
           </section>
 
           <section className="space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-sm font-medium">Расчёты</h3>
+              <p className="text-xs text-muted-foreground">{quotes.length} из 12</p>
+            </div>
+            {quotes.length ? (
+              <ul className="space-y-2">
+                {quotes.map((quote) => (
+                  <li
+                    key={quote.id}
+                    className="flex items-center justify-between gap-3 rounded-2xl border bg-card px-3 py-2"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium">
+                        {quote.propertyTitle || "Квартира"}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {[quote.area ? formatArea(quote.area) : null, quote.termLabel]
+                          .filter(Boolean)
+                          .join(" · ")}
+                        {" · "}
+                        {formatCurrency(quote.total)}
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label="Убрать расчёт из подборки"
+                      onClick={() => removeQuote(quote.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="rounded-2xl border border-dashed px-3 py-4 text-sm text-muted-foreground">
+                На карточке ЖК нажмите «В подборку» в расчёте стоимости. Планировка
+                уйдёт клиенту вместе с цифрами.
+              </p>
+            )}
+          </section>
+
+          <section className="space-y-3">
             <h3 className="text-sm font-medium">Срок действия</h3>
             <div className="grid grid-cols-3 gap-2">
               {SHARE_TTL_DAYS.map((value) => (
@@ -240,47 +313,108 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
                 {active.map((share) => (
                   <li
                     key={share.id}
-                    className="flex items-center justify-between gap-3 rounded-2xl border px-3 py-2"
+                    className="space-y-2 rounded-2xl border px-3 py-2"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium">
-                        {share.title ?? "Подборка"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        до {formatDate(share.expires_at)} · {share.property_ids.length} ЖК
-                      </p>
-                      <p
-                        className={cn(
-                          "text-xs",
-                          share.stats.contacts > 0
-                            ? "text-foreground"
-                            : "text-muted-foreground",
-                        )}
-                      >
-                        {shareStatsLabel(share.stats)}
-                      </p>
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium">
+                          {share.title ?? "Подборка"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          до {formatDate(share.expires_at)} · {share.property_ids.length} ЖК
+                          {share.quotes.length ? ` · ${share.quotes.length} расч.` : ""}
+                        </p>
+                        <p
+                          className={cn(
+                            "text-xs",
+                            share.stats.contacts > 0
+                              ? "text-foreground"
+                              : "text-muted-foreground",
+                          )}
+                        >
+                          {shareStatsLabel(share.stats)}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Копировать ссылку"
+                          onClick={() => void copy(share.token)}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          aria-label="Отозвать ссылку"
+                          disabled={pending}
+                          onClick={() => revoke(share.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex shrink-0 gap-1">
+                    {share.quotes.length ? (
+                      <ul className="space-y-1.5">
+                        {share.quotes.map((quote, index) => (
+                          <li
+                            key={quoteKey(quote, index)}
+                            className="flex items-center justify-between gap-2 rounded-xl bg-muted/50 px-2.5 py-1.5"
+                          >
+                            <span className="min-w-0 truncate text-xs">
+                              {quote.property_title || "Квартира"}
+                              {quote.area ? ` · ${formatArea(quote.area)}` : ""}
+                              {` · ${formatCurrency(quote.total)}`}
+                            </span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 shrink-0"
+                              aria-label="Убрать расчёт из ссылки"
+                              disabled={pending}
+                              onClick={() =>
+                                changeQuotes(share.id, {
+                                  removeKeys: [quoteKey(quote, index)],
+                                })
+                              }
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : null}
+                    {quotes.some(
+                      (quote) =>
+                        !share.quotes.some(
+                          (attached) => attached.calculation_id === quote.id,
+                        ),
+                    ) ? (
                       <Button
                         type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Копировать ссылку"
-                        onClick={() => void copy(share.token)}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        aria-label="Отозвать ссылку"
+                        variant="outline"
+                        size="sm"
                         disabled={pending}
-                        onClick={() => revoke(share.id)}
+                        onClick={() =>
+                          changeQuotes(share.id, {
+                            addCalculationIds: quotes
+                              .filter(
+                                (quote) =>
+                                  !share.quotes.some(
+                                    (attached) => attached.calculation_id === quote.id,
+                                  ),
+                              )
+                              .map((quote) => quote.id),
+                          })
+                        }
                       >
-                        <Trash2 className="h-4 w-4" />
+                        Добавить расчёты из подборки
                       </Button>
-                    </div>
+                    ) : null}
                   </li>
                 ))}
               </ul>

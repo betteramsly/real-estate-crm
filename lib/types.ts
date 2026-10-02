@@ -215,12 +215,42 @@ export interface ActivityWithActor extends Activity {
   actor?: Pick<Profile, "id" | "full_name" | "avatar_url"> | null;
 }
 
+export interface ApartmentQuote {
+  id: string | null;
+  calculation_id: string | null;
+  property_id: string | null;
+  property_title: string | null;
+  area: number | null;
+  price_m2: number | null;
+  price: number;
+  markup_pct: number;
+  markup: string;
+  months: number;
+  term_label: string;
+  down_m2: number;
+  down_lump: number;
+  down_payment: number;
+  remaining: number;
+  total: number;
+  monthly: number;
+  floor_plan_url: string | null;
+}
+
+export interface ApartmentCalculation extends ApartmentQuote {
+  id: string;
+  calculation_id: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CatalogShare {
   id: string;
   token: string;
   created_by: string;
   title: string | null;
   property_ids: string[];
+  quotes: ApartmentQuote[];
   expires_at: string;
   revoked_at: string | null;
   created_at: string;

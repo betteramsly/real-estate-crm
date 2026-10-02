@@ -414,11 +414,13 @@ export function ComplexSections({
   presentMode,
   showMaterials = false,
   guest = false,
+  calculator,
 }: {
   property: Property;
   presentMode: boolean;
   showMaterials?: boolean;
   guest?: boolean;
+  calculator?: ReactNode;
 }) {
   const catalog = getCatalog(property);
   const clientChess = presentMode && !guest;
@@ -548,6 +550,19 @@ export function ComplexSections({
               </section>
             ) : null}
           </div>
+        </>
+      ) : null}
+
+      {calculator ? (
+        <>
+          <Separator className="bg-border/60" />
+          <section className="space-y-4">
+            <SectionHeading
+              title="Расчёт стоимости"
+              description="Площадь, цена и срок — сумма обновляется сразу. Планировку можно вставить скриншотом."
+            />
+            {calculator}
+          </section>
         </>
       ) : null}
 

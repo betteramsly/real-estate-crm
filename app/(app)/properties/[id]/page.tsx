@@ -3,18 +3,20 @@ import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { ComplexHero } from "@/components/catalog/complex-hero";
+import { ApartmentCalculator } from "@/components/catalog/apartment-calculator";
 import { ComplexSections } from "@/components/catalog/complex-sections";
 import { PresentPropertyBeacon } from "@/components/catalog/presentation-basket";
 import { PropertyFeedbackButton } from "@/components/catalog/property-feedback-button";
 import { PropertyForm } from "../property-form";
 import { DeletePropertyButton } from "./delete-property-button";
 import { PropertyEditPanel } from "./property-edit-panel";
+import { CALCULATION_COLUMNS, mapCalculationRow } from "@/lib/apartment-quote";
 import { canManageProperties, requireProfile } from "@/lib/auth";
 import { PROPERTY_PUBLIC_COLUMNS } from "@/lib/catalog";
 import { loadPropertyFormSuggestions } from "@/lib/property-form-suggestions";
 import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import { canShowPropertyFeedback } from "@/lib/property-feedback";
-import type { Property } from "@/lib/types";
+import type { ApartmentCalculation, Property } from "@/lib/types";
 
 export const unstable_dynamicStaleTime = 300;
 
@@ -57,6 +59,18 @@ export default async function PropertyPage(props: {
 
   if (!property) notFound();
 
+  const { data: calculationRows } = await supabase
+    .from("apartment_calculations")
+    .select(CALCULATION_COLUMNS)
+    .eq("property_id", property.id)
+    .eq("created_by", profile.id)
+    .order("updated_at", { ascending: false })
+    .limit(8);
+  const calculations = (calculationRows ?? []).flatMap((row) => {
+    const calculation = mapCalculationRow(row);
+    return calculation ? [calculation] : [];
+  }) satisfies ApartmentCalculation[];
+
   return (
     <>
       <PresentPropertyBeacon
@@ -91,6 +105,15 @@ export default async function PropertyPage(props: {
         property={property}
         presentMode={presentMode}
         showMaterials={showMaterials}
+        calculator={
+          <ApartmentCalculator
+            propertyId={property.id}
+            propertyTitle={property.title}
+            installmentMax={property.installment_max}
+            installment={property.catalog?.installment}
+            initialCalculations={calculations}
+          />
+        }
       />
 
       {canEdit ? (
