@@ -25,6 +25,7 @@ import {
   visibleDocuments,
 } from "@/lib/catalog";
 import {
+  isMissingQuotesColumn,
   isShareId,
   isShareToken,
   isShareTtlDays,
@@ -770,6 +771,19 @@ describe("catalog share helpers", () => {
     expect(isShareToken("short")).toBe(false);
     expect(isShareId("35ab9d42-9bfc-4e86-9da4-814e29f257dd")).toBe(true);
     expect(isShareId("not-a-uuid")).toBe(false);
+    expect(
+      isMissingQuotesColumn({
+        code: "PGRST204",
+        message: "Could not find the 'quotes' column of 'catalog_shares' in the schema cache",
+      }),
+    ).toBe(true);
+    expect(
+      isMissingQuotesColumn({
+        code: "23514",
+        message:
+          'new row for relation "catalog_shares" violates check constraint "catalog_shares_quotes_array"',
+      }),
+    ).toBe(false);
     expect(sharePath("abc")).toBe("/s/abc");
     expect(whatsappShareUrl("https://example.com/s/abc")).toContain(
       "wa.me/?text=",

@@ -70,19 +70,17 @@ function money(value: number | null | undefined) {
   return formatGrouped(String(Math.round(value)));
 }
 
-async function prepareFloorPlan(file: File) {
-  const type = file.type.toLowerCase();
-  const allowed =
-    PLAN_TYPES.has(type) || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
-  if (!allowed) {
-    throw new Error("Можно загрузить JPG, PNG, WebP или GIF. HEIC сохраните как JPG.");
+function floorPlanTypeError() {
+  return new Error("Можно загрузить JPG, PNG, WebP или GIF. HEIC сохраните как JPG.");
+}
+
+async function rasterizeFloorPlan(file: File) {
+  let bitmap: ImageBitmap;
+  try {
+    bitmap = await createImageBitmap(file);
+  } catch {
+    throw floorPlanTypeError();
   }
-  if (file.size <= FLOOR_PLAN_SOURCE_MAX_BYTES && type !== "image/gif") return file;
-  if (type === "image/gif") {
-    if (file.size <= FLOOR_PLAN_SOURCE_MAX_BYTES) return file;
-    throw new Error("Скриншот должен быть меньше 3,5 МБ.");
-  }
-  const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, 2000 / Math.max(bitmap.width, bitmap.height));
   const canvas = document.createElement("canvas");
   canvas.width = Math.max(1, Math.round(bitmap.width * scale));
@@ -98,6 +96,21 @@ async function prepareFloorPlan(file: File) {
     throw new Error("Скриншот должен быть меньше 3,5 МБ.");
   }
   return new File([blob], "plan.jpg", { type: "image/jpeg" });
+}
+
+async function prepareFloorPlan(file: File) {
+  const type = file.type.toLowerCase();
+  if (type === "image/heic" || type === "image/heif" || /\.heic$/i.test(file.name)) {
+    throw floorPlanTypeError();
+  }
+  const known =
+    PLAN_TYPES.has(type) || /\.(jpe?g|png|webp|gif)$/i.test(file.name);
+  if (type === "image/gif") {
+    if (file.size <= FLOOR_PLAN_SOURCE_MAX_BYTES) return file;
+    throw new Error("Скриншот должен быть меньше 3,5 МБ.");
+  }
+  if (known && file.size <= FLOOR_PLAN_SOURCE_MAX_BYTES) return file;
+  return rasterizeFloorPlan(file);
 }
 
 function Field({
@@ -326,7 +339,13 @@ export function ApartmentCalculator({
       form.set("down_lump", String(quote.downLump));
       if (planFile) form.set("floor_plan", planFile);
       if (removePlan) form.set("remove_floor_plan", "1");
-      const result = await saveApartmentCalculationAction(form);
+      let result: Awaited<ReturnType<typeof saveApartmentCalculationAction>>;
+      try {
+        result = await saveApartmentCalculationAction(form);
+      } catch {
+        toast.error("Не удалось отправить расчёт. Попробуйте ещё раз.");
+        return;
+      }
       if (!result.ok) {
         toast.error(result.error);
         return;

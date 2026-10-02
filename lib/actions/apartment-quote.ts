@@ -256,6 +256,7 @@ async function uploadPlan(
       await convertImageToWebp(Buffer.from(await file.arrayBuffer()), {
         maxBytes: FLOOR_PLAN_STORED_MAX_BYTES,
         maxEdge: FLOOR_PLAN_MAX_EDGE,
+        failOn: "none",
       })
     ).buffer;
   } catch {

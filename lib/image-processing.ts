@@ -9,6 +9,7 @@ const INPUT_PIXEL_LIMIT = 80_000_000;
 type WebpConversionOptions = {
   maxBytes?: number;
   maxEdge?: number;
+  failOn?: "none" | "warning" | "error";
 };
 
 export type WebpImage = {
@@ -41,11 +42,12 @@ export async function convertImageToWebp(
 ): Promise<WebpImage> {
   const maxBytes = options.maxBytes ?? STORAGE_IMAGE_MAX_BYTES;
   const maxEdge = options.maxEdge ?? DEFAULT_MAX_EDGE;
+  const failOn = options.failOn ?? "warning";
   const source = Buffer.isBuffer(input) ? input : Buffer.from(input);
 
   const metadata = await sharp(source, {
     animated: true,
-    failOn: "warning",
+    failOn,
     limitInputPixels: INPUT_PIXEL_LIMIT,
   }).metadata();
   const animated = (metadata.pages ?? 1) > 1;
@@ -54,7 +56,7 @@ export async function convertImageToWebp(
     const { data, info } = await sharp(source, {
       animated,
       autoOrient: true,
-      failOn: "warning",
+      failOn,
       limitInputPixels: INPUT_PIXEL_LIMIT,
     })
       .resize({

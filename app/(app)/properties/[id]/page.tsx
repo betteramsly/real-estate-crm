@@ -59,14 +59,14 @@ export default async function PropertyPage(props: {
 
   if (!property) notFound();
 
-  const { data: calculationRows } = await supabase
+  const { data: calculationRows, error: calculationError } = await supabase
     .from("apartment_calculations")
     .select(CALCULATION_COLUMNS)
     .eq("property_id", property.id)
     .eq("created_by", profile.id)
     .order("updated_at", { ascending: false })
     .limit(8);
-  const calculations = (calculationRows ?? []).flatMap((row) => {
+  const calculations = (calculationError ? [] : (calculationRows ?? [])).flatMap((row) => {
     const calculation = mapCalculationRow(row);
     return calculation ? [calculation] : [];
   }) satisfies ApartmentCalculation[];

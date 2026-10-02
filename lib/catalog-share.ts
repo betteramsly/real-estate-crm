@@ -35,6 +35,18 @@ export function isShareTtlDays(value: number): value is ShareTtlDays {
   return (SHARE_TTL_DAYS as readonly number[]).includes(value);
 }
 
+export function isMissingQuotesColumn(
+  error: { code?: string; message?: string } | null,
+) {
+  if (!error) return false;
+  const message = error.message ?? "";
+  const namesTheColumn =
+    /column ["']quotes["']/i.test(message) ||
+    /could not find the ['"]quotes['"] column/i.test(message);
+  if (error.code === "42703" || error.code === "PGRST204") return namesTheColumn;
+  return namesTheColumn && /does not exist|schema cache/i.test(message);
+}
+
 export function isShareEventType(value: string): value is ShareEventType {
   return (SHARE_EVENT_TYPES as readonly string[]).includes(value);
 }

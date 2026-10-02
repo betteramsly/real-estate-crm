@@ -56,11 +56,17 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
 
   const create = () => {
     startTransition(async () => {
-      const result = await createCatalogShareAction({
-        propertyIds: ids,
-        days,
-        calculationIds: quotes.map((quote) => quote.id),
-      });
+      let result: Awaited<ReturnType<typeof createCatalogShareAction>>;
+      try {
+        result = await createCatalogShareAction({
+          propertyIds: ids,
+          days,
+          calculationIds: quotes.map((quote) => quote.id),
+        });
+      } catch {
+        toast.error("Не удалось создать ссылку. Попробуйте ещё раз.");
+        return;
+      }
       if (!result.ok) {
         toast.error(result.error);
         return;
@@ -92,7 +98,13 @@ export function ShareClientButton({ compact = false }: { compact?: boolean }) {
     change: { addCalculationIds?: string[]; removeKeys?: string[] },
   ) => {
     startTransition(async () => {
-      const result = await updateShareQuotesAction({ shareId, ...change });
+      let result: Awaited<ReturnType<typeof updateShareQuotesAction>>;
+      try {
+        result = await updateShareQuotesAction({ shareId, ...change });
+      } catch {
+        toast.error("Не удалось обновить расчёты в подборке.");
+        return;
+      }
       if (!result.ok) {
         toast.error(result.error);
         return;

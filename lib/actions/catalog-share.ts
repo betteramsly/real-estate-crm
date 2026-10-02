@@ -8,6 +8,7 @@ import {
   SHARE_TOKEN_BYTES,
   SHARE_VISITOR_COOKIE,
   emptyShareStats,
+  isMissingQuotesColumn,
   isShareEventType,
   isShareId,
   isShareToken,
@@ -29,16 +30,6 @@ const SHARE_COLUMNS =
   "id, token, created_by, title, property_ids, quotes, expires_at, revoked_at, created_at";
 const SHARE_COLUMNS_LEGACY =
   "id, token, created_by, title, property_ids, expires_at, revoked_at, created_at";
-
-function missingQuotesColumn(error: { code?: string; message?: string } | null) {
-  if (!error) return false;
-  const message = error.message ?? "";
-  return (
-    error.code === "42703" ||
-    error.code === "PGRST204" ||
-    /quotes/i.test(message)
-  );
-}
 
 function asShare(
   row: Omit<CatalogShare, "quotes"> & { quotes?: unknown },
@@ -136,7 +127,11 @@ export async function createCatalogShareAction(input: {
     .select(SHARE_COLUMNS)
     .single<CatalogShare>();
 
-  if (inserted.error && missingQuotesColumn(inserted.error)) {
+  if (
+    inserted.error &&
+    snapshots.quotes.length === 0 &&
+    isMissingQuotesColumn(inserted.error)
+  ) {
     inserted = await supabase
       .from("catalog_shares")
       .insert(payload)
@@ -145,6 +140,13 @@ export async function createCatalogShareAction(input: {
   }
 
   if (inserted.error || !inserted.data) {
+    if (snapshots.quotes.length && isMissingQuotesColumn(inserted.error)) {
+      return {
+        ok: false,
+        error:
+          "Расчёты ещё не подключены к подборкам. Примените миграцию apartment_calculations.",
+      };
+    }
     return { ok: false, error: "Не удалось создать ссылку." };
   }
 
@@ -187,7 +189,7 @@ export async function listCatalogSharesAction(): Promise<CatalogShareWithStats[]
     .limit(SHARE_MAX_ACTIVE)
     .returns<CatalogShare[]>();
 
-  if (listed.error && missingQuotesColumn(listed.error)) {
+  if (listed.error && isMissingQuotesColumn(listed.error)) {
     listed = await supabase
       .from("catalog_shares")
       .select(SHARE_COLUMNS_LEGACY)

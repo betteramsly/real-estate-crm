@@ -348,3 +348,5 @@ create policy "floor_plans_delete_own_folder" on storage.objects
     bucket_id = 'floor-plans'
     and (select auth.uid())::text = (storage.foldername(name))[1]
   );
+
+notify pgrst, 'reload schema';
