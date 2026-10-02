@@ -1,7 +1,6 @@
 import { Building2 } from "lucide-react";
 import { CatalogGrid } from "@/components/catalog/catalog-grid";
 import { ShareChrome } from "@/components/share/share-chrome";
-import { ShareQuotes } from "@/components/share/share-quotes";
 import { ShareContactDock } from "@/components/share/share-contact";
 import { ShareTracker } from "@/components/share/share-tracker";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -60,12 +59,6 @@ export default async function SharePage(props: {
             {complexCountLabel(share.properties.length)} для сравнения
           </p>
         </div>
-        <ShareQuotes
-          quotes={share.quotes}
-          propertyTitles={Object.fromEntries(
-            share.properties.map((property) => [property.id, property.title]),
-          )}
-        />
         {share.properties.length ? (
           <CatalogGrid
             properties={share.properties}

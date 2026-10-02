@@ -83,10 +83,21 @@ export function ShareQuotes({
                         }
                       />
                       <MoneyRow label="Стоимость" value={formatCurrency(quote.price)} />
-                      <MoneyRow label="Наценка" value={quote.markup} />
                       <MoneyRow
                         label="Первый взнос"
                         value={formatCurrency(quote.down_payment)}
+                      />
+                      {quote.months > 0 ? (
+                        <MoneyRow
+                          label="Остаток"
+                          value={formatCurrency(
+                            Math.max(0, quote.price - quote.down_payment),
+                          )}
+                        />
+                      ) : null}
+                      <MoneyRow
+                        label="Наценка на остаток"
+                        value={quote.months > 0 ? quote.markup : "без наценки"}
                       />
                       {quote.months > 0 ? (
                         <MoneyRow
