@@ -508,6 +508,7 @@ function FilterGroups({
   years,
   installments,
   draft,
+  needle,
   toggleValue,
   toggleFlag,
   onAddValue,
@@ -521,6 +522,7 @@ function FilterGroups({
   years: string[];
   installments: string[];
   draft: FilterDraft;
+  needle: string;
   toggleValue: (key: ListKey, value: string) => void;
   toggleFlag: (key: FlagKey) => void;
   onAddValue: (key: CatalogFilterExtraKey, value: string) => void;
@@ -528,7 +530,6 @@ function FilterGroups({
   canRemoveValue: (key: CatalogFilterExtraKey, value: string) => boolean;
   canAddFilters: boolean;
 }) {
-  const [needle, setNeedle] = useState("");
   const query = needle.trim().toLowerCase();
   const lists = [
     { key: "district" as const, title: "Район", items: districts.filter((item) => matchNeedle(item, query)), limit: 6 },
@@ -558,18 +559,7 @@ function FilterGroups({
     !showRelevance;
 
   return (
-    <div className="min-h-[50vh]">
-      <div className="sticky top-0 z-10 -mx-1 bg-background px-1 pb-2">
-        <div className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={needle}
-            onChange={(event) => setNeedle(event.target.value)}
-            placeholder="Найти в списке…"
-            className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
-          />
-        </div>
-      </div>
+    <div>
       {lists.map((list) =>
         list.items.length || !query ? (
           <FilterSection key={list.key} title={list.title}>
@@ -698,6 +688,7 @@ export function CatalogFilters({
   children?: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileNeedle, setMobileNeedle] = useState("");
   const [desktopOpen, setDesktopOpen] = useState(false);
   const desktopPanel = usePresence(desktopOpen, 200);
   const desktopBar = useRef<HTMLDivElement>(null);
@@ -1025,28 +1016,50 @@ export function CatalogFilters({
 
       <div className="min-w-0">{children}</div>
 
-      <Dialog open={mobileOpen} onOpenChange={setMobileOpen}>
-        <DialogContent className="fixed inset-x-0 bottom-0 top-auto max-h-[85vh] max-w-none translate-x-0 translate-y-0 overflow-y-auto rounded-t-3xl duration-200 ease-luxury sm:rounded-t-3xl data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:slide-out-to-bottom-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
-          <DialogHeader>
-            <DialogTitle className="font-display">Фильтры</DialogTitle>
-          </DialogHeader>
-          <FilterGroups
-            cities={cityOptions}
-            districts={districtOptions}
-            developers={developerOptions}
-            years={yearOptions}
-            installments={installmentOptions}
-            draft={draft}
-            toggleValue={toggleValue}
-            toggleFlag={toggleFlag}
-            onAddValue={addValue}
-            onRemoveValue={removeValue}
-            canRemoveValue={canRemoveValue}
-            canAddFilters={canAddFilters}
-          />
-          <Button className="mt-2 h-11 w-full" onClick={() => setMobileOpen(false)}>
-            Показать комплексы
-          </Button>
+      <Dialog
+        open={mobileOpen}
+        onOpenChange={(open) => {
+          setMobileOpen(open);
+          if (!open) setMobileNeedle("");
+        }}
+      >
+        <DialogContent className="fixed inset-x-0 bottom-0 top-auto flex max-h-[85vh] max-w-none translate-x-0 translate-y-0 flex-col gap-0 overflow-hidden rounded-t-3xl p-0 duration-200 ease-luxury sm:rounded-t-3xl data-[state=open]:slide-in-from-bottom-8 data-[state=closed]:slide-out-to-bottom-8 data-[state=open]:zoom-in-100 data-[state=closed]:zoom-out-100">
+          <div className="shrink-0 space-y-3 border-b border-border/60 bg-background px-6 pb-3 pt-4">
+            <DialogHeader className="pr-8">
+              <DialogTitle className="font-display">Фильтры</DialogTitle>
+            </DialogHeader>
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={mobileNeedle}
+                onChange={(event) => setMobileNeedle(event.target.value)}
+                placeholder="Найти в списке…"
+                className="h-10 rounded-full border-transparent bg-accent/70 pl-9 text-base shadow-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 py-2">
+            <FilterGroups
+              cities={cityOptions}
+              districts={districtOptions}
+              developers={developerOptions}
+              years={yearOptions}
+              installments={installmentOptions}
+              draft={draft}
+              needle={mobileNeedle}
+              toggleValue={toggleValue}
+              toggleFlag={toggleFlag}
+              onAddValue={addValue}
+              onRemoveValue={removeValue}
+              canRemoveValue={canRemoveValue}
+              canAddFilters={canAddFilters}
+            />
+          </div>
+          <div className="shrink-0 border-t border-border/60 bg-background px-6 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            <Button className="h-11 w-full" onClick={() => setMobileOpen(false)}>
+              Показать комплексы
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

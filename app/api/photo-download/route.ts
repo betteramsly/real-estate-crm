@@ -127,14 +127,16 @@ export async function GET(request: NextRequest) {
     request.nextUrl.searchParams.get("name"),
     "foto.jpg",
   );
+  const asFile = request.nextUrl.searchParams.get("as") === "file";
+  const asciiName = name.replace(/[^\x20-\x7E]/g, "_").replace(/"/g, "");
   const body = image.buffer.slice(
     image.byteOffset,
     image.byteOffset + image.byteLength,
   ) as ArrayBuffer;
   return new NextResponse(body, {
     headers: {
-      "Content-Type": type,
-      "Content-Disposition": `attachment; filename*=UTF-8''${encodeURIComponent(name)}`,
+      "Content-Type": asFile ? "application/octet-stream" : type,
+      "Content-Disposition": `attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
       "Cache-Control": "private, max-age=3600",
       "X-Content-Type-Options": "nosniff",
     },

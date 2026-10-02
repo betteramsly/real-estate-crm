@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight, Download, Images, Loader2, RotateCw, X } fro
 import {
   catalogPhotoSrc,
   canOptimizeCatalogPhoto,
+  isAppleSafari,
   photoPreloadConcurrency,
   photoPreloadRadius,
   readPhotoConnection,
@@ -26,9 +27,11 @@ function photoFileName(url: string, alt: string, index: number) {
   return `${slug}-${index + 1}.jpg`;
 }
 
-function photoDownloadHref(url: string, alt: string, index: number) {
+function photoDownloadHref(url: string, alt: string, index: number, asFile = false) {
   const name = photoFileName(url, alt, index);
-  return `/api/photo-download?url=${encodeURIComponent(url)}&name=${encodeURIComponent(name)}`;
+  const params = new URLSearchParams({ url, name });
+  if (asFile) params.set("as", "file");
+  return `/api/photo-download?${params.toString()}`;
 }
 
 function nearbyIndexes(index: number, count: number, radius = 1) {
@@ -494,6 +497,13 @@ function PhotoLightbox({
 }) {
   const current = photos[index];
   if (!current || typeof document === "undefined") return null;
+  const downloadName = photoFileName(current, alt, index);
+  const downloadHref = photoDownloadHref(
+    current,
+    alt,
+    index,
+    isAppleSafari(navigator.userAgent, navigator.vendor),
+  );
 
   return createPortal(
     <div
@@ -511,8 +521,8 @@ function PhotoLightbox({
             </span>
           ) : null}
           <a
-            href={photoDownloadHref(current, alt, index)}
-            download={photoFileName(current, alt, index)}
+            href={downloadHref}
+            download={downloadName}
             onClick={(event) => event.stopPropagation()}
             className="inline-flex h-10 w-10 items-center justify-center rounded-full bg-white/10 hover:bg-white/20"
             aria-label="Скачать фото"

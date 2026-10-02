@@ -9,6 +9,15 @@ export type PhotoConnection = {
   effectiveType?: string;
 };
 
+export function isAppleSafari(userAgent: string, vendor = "") {
+  if (!/safari/i.test(userAgent)) return false;
+  if (/chrome|chromium|crios|fxios|edgios|edg\/|opr\/|opera|android/i.test(userAgent)) {
+    return false;
+  }
+  if (vendor && vendor !== "Apple Computer, Inc.") return false;
+  return true;
+}
+
 export function canOptimizeCatalogPhoto(url: string) {
   try {
     const host = new URL(url).hostname;
