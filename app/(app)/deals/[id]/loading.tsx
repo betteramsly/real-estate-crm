@@ -26,7 +26,7 @@ export default function DealDetailLoading() {
             <span className="h-2 w-2 rounded-full bg-muted" />
             <Skeleton className="h-5 w-24" />
           </div>
-          <Skeleton className="h-7 w-72" />
+          <Skeleton className="h-7 w-72 max-w-full" />
           <div className="flex flex-wrap gap-3">
             <Skeleton className="h-4 w-32" />
             <Skeleton className="h-4 w-40" />
@@ -38,7 +38,7 @@ export default function DealDetailLoading() {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader>
             <CardTitle className="text-sm text-muted-foreground">
@@ -66,14 +66,31 @@ export default function DealDetailLoading() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Skeleton className="h-8 w-32" />
+            <Skeleton className="h-8 w-32 max-w-full" />
           </CardContent>
         </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm text-muted-foreground">
+              Ответственный
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="flex items-center gap-2">
+            <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+            <Skeleton className="h-4 w-28 max-w-full" />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        <Skeleton className="h-8 w-36" />
+        <Skeleton className="h-8 w-28" />
       </div>
 
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Обзор</TabsTrigger>
+          <TabsTrigger value="activity">Активность</TabsTrigger>
           <TabsTrigger value="edit">Редактировать</TabsTrigger>
         </TabsList>
       </Tabs>

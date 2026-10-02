@@ -21,7 +21,7 @@ export default function TasksLoading() {
             className="flex items-start gap-3 rounded-xl border bg-card p-4"
           >
             <Skeleton className="mt-1 h-5 w-5 rounded-full" />
-            <div className="flex-1 space-y-2">
+            <div className="min-w-0 flex-1 space-y-2">
               <Skeleton className="h-4 w-2/3" />
               <div className="flex flex-wrap items-center gap-2">
                 <Skeleton className="h-5 w-20" />

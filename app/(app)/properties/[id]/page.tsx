@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { cookies } from "next/headers";
 import { Breadcrumbs } from "@/components/breadcrumbs";
@@ -15,6 +16,22 @@ import { isPresentCookie, PRESENT_COOKIE } from "@/lib/present-mode";
 import { canShowPropertyFeedback } from "@/lib/property-feedback";
 import type { Property } from "@/lib/types";
 
+export const unstable_dynamicStaleTime = 300;
+
+async function PropertyEditor({ property }: { property: Property }) {
+  const { supabase } = await requireProfile();
+  const suggestions = await loadPropertyFormSuggestions(supabase);
+  return (
+    <PropertyEditPanel>
+      <PropertyForm
+        property={property}
+        internal={property.internal}
+        suggestions={suggestions}
+      />
+    </PropertyEditPanel>
+  );
+}
+
 export default async function PropertyPage(props: {
   params: Promise<{ id: string }>;
 }) {
@@ -28,20 +45,15 @@ export default async function PropertyPage(props: {
   const showFeedback = canShowPropertyFeedback({ presentMode });
   const showMaterials = profile.role === "admin" && !presentMode;
 
-  const [{ data: property }, suggestions] = await Promise.all([
-    supabase
-      .from("properties")
-      .select(
-        showInternal
-          ? `${PROPERTY_PUBLIC_COLUMNS}, internal`
-          : PROPERTY_PUBLIC_COLUMNS,
-      )
-      .eq("id", params.id)
-      .maybeSingle<Property>(),
-    canEdit
-      ? loadPropertyFormSuggestions(supabase)
-      : Promise.resolve(undefined),
-  ]);
+  const { data: property } = await supabase
+    .from("properties")
+    .select(
+      showInternal
+        ? `${PROPERTY_PUBLIC_COLUMNS}, internal`
+        : PROPERTY_PUBLIC_COLUMNS,
+    )
+    .eq("id", params.id)
+    .maybeSingle<Property>();
 
   if (!property) notFound();
 
@@ -82,13 +94,9 @@ export default async function PropertyPage(props: {
       />
 
       {canEdit ? (
-        <PropertyEditPanel>
-          <PropertyForm
-            property={property}
-            internal={property.internal}
-            suggestions={suggestions}
-          />
-        </PropertyEditPanel>
+        <Suspense fallback={null}>
+          <PropertyEditor property={property} />
+        </Suspense>
       ) : null}
     </>
   );

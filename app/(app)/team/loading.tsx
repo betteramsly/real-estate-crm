@@ -24,16 +24,16 @@ export default function TeamLoading() {
               {Array.from({ length: 4 }).map((_, index) => (
                 <div
                   key={index}
-                  className="flex flex-col gap-3 rounded-lg border p-3 xl:flex-row xl:items-center xl:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border p-3 xl:flex-row xl:items-center xl:justify-between"
                 >
-                  <div className="flex items-center gap-3">
-                    <Skeleton className="h-10 w-10 rounded-full" />
-                    <div className="space-y-2">
-                      <Skeleton className="h-4 w-40" />
-                      <Skeleton className="h-3 w-56" />
+                  <div className="flex min-w-0 items-center gap-3">
+                    <Skeleton className="h-10 w-10 shrink-0 rounded-full" />
+                    <div className="min-w-0 flex-1 space-y-2">
+                      <Skeleton className="h-4 w-40 max-w-full" />
+                      <Skeleton className="h-3 w-full max-w-56" />
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <Skeleton className="h-9 w-36" />
                     <Skeleton className="h-9 w-32" />
                   </div>

@@ -9,6 +9,19 @@ import type {
 export const PROPERTY_PUBLIC_COLUMNS =
   "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, description, cover_url, developer, completion_year, installment_max, maternity_capital, cash_payment, has_large_apartments, relevance, catalog, assigned_to, created_by, created_at, updated_at";
 
+const CATALOG_LIST_FIELDS =
+  "id, title, property_type, listing_type, status, price, area, rooms, address, city, district, cover_url, developer, completion_year, installment_max, maternity_capital, cash_payment, has_large_apartments, relevance, assigned_to, created_by, created_at, updated_at";
+
+export const CATALOG_LIST_COLUMNS = `${CATALOG_LIST_FIELDS}, photos:catalog->photos, price_photos:catalog->price_photos, location:catalog->location, commercial:catalog->commercial, installment:catalog->installment`;
+
+export type CatalogListRow = Omit<Property, "catalog" | "description" | "internal"> & {
+  photos?: string[] | null;
+  price_photos?: string[] | null;
+  location?: PropertyCatalog["location"] | null;
+  commercial?: PropertyCatalog["commercial"] | null;
+  installment?: PropertyCatalog["installment"] | null;
+};
+
 export function emptyCatalog(): PropertyCatalog {
   return {};
 }
@@ -75,35 +88,59 @@ function searchWords(value: string) {
     .filter(Boolean);
 }
 
-export function matchesCatalogSearch(
-  property: Pick<
-    Property,
-    | "title"
-    | "developer"
-    | "city"
-    | "district"
-    | "address"
-    | "completion_year"
-    | "catalog"
-  >,
-  query: string,
-) {
-  const tokens = searchWords(query);
-  if (!tokens.length) return true;
-  const words = [
+type CatalogSearchProperty = Pick<
+  Property,
+  | "title"
+  | "developer"
+  | "city"
+  | "district"
+  | "address"
+  | "completion_year"
+  | "catalog"
+>;
+
+export function catalogSearchWords(property: CatalogSearchProperty) {
+  return [
     property.title,
     property.developer,
     property.city,
     property.district,
+    property.address,
     catalogLocationLabel(property),
     property.completion_year,
   ].flatMap((value) => searchWords(value ?? ""));
+}
+
+export function matchesCatalogSearchWords(words: string[], query: string) {
+  const tokens = searchWords(query);
+  if (!tokens.length) return true;
   return tokens.every((token) =>
     words.some(
       (word) =>
         word === token || (token.length >= 2 && word.startsWith(token)),
     ),
   );
+}
+
+export function matchesCatalogSearch(
+  property: CatalogSearchProperty,
+  query: string,
+) {
+  return matchesCatalogSearchWords(catalogSearchWords(property), query);
+}
+
+export function catalogQueryIsActive(query: string) {
+  return searchWords(query).some((token) => token.length >= 2);
+}
+
+export function catalogTitleLeadsSearch(
+  title: string | null | undefined,
+  query: string,
+) {
+  const needle = foldSearchText(query).replace(/\s+/g, " ").trim();
+  if (needle.length < 2) return false;
+  const name = foldSearchText(title ?? "").replace(/\s+/g, " ").trim();
+  return name.startsWith(needle);
 }
 
 export function looksLikeUrl(value: string) {
@@ -431,6 +468,21 @@ export function catalogPhotos(
 }
 
 export const CATALOG_PAGE_SIZE = 30;
+
+export function catalogListProperty(row: CatalogListRow): Property {
+  const { photos, price_photos, location, commercial, installment, ...rest } = row;
+  return slimCatalogCard({
+    ...rest,
+    description: null,
+    catalog: {
+      photos: photos ?? undefined,
+      price_photos: price_photos ?? undefined,
+      location: location ?? undefined,
+      commercial: commercial ?? undefined,
+      installment: installment ?? undefined,
+    },
+  });
+}
 
 export function slimCatalogCard(property: Property): Property {
   const photos = catalogPhotos(property);

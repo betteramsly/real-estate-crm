@@ -8,7 +8,26 @@ export default function AnalyticsLoading() {
       <PageHeader
         title="Аналитика"
         description="Результаты всей команды"
-        actions={<Skeleton className="h-[106px] w-full sm:w-[430px]" />}
+        actions={
+          <div className="flex w-full min-w-0 flex-col gap-2 md:w-auto md:items-end">
+            <div className="flex flex-wrap gap-2">
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-8 w-20" />
+              <Skeleton className="h-8 w-28" />
+            </div>
+            <div className="flex w-full min-w-0 flex-wrap items-end gap-2 rounded-xl border bg-card/70 p-2 md:w-auto">
+              <div className="grid gap-1">
+                <Skeleton className="h-3 w-12" />
+                <Skeleton className="h-8 w-full min-w-[9.5rem] sm:w-[156px]" />
+              </div>
+              <div className="grid gap-1">
+                <Skeleton className="h-3 w-14" />
+                <Skeleton className="h-8 w-full min-w-[9.5rem] sm:w-[156px]" />
+              </div>
+              <Skeleton className="h-8 w-28" />
+            </div>
+          </div>
+        }
       />
 
       <div className="grid grid-cols-1 gap-3 md:grid-cols-3">

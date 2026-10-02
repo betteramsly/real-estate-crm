@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile, UserRole } from "@/lib/types";
@@ -21,7 +22,7 @@ export async function requireUser() {
   return { user, supabase };
 }
 
-export async function requireProfile() {
+export const requireProfile = cache(async function requireProfile() {
   const { user, supabase } = await requireUser();
 
   const { data: profile, error } = await supabase
@@ -35,4 +36,4 @@ export async function requireProfile() {
   }
 
   return { user, supabase, profile };
-}
+});

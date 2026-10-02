@@ -1,13 +1,12 @@
 "use client";
 
 import {
-  useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type TransitionStartFunction,
 } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { Check, Loader2, Plus, Search, SlidersHorizontal, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,6 +19,11 @@ import {
 import { RelevanceStars } from "@/components/relevance-stars";
 import { installmentFilterLabel } from "@/lib/catalog";
 import {
+  districtsForCities,
+  EMPTY_CATALOG_FACETS,
+  type CatalogFacets,
+} from "@/lib/catalog-browse";
+import {
   addCatalogFilterOptionAction,
   removeCatalogFilterOptionAction,
 } from "@/lib/actions/catalog-filter-options";
@@ -31,6 +35,7 @@ import {
   type CatalogFilterExtras,
 } from "@/lib/catalog-filter-options";
 import { cn } from "@/lib/utils";
+import type { Property } from "@/lib/types";
 import { toast } from "sonner";
 import { usePresence } from "@/hooks/use-presence";
 
@@ -57,41 +62,22 @@ type ListKey =
   | "relevance";
 type FlagKey = "maternity" | "cash" | "commercial" | "large";
 
-type FilterDraft = Record<ListKey, string[]> & Record<FlagKey, boolean>;
+type FilterDraft = CatalogFacets;
 
-const EMPTY_DRAFT: FilterDraft = {
-  city: [],
-  district: [],
-  developer: [],
-  completion_year: [],
-  installment: [],
-  relevance: [],
-  maternity: false,
-  cash: false,
-  commercial: false,
-  large: false,
-};
+const EMPTY_DRAFT: FilterDraft = EMPTY_CATALOG_FACETS;
 
-function listFrom(params: URLSearchParams, key: string) {
-  return (params.get(key) ?? "")
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function draftFrom(params: URLSearchParams): FilterDraft {
-  return {
-    city: listFrom(params, "city"),
-    district: listFrom(params, "district"),
-    developer: listFrom(params, "developer"),
-    completion_year: listFrom(params, "completion_year"),
-    installment: listFrom(params, "installment").filter((value) => value !== "1"),
-    relevance: listFrom(params, "relevance"),
-    maternity: params.get("maternity") === "1",
-    cash: params.get("cash") === "1",
-    commercial: params.get("commercial") === "1",
-    large: params.get("large") === "1",
-  };
+function collectFacetValues(
+  properties: ReadonlyArray<
+    Pick<Property, "city" | "developer" | "completion_year" | "installment_max">
+  >,
+  key: "city" | "developer" | "completion_year" | "installment_max",
+) {
+  const values: string[] = [];
+  for (const property of properties) {
+    const value = property[key];
+    if (value) values.push(value);
+  }
+  return values;
 }
 
 function FilterCheck({
@@ -313,7 +299,10 @@ function selectedChips(draft: FilterDraft) {
     chips.push({ id: `completion_year:${value}`, label: value });
   }
   for (const value of draft.installment) {
-    chips.push({ id: `installment:${value}`, label: installmentFilterLabel(value) });
+    chips.push({
+      id: `installment:${value}`,
+      label: value === "1" ? "Рассрочка" : installmentFilterLabel(value),
+    });
   }
   (["maternity", "cash", "commercial", "large"] as const).forEach((key) => {
     if (draft[key]) chips.push({ id: key, label: FLAG_LABELS[key] });
@@ -665,63 +654,96 @@ function FilterGroups({
   );
 }
 
+export function writeCatalogUrl(params: URLSearchParams) {
+  const qs = params.toString();
+  const url = `/properties${qs ? `?${qs}` : ""}`;
+  if (`${window.location.pathname}${window.location.search}` === url) return;
+  const currentState = window.history.state;
+  // Keep Next's history marker. Without it the patched history API treats
+  // the address-bar update as a navigation and refetches the catalog.
+  if (
+    !currentState ||
+    typeof currentState !== "object" ||
+    (!("__NA" in currentState) && !("_N" in currentState))
+  ) {
+    return;
+  }
+  window.history.replaceState({ ...currentState }, "", url);
+}
+
 export function CatalogFilters({
-  cities,
-  districts,
-  developers,
-  years,
-  installments,
+  properties,
+  draft,
+  onBrowseChange,
   extras = EMPTY_CATALOG_FILTER_EXTRAS,
   canAddFilters = false,
   pending,
   startTransition,
-  onPendingIntent,
+  query,
   children,
 }: {
-  cities: string[];
-  districts: string[];
-  developers: string[];
-  years: string[];
-  installments: string[];
+  properties: ReadonlyArray<
+    Pick<
+      Property,
+      "city" | "district" | "developer" | "completion_year" | "installment_max"
+    >
+  >;
+  draft: FilterDraft;
+  onBrowseChange: (next: { query: string; facets: FilterDraft }) => void;
   extras?: CatalogFilterExtras;
   canAddFilters?: boolean;
   pending: boolean;
   startTransition: TransitionStartFunction;
-  onPendingIntent?: (intent: "apply" | "clear" | "search") => void;
+  query: string;
   children?: React.ReactNode;
 }) {
-  const router = useRouter();
-  const params = useSearchParams();
-  const liveParams = useRef(new URLSearchParams(params.toString()));
-  const popped = useRef(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [desktopOpen, setDesktopOpen] = useState(false);
   const desktopPanel = usePresence(desktopOpen, 200);
   const desktopBar = useRef<HTMLDivElement>(null);
-  const [query, setQuery] = useState(params.get("q") ?? "");
-  const [draft, setDraft] = useState(() => draftFrom(params));
-  const searchTimer = useRef<number>(0);
+  const browseRef = useRef({ query, draft, onBrowseChange });
+  browseRef.current = { query, draft, onBrowseChange };
   const [savedExtras, setSavedExtras] = useState(extras);
-  const cityOptions = mergeFilterOptions(cities, savedExtras.city);
-  const districtOptions = mergeFilterOptions(districts, savedExtras.district);
-  const developerOptions = mergeFilterOptions(developers, savedExtras.developer);
-  const yearOptions = mergeFilterOptions(years, savedExtras.completion_year);
-  const installmentOptions = mergeFilterOptions(
-    installments,
-    savedExtras.installment,
+  const cityOptions = useMemo(
+    () => mergeFilterOptions(collectFacetValues(properties, "city"), savedExtras.city),
+    [properties, savedExtras.city],
+  );
+  const districtOptions = useMemo(
+    () =>
+      mergeFilterOptions(
+        districtsForCities(properties, draft.city),
+        draft.city.length ? [] : savedExtras.district,
+      ),
+    [properties, draft.city, savedExtras.district],
+  );
+  const developerOptions = useMemo(
+    () =>
+      mergeFilterOptions(
+        collectFacetValues(properties, "developer"),
+        savedExtras.developer,
+      ),
+    [properties, savedExtras.developer],
+  );
+  const yearOptions = useMemo(
+    () =>
+      mergeFilterOptions(
+        collectFacetValues(properties, "completion_year"),
+        savedExtras.completion_year,
+      ),
+    [properties, savedExtras.completion_year],
+  );
+  const installmentOptions = useMemo(
+    () =>
+      mergeFilterOptions(
+        collectFacetValues(properties, "installment_max"),
+        savedExtras.installment,
+      ),
+    [properties, savedExtras.installment],
   );
 
   useEffect(() => {
     setSavedExtras(extras);
   }, [extras]);
-
-  useEffect(() => {
-    const onPop = () => {
-      popped.current = true;
-    };
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
 
   useEffect(() => {
     if (!desktopOpen) return;
@@ -740,66 +762,20 @@ export function CatalogFilters({
     };
   }, [desktopOpen]);
 
-  useEffect(() => {
-    const incoming = params.toString();
-    if (incoming === liveParams.current.toString()) {
-      setDraft(draftFrom(params));
-      return;
-    }
-    if (!popped.current) return;
-    popped.current = false;
-    liveParams.current = new URLSearchParams(incoming);
-    setDraft(draftFrom(params));
-    setQuery(params.get("q") ?? "");
-  }, [params]);
-
-  const setParam = useCallback(
-    (
-      key: string,
-      value: string | null,
-      intent: "apply" | "search" = "apply",
-    ) => {
-      const next = new URLSearchParams(liveParams.current.toString());
-      if (!value) next.delete(key);
-      else next.set(key, value);
-      liveParams.current = next;
-      const qs = next.toString();
-      onPendingIntent?.(intent);
-      startTransition(() => {
-        router.push(`/properties${qs ? `?${qs}` : ""}`, { scroll: false });
-      });
-    },
-    [onPendingIntent, router, startTransition],
-  );
-
-  const applySearch = useCallback(
-    (value: string) => {
-      window.clearTimeout(searchTimer.current);
-      const next = value.trim();
-      if (next === (liveParams.current.get("q") ?? "").trim()) return;
-      setParam("q", next || null, "search");
-    },
-    [setParam],
-  );
-
-  useEffect(() => {
-    searchTimer.current = window.setTimeout(() => applySearch(query), 300);
-    return () => window.clearTimeout(searchTimer.current);
-  }, [applySearch, query]);
+  const publishQuery = (value: string) => {
+    onBrowseChange({ query: value, facets: draft });
+  };
 
   const toggleValue = (key: ListKey, value: string) => {
     const current = draft[key];
     const next = current.includes(value)
       ? current.filter((item) => item !== value)
       : [...current, value];
-    setDraft({ ...draft, [key]: next });
-    setParam(key, next.length ? next.join(",") : null);
+    onBrowseChange({ query, facets: { ...draft, [key]: next } });
   };
 
   const toggleFlag = (key: FlagKey) => {
-    const next = !draft[key];
-    setDraft({ ...draft, [key]: next });
-    setParam(key, next ? "1" : null);
+    onBrowseChange({ query, facets: { ...draft, [key]: !draft[key] } });
   };
 
   const addValue = (key: CatalogFilterExtraKey, value: string) => {
@@ -816,11 +792,12 @@ export function CatalogFilters({
         setSavedExtras(extras);
         return;
       }
-      if (!draft[key].includes(cleaned)) {
-        const next = [...draft[key], cleaned];
-        setDraft({ ...draft, [key]: next });
-        setParam(key, next.join(","));
-      }
+      const current = browseRef.current;
+      if (current.draft[key].includes(cleaned)) return;
+      current.onBrowseChange({
+        query: current.query,
+        facets: { ...current.draft, [key]: [...current.draft[key], cleaned] },
+      });
     });
   };
 
@@ -838,11 +815,15 @@ export function CatalogFilters({
         setSavedExtras(extras);
         return;
       }
-      if (draft[key].includes(value)) {
-        const next = draft[key].filter((item) => item !== value);
-        setDraft({ ...draft, [key]: next });
-        setParam(key, next.length ? next.join(",") : null);
-      }
+      const current = browseRef.current;
+      if (!current.draft[key].includes(value)) return;
+      current.onBrowseChange({
+        query: current.query,
+        facets: {
+          ...current.draft,
+          [key]: current.draft[key].filter((item) => item !== value),
+        },
+      });
     });
   };
 
@@ -856,20 +837,13 @@ export function CatalogFilters({
     }
     return (draft[key as ListKey] ?? []).length > 0;
   }).length;
-  const hasQuery = Boolean(query.trim() || params.get("q"));
+  const hasQuery = Boolean(query.trim());
   const hasFilters = facetCount > 0 || hasQuery;
   const filtersBusy = desktopOpen || mobileOpen || pending;
   const showReset = hasFilters || filtersBusy;
 
   const reset = () => {
-    window.clearTimeout(searchTimer.current);
-    setQuery("");
-    setDraft(EMPTY_DRAFT);
-    liveParams.current = new URLSearchParams();
-    onPendingIntent?.("clear");
-    startTransition(() => {
-      router.push("/properties", { scroll: false });
-    });
+    onBrowseChange({ query: "", facets: EMPTY_DRAFT });
   };
 
   const filterTrigger = (
@@ -922,11 +896,11 @@ export function CatalogFilters({
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                 <Input
                   value={query}
-                  onChange={(event) => setQuery(event.target.value)}
+                  onChange={(event) => publishQuery(event.target.value)}
                   placeholder="ЖК, застройщик, район..."
                   className="h-11 min-w-0 rounded-full border-0 bg-transparent pl-9 text-base shadow-none focus-visible:ring-0"
                   onKeyDown={(event) => {
-                    if (event.key === "Enter") applySearch(query);
+                    if (event.key === "Enter") publishQuery(query);
                   }}
                 />
               </div>

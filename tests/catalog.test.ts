@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  catalogListProperty,
   catalogLocationLabel,
   catalogLocationPhotos,
   catalogMaterialStatus,
@@ -16,6 +17,8 @@ import {
   inferCatalogDocumentKind,
   isClientExternalUrl,
   isPresentCatalogDocument,
+  catalogQueryIsActive,
+  catalogTitleLeadsSearch,
   matchesCatalogSearch,
   installmentFilterLabel,
   sortInstallmentTerms,
@@ -35,6 +38,14 @@ import {
   summarizeShareEvents,
   whatsappShareUrl,
 } from "@/lib/catalog-share";
+import {
+  browseCatalog,
+  catalogBrowseSearchFromSources,
+  catalogBrowseSearchParams,
+  catalogBrowseState,
+  districtsForCities,
+  EMPTY_CATALOG_FACETS,
+} from "@/lib/catalog-browse";
 import { isPresentCookie } from "@/lib/present-mode";
 import type { Property } from "@/lib/types";
 
@@ -125,11 +136,36 @@ describe("catalog search", () => {
           title: "Авалон",
           district: "Минутка",
           description: "самый лучший вид и лучшие условия",
-          address: "лучший квартал",
         }),
         "Луч",
       ),
     ).toBe(false);
+  });
+
+  it("searches the street and keeps a short prefix on that street", () => {
+    expect(
+      matchesCatalogSearch(
+        property({ title: "Авалон", address: "ул. Пушкина, 10" }),
+        "Пушкина",
+      ),
+    ).toBe(true);
+    expect(
+      matchesCatalogSearch(
+        property({ title: "Авалон", address: "лучший квартал" }),
+        "Луч",
+      ),
+    ).toBe(true);
+    expect(catalogQueryIsActive("в")).toBe(false);
+    expect(catalogQueryIsActive("ву")).toBe(true);
+    expect(catalogTitleLeadsSearch("Вулф Тауэрс", "вул")).toBe(true);
+    expect(catalogTitleLeadsSearch("Вулф Тауэрс", "тауэрс")).toBe(false);
+    expect(catalogTitleLeadsSearch("Вулф Тауэрс", "в")).toBe(false);
+  });
+
+  it("treats an empty query as the full list", () => {
+    const item = property({ title: "Вулф Тауэрс" });
+    expect(matchesCatalogSearch(item, "")).toBe(true);
+    expect(matchesCatalogSearch(item, "   ")).toBe(true);
   });
 
   it("allows a longer prefix and requires every token", () => {
@@ -160,6 +196,151 @@ describe("catalog search", () => {
         "8 марта грозный",
       ),
     ).toBe(false);
+  });
+});
+
+describe("catalog browse", () => {
+  const facets = (
+    overrides: Partial<typeof EMPTY_CATALOG_FACETS> = {},
+  ) => ({ ...EMPTY_CATALOG_FACETS, ...overrides });
+
+  it("keeps the full list until a token has two characters", () => {
+    const items = [
+      property({ id: "1", title: "Бета" }),
+      property({ id: "2", title: "Вулф" }),
+    ];
+    expect(browseCatalog(items, facets(), "в").map((item) => item.id)).toEqual([
+      "1",
+      "2",
+    ]);
+    expect(browseCatalog(items, facets(), "ву").map((item) => item.id)).toEqual([
+      "2",
+    ]);
+  });
+
+  it("floats titles that start with the query and keeps the rest in place", () => {
+    const items = [
+      property({ id: "1", title: "Альфа", developer: "Вулф Групп", relevance: 3 }),
+      property({ id: "2", title: "Вулф Тауэрс", relevance: 1 }),
+      property({ id: "3", title: "Вулкан", relevance: 2 }),
+    ];
+    expect(browseCatalog(items, facets(), "вул").map((item) => item.id)).toEqual([
+      "2",
+      "3",
+      "1",
+    ]);
+    const sameCity = [
+      property({ id: "1", title: "Альфа", city: "Грозный" }),
+      property({ id: "2", title: "Бета", city: "Грозный" }),
+    ];
+    expect(
+      browseCatalog(sameCity, facets(), "грозный").map((item) => item.id),
+    ).toEqual(["1", "2"]);
+  });
+
+  it("applies every filter and treats installment 1 as any term", () => {
+    const grozny = property({
+      id: "grozny",
+      city: "Грозный",
+      district: "Луч",
+      installment_max: "5 лет",
+      maternity_capital: true,
+    });
+    const argun = property({
+      id: "argun",
+      city: "Аргун",
+      district: "Центр",
+      installment_max: null,
+      maternity_capital: true,
+    });
+    const cashOnly = property({
+      id: "cash",
+      city: "Грозный",
+      district: "Луч",
+      installment_max: "2 года",
+      maternity_capital: false,
+    });
+    expect(
+      browseCatalog(
+        [grozny, argun, cashOnly],
+        facets({ city: ["Грозный"], district: ["Луч"], maternity: true }),
+        "",
+      ).map((item) => item.id),
+    ).toEqual(["grozny"]);
+    expect(
+      browseCatalog([grozny, argun], facets({ installment: ["1"] }), "").map(
+        (item) => item.id,
+      ),
+    ).toEqual(["grozny"]);
+    expect(
+      browseCatalog(
+        [grozny, cashOnly],
+        facets({ installment: ["5 лет", "1"] }),
+        "",
+      ).map((item) => item.id),
+    ).toEqual(["grozny"]);
+    expect(
+      browseCatalog(
+        [
+          grozny,
+          property({
+            id: "shop",
+            property_type: "commercial",
+          }),
+        ],
+        facets({ commercial: true }),
+        "",
+      ).map((item) => item.id),
+    ).toEqual(["shop"]);
+  });
+
+  it("limits districts to the selected cities and drops the rest", () => {
+    const rows = [
+      property({ city: "Грозный", district: "Луч" }),
+      property({ id: "p2", city: "Аргун", district: "Центр" }),
+    ];
+    expect(districtsForCities(rows, [])).toEqual(["Луч", "Центр"]);
+    expect(districtsForCities(rows, ["Грозный"])).toEqual(["Луч"]);
+    expect(
+      catalogBrowseState("city=Грозный&district=Центр,Луч", rows).facets.district,
+    ).toEqual(["Луч"]);
+  });
+
+  it("keeps a shared link ahead of a remembered browse", () => {
+    expect(catalogBrowseSearchFromSources("city=Грозный", "q=вул")).toBe(
+      "city=Грозный",
+    );
+    expect(catalogBrowseSearchFromSources("", "q=вул")).toBe("q=вул");
+  });
+
+  it("round-trips the address bar without a one-off installment flag", () => {
+    const selected = facets({
+      city: ["Грозный", "Аргун"],
+      installment: ["1"],
+      maternity: true,
+    });
+    const params = catalogBrowseSearchParams(selected, "  вул ");
+    expect(params.get("q")).toBe("вул");
+    expect(params.get("maternity")).toBe("1");
+    expect(params.get("installment")).toBe("1");
+    expect(catalogBrowseState(params.toString(), []).facets).toEqual(selected);
+  });
+});
+
+describe("catalog list rows", () => {
+  it("keeps the street and one gallery photo without the description", () => {
+    const card = catalogListProperty({
+      ...property(),
+      photos: ["https://cdn.example/gallery/1.webp"],
+      price_photos: [],
+      location: { address: "ул. Пушкина, 10" },
+      commercial: [],
+      installment: [],
+    });
+    expect(card.description).toBeNull();
+    expect(card.catalog?.location?.address).toBe("ул. Пушкина, 10");
+    expect(card.catalog?.photos).toEqual(["https://cdn.example/gallery/1.webp"]);
+    expect(matchesCatalogSearch(card, "Пушкина")).toBe(true);
   });
 });
 
